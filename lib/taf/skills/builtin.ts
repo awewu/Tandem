@@ -22,6 +22,7 @@ import {
   AssistantMeetingSyncSkill,
 } from './assistant-skills';
 import { PmsPipelineDigestSkill } from './pms-skills';
+import { StrategyValidityDigestSkill } from './strategy-skills';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
 import {
@@ -995,4 +996,6 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(AssistantMeetingSyncSkill);
   // 中央 AI "销售之眼" (只读感知, 破除 PMS 孤岛)
   skillRegistry.register(PmsPipelineDigestSkill);
+  // 中央 AI "战略之眼" (跨仓只读感知, 拉 StratOS 战略合理性传感器)
+  skillRegistry.register(StrategyValidityDigestSkill);
 }

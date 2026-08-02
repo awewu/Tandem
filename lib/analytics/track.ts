@@ -88,6 +88,12 @@ export interface TrackLlmInput {
   tenantId?: string;
   /** 链路追踪 (可关联 baseline-guard checkId / request id) */
   requestId?: string;
+  /**
+   * Call-site 级 feature 标签 (比 scenario 更细粒度): 标识具体调用点,
+   * 如 'boss_ai_stream' / 'verify_step' / 'planguard' / 'reranker' / 'output_guard' / 'attribution'。
+   * 用于看板 "Top feature by cost" — 同一 scenario 下不同 call-site 的成本可区分。
+   */
+  feature?: string;
   success?: boolean;
   errorMessage?: string;
 }
@@ -114,6 +120,7 @@ export async function trackLlm(input: TrackLlmInput): Promise<void> {
       latencyMs: input.latencyMs ?? 0,
       costMicroUsd: input.costMicroUsd ?? 0,
       requestId: input.requestId ?? null,
+      feature: input.feature ?? null,
       success: input.success ?? true,
       errorMessage: input.errorMessage ?? null,
     });

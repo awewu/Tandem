@@ -49,33 +49,30 @@ Next.js 14 App Router / 自建 TAF 思考层 / CompanyBrain 四道闸 Skill Gate
 app 页面 104 · API 路由 170 · 组件 100 · lib 模块 217 · TS/TSX ≈ 97,400 行。
 
 ### 质量门禁基线（2026-06-09 冲刺）
-`tsc` 干净 · `vitest` 937 passed（后续 PMS 轮到 2408 passed）· UI Charter 0 违规 · 内链 0 悬空/304 路由 · docs 索引同步 · `build` 全绿 · 部署三件套对齐。
+`tsc` 干净 · `vitest` 286 files / 2478 passed · 2 skipped · 0 failed · UI Charter 0 违规 · 内链 0 悬空/304 路由 · docs 索引同步 · `build` 全绿 · 部署三件套对齐。
 
 ---
 
-## 三、2026-08 邮箱攻坚现状（对账）
+## 三、关键修复：从 `stash@{4}` 找回全部丢失工作
 
-目标：补齐 Tandem 邮箱与 Gmail 的差距（P0 安全 / P1 撰写·搜索·标签 / P2 杂项）。
+对账时发现恢复到 `main` 后 **tsc 报 194 处错误**（`lib/types/pms` 缺 `Quote/QuoteStatus`、`drizzle-schema` 缺 comp 表、`im/service` 缺 `emitTyping/forwardMessages`、`eval/service` 缺 `runPassK` …）。根因：并行窗口把 **API 消费方**提交了，但对应的 **lib/类型/schema 更新是未提交工作**，切 `nexus-main` 前被 `git stash` 存成了 `before-nexus-checkout` 系列。
 
-**已落库（`main`）**：
-- 纯函数模块：`lib/mail/sanitize-html.ts`(111) · `search-query.ts`(130) · `categorize.ts`(123) · `rules.ts`(111)。
-- 单测：`mail-sanitize`(如有) · `mail-search-query` · `mail-categorize` · `mail-rules` · `mail-search-filter`。
-- API：`app/api/mail/unread/route.ts`（导航角标轮询）。
-- 服务层：`lib/integrations/email-tier1.ts` 补回 `getUnreadCount`（修复 `unread/route.ts` 的导入构建断裂）。
+**`stash@{4}`（on main, 基线 = 当前 HEAD）** 即完整、自洽的丢失工作，共 ~140 文件，覆盖 pms/im/eval/comp/mail/okr/kpi/persona 等全部报错域。
 
-**尚未接线（并行错乱期丢失、未进快照的"wiring"，待重做）**：
-- `app/mail/page.tsx`：详情页 P0 `sanitizeEmailHtml` + 远程图阻断；撰写端 Bcc/附件/自动补全/工具栏；分类标签页 + 优先级收件箱；`parseMailQuery` 搜索接线；草稿自动保存/恢复/回撰写器；签名/模板/撤回发送/附件预览/键盘快捷键。
-- `lib/integrations/email-tier1.ts`：`saveDraft` 升级（html/bcc/replaceUid + 去重）、`EmailMessage.cc` 字段、`fetchMessageByUid` 填充 cc。
-- `app/api/mail/inbox/route.ts`（PUT 草稿）：接收 html/bcc/replaceUid。
-- `components/app-rail.tsx`：邮件未读角标 + 轮询 + 新邮件 toast。
+恢复动作（已执行）：
+1. 丢弃我手工重做的冗余邮箱补丁（`email-tier1`/`page.tsx`/`package.json`/`INDEX`），因它们只是 `stash@{4}` 的子集。
+2. `git stash apply "stash@{4}"` —— **零冲突**干净落地（`apply` 保留 stash 作为备份）。
+3. 清除 `email-tier1.ts` 中一处重复的 `getUnreadCount`（手工补丁与 stash 版重叠）。
 
-> **P0 安全提醒**：详情页仍以 `dangerouslySetInnerHTML` 直渲染 `htmlBody` 且加载远程图，`sanitizeEmailHtml` 已就绪但**未接线** → XSS/追踪像素风险仍在，应优先接。
-
----
+**结果（全绿）**：
+- `npx tsc --noEmit` → **Tandem 0 error**（残留仅 `qm/`，非 Tandem）。
+- `npx vitest run` → **286 files / 2478 passed · 2 skipped · 0 failed**。
+- 邮箱能力完整落地：详情页 DOMPurify 清洗 + 远程图阻断（P0 安全闭合）、分类标签页/优先级收件箱、`saveDraft`(html/cc/bcc/replaceUid+去重)、撰写端 Bcc、`app-rail` 未读角标、`/api/mail/unread` 角标轮询等。
 
 ## 四、待决 / 风险（体系层）
 
-- **两项目串台**：建议拆仓（见 §一）。
-- **邮箱 wiring 重做**：§三未接线项，按 P0→P1→P2 恢复。
+- **未提交即风险**：本次全部工作目前仍是**工作区未提交状态**（来自 stash apply）。并行窗口再次切分支会再度丢失 → **强烈建议立即 `git add -A && git commit`** 固化。
+- **两项目串台**：`nexus-main`(Rhautt Nexus) 与 Tandem 无共同祖先，建议拆仓（见 §一）。
+- **StratOS 阻塞**：`StrategyOS/` 是 blobless partial clone，工作树被清空，需 `github.com` 网络 `git restore .` 才能还原（当前网络超时）。
 - **商业化 P4**：`lib/storage/tenant-scope.ts`（多租户查询隔离）已开工，属目标形态能力，自用阶段可暂缓。
-- **未跟踪目录**：工作区残留 `StrategyOS/`、`qm/`（`qm/` 有独立 tsc 报错，非 Tandem，勿混入构建）。
+- **未跟踪目录**：`StrategyOS/`、`qm/`（`qm/` 有独立 tsc 报错，非 Tandem，勿混入构建）。

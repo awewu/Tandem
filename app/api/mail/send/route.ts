@@ -69,15 +69,26 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: 'text 与 html 至少填一个' }, { status: 400 });
   }
 
-  const attachments = Array.isArray(body.attachments)
-    ? body.attachments
-        .filter((a: unknown): a is Record<string, unknown> => typeof a === 'object' && a !== null)
-        .map((a) => ({
+  const MAX_ATTACH_BYTES = 25 * 1024 * 1024; // 单封附件总量上限 25MB (对齐 Gmail)
+  let attachments: { filename: string; content: Buffer; contentType?: string }[] | undefined;
+  if (Array.isArray(body.attachments)) {
+    attachments = body.attachments
+      .filter((a: unknown): a is Record<string, unknown> => typeof a === 'object' && a !== null)
+      .map((a) => {
+        const raw = typeof a.content === 'string' ? a.content : '';
+        // 兼容 data URL 前缀 (data:*/*;base64,)
+        const base64 = raw.includes(',') ? raw.slice(raw.indexOf(',') + 1) : raw;
+        return {
           filename: typeof a.filename === 'string' ? a.filename : 'attachment',
-          content: typeof a.content === 'string' ? a.content : JSON.stringify(a.content),
+          content: Buffer.from(base64, 'base64'),
           contentType: typeof a.contentType === 'string' ? a.contentType : undefined,
-        }))
-    : undefined;
+        };
+      });
+    const total = attachments.reduce((sum, a) => sum + a.content.byteLength, 0);
+    if (total > MAX_ATTACH_BYTES) {
+      return NextResponse.json({ ok: false, error: `附件总大小超过 25MB (当前 ${(total / 1024 / 1024).toFixed(1)}MB)` }, { status: 413 });
+    }
+  }
 
   const resolved = await resolveUserEmailSmtp(auth.userId, auth.email, auth.tenantId);
 

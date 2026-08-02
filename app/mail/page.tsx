@@ -33,7 +33,7 @@ import {
   KeyRound,
   Search,
 } from 'lucide-react';
-import { Download, FolderInput } from 'lucide-react';
+import { Download, FolderInput, Paperclip, X } from 'lucide-react';
 import { Reply, ReplyAll, Forward, Bold, Italic, Underline, List, ListOrdered, Link2 } from 'lucide-react';
 import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,8 @@ import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { useCalendarStore } from '@/lib/store/calendar';
 import { useContactStore } from '@/lib/store/contacts';
 import { emailMatchesSearch, mergeMailSearchResults, normalizeMailSearchQuery } from '@/lib/mail/search-filter';
+import { sanitizeMailHtml } from '@/lib/mail/sanitize-html';
+import { categorizeEmail, priorityScore, CATEGORY_LABELS, type MailCategory } from '@/lib/mail/categorize';
 import { CalendarPlus, UserCircle } from 'lucide-react';
 
 interface MailStatus {
@@ -233,10 +235,147 @@ interface ComposeDraft {
   mode: 'reply' | 'replyAll' | 'forward' | 'new';
   to: string;
   cc: string;
+  bcc?: string;
   subject: string;
   html: string;
   /** 用于 AI 回复 / 审校的纯文本上下文 */
   quotedText?: string;
+  /** 从草稿箱回到撰写器时携带: 原草稿 UID/文件夹, 用于再次保存/发送时去重删除旧草稿 */
+  draftUid?: number;
+  draftFolder?: string;
+}
+
+/** 判断某文件夹是否为草稿箱 */
+function isDraftsFolder(folder: string): boolean {
+  return folder.toLowerCase() === 'drafts';
+}
+
+/** 本地自动保存的草稿快照 (localStorage, 断电/刷新不丢) */
+interface LocalDraft {
+  to: string;
+  cc: string;
+  bcc: string;
+  subject: string;
+  html: string;
+  savedAt: number;
+}
+
+const MAIL_AUTOSAVE_KEY = 'tandem:mail:compose:autosave';
+
+function loadLocalDraft(): LocalDraft | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(MAIL_AUTOSAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LocalDraft;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalDraft(draft: LocalDraft): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(MAIL_AUTOSAVE_KEY, JSON.stringify(draft));
+  } catch {
+    /* 忽略配额/隐私模式错误 */
+  }
+}
+
+function clearLocalDraft(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(MAIL_AUTOSAVE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ─── 签名 / 模板 / 撤回发送 (本地偏好, 即时可用) ─── */
+const MAIL_SIGNATURE_KEY = 'tandem:mail:signature';
+const MAIL_TEMPLATES_KEY = 'tandem:mail:templates';
+const MAIL_UNDO_DELAY_KEY = 'tandem:mail:undoDelaySec';
+
+/** 签名块的稳定标记, 便于替换/去重, 避免重复插入 */
+const SIGNATURE_MARKER = 'data-tandem-signature';
+
+interface MailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  html: string;
+}
+
+function loadSignature(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(MAIL_SIGNATURE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveSignature(html: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (html.trim()) window.localStorage.setItem(MAIL_SIGNATURE_KEY, html);
+    else window.localStorage.removeItem(MAIL_SIGNATURE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadTemplates(): MailTemplate[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(MAIL_TEMPLATES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTemplates(templates: MailTemplate[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(MAIL_TEMPLATES_KEY, JSON.stringify(templates));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadUndoDelay(): number {
+  if (typeof window === 'undefined') return 5;
+  try {
+    const raw = Number(window.localStorage.getItem(MAIL_UNDO_DELAY_KEY));
+    return Number.isFinite(raw) && raw >= 0 && raw <= 30 ? raw : 5;
+  } catch {
+    return 5;
+  }
+}
+
+function saveUndoDelay(sec: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(MAIL_UNDO_DELAY_KEY, String(sec));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 生成带标记的签名 HTML 块 */
+function signatureBlock(sigHtml: string): string {
+  return `<br/><br/><div ${SIGNATURE_MARKER}="1" style="color:#666;border-top:1px solid #eee;padding-top:8px;margin-top:8px">${sigHtml}</div>`;
+}
+
+/** 附件是否可内嵌预览 (图片 / PDF) */
+function isPreviewableAttachment(contentType: string, filename: string): boolean {
+  const ct = (contentType || '').toLowerCase();
+  if (ct.startsWith('image/') || ct === 'application/pdf') return true;
+  return /\.(png|jpe?g|gif|webp|bmp|svg|pdf)$/i.test(filename || '');
 }
 
 /* ─────────── Inbox · IMAP 收件箱 ─────────── */
@@ -253,6 +392,8 @@ interface InboxEmail {
   attachments: { filename: string; size: number; contentType: string }[];
   flags: string[];
   seen: boolean;
+  /** 搜索结果所在文件夹 (跨文件夹搜索时回溯打开) */
+  folder?: string;
 }
 
 interface MailDirectoryUser {
@@ -338,11 +479,32 @@ function InboxView({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<InboxEmail[]>([]);
   const [searching, setSearching] = useState(false);
+  /** 收件箱分类标签页: all/primary/social/promotions/updates */
+  const [category, setCategory] = useState<'all' | MailCategory>('all');
+  /** 优先级收件箱: 按重要度排序置顶 */
+  const [priorityMode, setPriorityMode] = useState(false);
   const hadActiveSearchRef = useRef(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  /** 是否显示外部远程图片 (默认拦截, 防追踪像素; 每封邮件独立) */
+  const [showRemoteImages, setShowRemoteImages] = useState(false);
+  /** 当前打开详情所属文件夹 (跨文件夹搜索结果覆盖用) */
+  const [detailFolder, setDetailFolder] = useState<string | null>(null);
+  /** 附件预览 (图片/PDF 内嵌查看) */
+  const [preview, setPreview] = useState<{ url: string; filename: string; contentType: string } | null>(null);
   const contacts = useContactStore((state) => state.contacts);
   const [directoryUsers, setDirectoryUsers] = useState<MailDirectoryUser[]>([]);
+
+  // 每次打开新邮件默认重新拦截远程图片 (防追踪像素)
+  useEffect(() => {
+    setShowRemoteImages(false);
+  }, [detail?.uid]);
+
+  // 清洗正文 HTML (XSS + 远程图片拦截); 依赖正文与"显示图片"开关
+  const sanitizedBody = useMemo(
+    () => (detail?.htmlBody ? sanitizeMailHtml(detail.htmlBody, { blockRemoteImages: !showRemoteImages }) : null),
+    [detail?.htmlBody, showRemoteImages],
+  );
 
   const label = FOLDER_LABELS[folder] ?? { title: folder, icon: Inbox };
   const directoryNameByEmail = useMemo(() => {
@@ -371,6 +533,68 @@ function InboxView({
   const visibleEmails = normalizedSearchQuery
     ? mergeMailSearchResults(searchResults, localSearchResults)
     : emails;
+
+  // 分类标签页 / 优先级排序仅用于收件箱(INBOX)且非搜索态
+  const isInboxFolder = folder.toLowerCase() === 'inbox';
+  const showCategoryUi = isInboxFolder && !normalizedSearchQuery;
+  const isKnownContact = useMemo(
+    () => (address: string) => directoryNameByEmail.has(normalizeEmail(address)),
+    [directoryNameByEmail],
+  );
+  const categoryCounts = useMemo(() => {
+    const counts: Record<MailCategory, number> = { primary: 0, social: 0, promotions: 0, updates: 0 };
+    if (!showCategoryUi) return counts;
+    for (const e of visibleEmails) counts[categorizeEmail(e)] += 1;
+    return counts;
+  }, [showCategoryUi, visibleEmails]);
+  const displayEmails = useMemo(() => {
+    if (!showCategoryUi) return visibleEmails;
+    let list = visibleEmails;
+    if (category !== 'all') list = list.filter((e) => categorizeEmail(e) === category);
+    if (priorityMode) {
+      list = [...list].sort((a, b) => priorityScore(b, { isKnownContact }) - priorityScore(a, { isKnownContact }));
+    }
+    return list;
+  }, [showCategoryUi, visibleEmails, category, priorityMode, isKnownContact]);
+
+  // 键盘导航光标 (Gmail 风格 j/k/Enter/u)
+  const [cursorIdx, setCursorIdx] = useState(-1);
+  useEffect(() => {
+    setCursorIdx(-1);
+  }, [folder, normalizedSearchQuery, category, priorityMode]);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // 详情视图: u / Esc 返回列表
+      if (detail) {
+        if (e.key === 'u' || e.key === 'Escape') {
+          setDetail(null);
+          setSelectedUid(null);
+          e.preventDefault();
+        }
+        return;
+      }
+      if (displayEmails.length === 0) return;
+      if (e.key === 'j') {
+        setCursorIdx((i) => Math.min((i < 0 ? -1 : i) + 1, displayEmails.length - 1));
+        e.preventDefault();
+      } else if (e.key === 'k') {
+        setCursorIdx((i) => Math.max((i < 0 ? 0 : i) - 1, 0));
+        e.preventDefault();
+      } else if (e.key === 'Enter' || e.key === 'o') {
+        const em = displayEmails[cursorIdx];
+        if (em) {
+          openDetail(em.uid, em.folder);
+          e.preventDefault();
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail, displayEmails, cursorIdx]);
 
   useEffect(() => {
     fetch('/api/calendar/attendees?limit=500', { credentials: 'include', cache: 'no-store' })
@@ -512,6 +736,7 @@ function InboxView({
           seen: !!m.seen,
           flags: Array.isArray(m.flags) ? m.flags : [],
           attachments: Array.isArray(m.attachments) ? m.attachments : [],
+          folder: typeof m.folder === 'string' ? m.folder : undefined,
         }))
         : [];
       if (append) {
@@ -573,6 +798,10 @@ function InboxView({
         const newFlags = applyFlags(detail.flags, updates);
         setDetail({ ...detail, flags: newFlags, seen: newFlags.includes('\\Seen') });
       }
+      // 已读状态变化 → 让导航角标尽快刷新
+      if (typeof updates.seen === 'boolean' && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tandem:mail:unread'));
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -608,13 +837,20 @@ function InboxView({
     }
   }
 
-  async function openDetail(uid: number) {
+  async function openDetail(uid: number, folderOverride?: string) {
+    const effectiveFolder = folderOverride ?? folder;
+    // 草稿箱: 点开直接回到撰写器 (可继续编辑), 而非只读详情
+    if (isDraftsFolder(effectiveFolder)) {
+      await openDraftInComposer(uid, effectiveFolder);
+      return;
+    }
     setSelectedUid(uid);
     setDetailLoading(true);
     setError(null);
+    setDetailFolder(folderOverride ?? null);
     try {
       const isStarred = folder === 'starred';
-      const apiFolder = isStarred ? 'INBOX' : folder;
+      const apiFolder = folderOverride ?? (isStarred ? 'INBOX' : folder);
       const res = await fetch(`/api/mail/inbox/${uid}?folder=${encodeURIComponent(apiFolder)}`, { credentials: 'include' });
       const data = await res.json();
       if (res.ok) {
@@ -632,11 +868,41 @@ function InboxView({
     }
   }
 
+  /** 打开草稿箱中的一封草稿并载入撰写器 (可编辑, 保留收件人/抄送/HTML) */
+  async function openDraftInComposer(uid: number, draftFolder: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/mail/inbox/${uid}?folder=${encodeURIComponent(draftFolder)}`, { credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '加载草稿失败');
+        return;
+      }
+      const toStr = (data.to ?? []).map((t: { address: string }) => t.address).filter(Boolean).join(', ');
+      const ccStr = (data.cc ?? []).map((c: { address: string }) => c.address).filter(Boolean).join(', ');
+      const html = data.htmlBody || (data.textBody ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(data.textBody)}</pre>` : '');
+      onCompose({
+        mode: 'new',
+        to: toStr,
+        cc: ccStr,
+        subject: data.subject && data.subject !== '(无主题)' ? data.subject : '',
+        html,
+        quotedText: data.textBody || stripHtml(html),
+        draftUid: uid,
+        draftFolder,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   /** 构造引用块: Gmail 风格的 "On <date>, <from> wrote:" + 原文 HTML */
   function buildQuote(d: InboxEmail): string {
     const fromLabel = formatMailIdentity(d.from[0], directoryNameByEmail);
     const when = new Date(d.date).toLocaleString('zh-CN');
-    const original = d.htmlBody || (d.textBody ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(d.textBody)}</pre>` : '');
+    const original = d.htmlBody
+      ? sanitizeMailHtml(d.htmlBody, { blockRemoteImages: false }).html
+      : (d.textBody ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(d.textBody)}</pre>` : '');
     return `<br/><br/><div style="border-left:2px solid #ccc;padding-left:12px;color:#666">在 ${when}，${escapeHtml(fromLabel)} 写道：<br/>${original}</div>`;
   }
 
@@ -662,7 +928,7 @@ function InboxView({
       to: '',
       cc: '',
       subject: /^fwd?:/i.test(d.subject) ? d.subject : `Fwd: ${d.subject}`,
-      html: `<br/><br/>---------- 转发邮件 ----------<br/>发件人: ${escapeHtml(fromLabel)}<br/>日期: ${new Date(d.date).toLocaleString('zh-CN')}<br/>主题: ${escapeHtml(d.subject)}<br/><br/>${d.htmlBody || escapeHtml(d.textBody || '')}`,
+      html: `<br/><br/>---------- 转发邮件 ----------<br/>发件人: ${escapeHtml(fromLabel)}<br/>日期: ${new Date(d.date).toLocaleString('zh-CN')}<br/>主题: ${escapeHtml(d.subject)}<br/><br/>${d.htmlBody ? sanitizeMailHtml(d.htmlBody, { blockRemoteImages: false }).html : escapeHtml(d.textBody || '')}`,
       quotedText: d.textBody || stripHtml(d.htmlBody || ''),
     });
   }
@@ -777,22 +1043,68 @@ function InboxView({
               </div>
               {detail.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {detail.attachments.map((att) => (
-                    <a
-                      key={att.filename}
-                      href={`/api/mail/attachment?uid=${detail.uid}&filename=${encodeURIComponent(att.filename)}&folder=${encodeURIComponent(folder === 'starred' ? 'INBOX' : folder)}`}
-                      download={att.filename}
-                      className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary transition-colors"
-                    >
-                      <Download className="h-3 w-3" />
-                      {att.filename} ({(att.size / 1024).toFixed(1)} KB)
-                    </a>
-                  ))}
+                  {detail.attachments.map((att) => {
+                    const attFolder = detailFolder ?? (folder === 'starred' ? 'INBOX' : folder);
+                    const base = `/api/mail/attachment?uid=${detail.uid}&filename=${encodeURIComponent(att.filename)}&folder=${encodeURIComponent(attFolder)}`;
+                    const previewable = isPreviewableAttachment(att.contentType, att.filename);
+                    return (
+                      <div key={att.filename} className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary">
+                        {previewable ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 hover:text-ink-primary transition-colors"
+                            onClick={() => setPreview({ url: `${base}&inline=1`, filename: att.filename, contentType: att.contentType })}
+                            title="预览"
+                          >
+                            <Search className="h-3 w-3" />
+                            {att.filename} ({(att.size / 1024).toFixed(1)} KB)
+                          </button>
+                        ) : (
+                          <span>{att.filename} ({(att.size / 1024).toFixed(1)} KB)</span>
+                        )}
+                        <a href={base} download={att.filename} className="ml-1 text-ink-tertiary hover:text-ink-primary" title="下载">
+                          <Download className="h-3 w-3" />
+                        </a>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+              <Dialog open={!!preview} onOpenChange={(o) => { if (!o) setPreview(null); }}>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle className="truncate">{preview?.filename}</DialogTitle>
+                    <DialogDescription>附件预览</DialogDescription>
+                  </DialogHeader>
+                  {preview && (
+                    <div className="max-h-[70vh] overflow-auto">
+                      {preview.contentType.startsWith('image/') ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={preview.url} alt={preview.filename} className="mx-auto max-h-[65vh] max-w-full object-contain" />
+                      ) : (
+                        <iframe src={preview.url} title={preview.filename} className="h-[65vh] w-full rounded border border-border" />
+                      )}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
               <div className="border-t border-border pt-4">
-                {detail.htmlBody ? (
-                  <div className="prose prose-sm max-w-none text-ink-primary" dangerouslySetInnerHTML={{ __html: detail.htmlBody }} />
+                {detail.htmlBody && sanitizedBody ? (
+                  <>
+                    {sanitizedBody.hasBlockedRemoteImages && !showRemoteImages && (
+                      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-footnote text-ink-secondary">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-warning" />
+                        <span>已拦截外部图片以保护隐私（防追踪像素）。</span>
+                        <button
+                          className="ml-auto rounded bg-warning/20 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/30"
+                          onClick={() => setShowRemoteImages(true)}
+                        >
+                          显示图片
+                        </button>
+                      </div>
+                    )}
+                    <div className="prose prose-sm max-w-none text-ink-primary" dangerouslySetInnerHTML={{ __html: sanitizedBody.html }} />
+                  </>
                 ) : detail.textBody ? (
                   <pre className="whitespace-pre-wrap text-caption text-ink-primary font-sans">{detail.textBody}</pre>
                 ) : (
@@ -821,7 +1133,8 @@ function InboxView({
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="搜索全部历史邮件"
+              placeholder="搜索 · 支持 from: has:attachment is:unread before: in:all"
+              title="操作符: from: to: subject: has:attachment is:unread is:starred before:2026-01-31 after:2026-01-01 in:all/in:sent"
               className="min-w-0 flex-1 bg-transparent text-caption text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
             />
             {searchQuery.trim() && (
@@ -894,7 +1207,7 @@ function InboxView({
             <FolderInput className="h-3.5 w-3.5 mr-1" />
             移至垃圾箱
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set(visibleEmails.map((e) => e.uid)))}>全选</Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set(displayEmails.map((e) => e.uid)))}>全选</Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set())}>取消选择</Button>
         </div>
       )}
@@ -914,22 +1227,57 @@ function InboxView({
         </div>
       )}
 
-      {personalMailConfigured === false ? null : visibleEmails.length === 0 && !loading ? (
+      {showCategoryUi && visibleEmails.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border pb-2">
+          {(['all', 'primary', 'social', 'updates', 'promotions'] as const).map((c) => {
+            const active = category === c;
+            const count = c === 'all' ? visibleEmails.length : categoryCounts[c];
+            const name = c === 'all' ? '全部' : CATEGORY_LABELS[c];
+            return (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`rounded-full px-3 py-1 text-footnote transition-colors ${
+                  active
+                    ? 'bg-[rgb(var(--brand-500))] text-white'
+                    : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+                }`}
+              >
+                {name}{count > 0 ? ` (${count})` : ''}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setPriorityMode((v) => !v)}
+            title="按重要度排序: 星标 / 未读 / 已知联系人 / 紧急主题 / 时效"
+            className={`ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1 text-footnote transition-colors ${
+              priorityMode ? 'bg-warning/20 text-warning' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+            }`}
+          >
+            <Star className={`h-3 w-3 ${priorityMode ? 'fill-current' : ''}`} />
+            优先级
+          </button>
+        </div>
+      )}
+
+      {personalMailConfigured === false ? null : displayEmails.length === 0 && !loading ? (
         <Card>
           <CardContent className="p-8 text-center space-y-2">
             <Inbox className="h-8 w-8 text-ink-tertiary mx-auto" />
             <p className="text-caption text-ink-tertiary">
-              {normalizedSearchQuery ? '没有找到匹配邮件' : `${label.title}为空`}
+              {normalizedSearchQuery ? '没有找到匹配邮件' : showCategoryUi && category !== 'all' ? `“${CATEGORY_LABELS[category as MailCategory]}”分类下暂无邮件` : `${label.title}为空`}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {visibleEmails.map((email) => (
+          {displayEmails.map((email, idx) => (
             <div
               key={email.uid}
-              onClick={() => openDetail(email.uid)}
+              onClick={() => openDetail(email.uid, email.folder)}
               className={`cv-auto rounded-md border p-3 cursor-pointer hover:bg-surface-2 transition-colors ${
+                idx === cursorIdx ? 'ring-2 ring-[rgb(var(--brand-500))] ring-offset-1' : ''
+              } ${
                 email.seen ? 'border-border bg-[rgb(var(--surface-1))]' : 'border-[rgb(var(--brand-500))]/30 bg-[rgb(var(--brand-50))]/50'
               }`}
             >
@@ -1012,14 +1360,70 @@ function ComposeView({
   /** 正文 HTML (富文本编辑器内容) */
   const [bodyHtml, setBodyHtml] = useState(initialDraft?.body ? escapeHtml(initialDraft.body) : '');
   const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [attachments, setAttachments] = useState<{ name: string; size: number; type: string; content: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+  /** 正在编辑的 IMAP 草稿 UID (再次保存/发送时删除旧副本, 避免草稿箱重复) */
+  const [draftUid, setDraftUid] = useState<number | null>(null);
+  /** 上次自动保存时间 (显示"已自动保存 hh:mm:ss") */
+  const [autoSavedAt, setAutoSavedAt] = useState<string | null>(null);
+  /** 可恢复的本地草稿 (页面刷新/误关后) */
+  const [restorable, setRestorable] = useState<LocalDraft | null>(null);
+  /** 签名 (HTML) + 编辑器开关 */
+  const [signature, setSignature] = useState('');
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false);
+  /** 邮件模板 */
+  const [templates, setTemplates] = useState<MailTemplate[]>([]);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  /** 撤回发送: 延迟秒数 + 倒计时 */
+  const [undoDelay, setUndoDelay] = useState(5);
+  const [undoRemaining, setUndoRemaining] = useState(0);
+  const undoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const restoreCheckedRef = useRef(false);
+  const signatureInsertedRef = useRef(false);
   /** 正文纯文本 (供校验 / AI / 草稿) */
   const bodyText = stripHtml(bodyHtml);
 
   // 外部联系人档案
   const { getContactByEmail, upsertContact } = useContactStore();
+  const contactList = useContactStore((s) => s.contacts);
+  // 收件人自动补全候选 (联系人邮箱); datalist 原生补全, 无障碍且低风险
+  const recipientOptions = useMemo(
+    () => contactList.filter((c) => c.email).map((c) => ({ email: c.email, label: c.name ? `${c.name} <${c.email}>` : c.email })),
+    [contactList],
+  );
+
+  const totalAttachBytes = attachments.reduce((sum, a) => sum + a.size, 0);
+
+  async function handleFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const MAX = 25 * 1024 * 1024;
+    const next = [...attachments];
+    for (const file of Array.from(files)) {
+      const already = next.reduce((sum, a) => sum + a.size, 0);
+      if (already + file.size > MAX) {
+        setFeedback({ ok: false, msg: `附件总大小超过 25MB, 已跳过 ${file.name}` });
+        continue;
+      }
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.includes(',') ? result.slice(result.indexOf(',') + 1) : result);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      }).catch(() => null);
+      if (content == null) continue;
+      next.push({ name: file.name, size: file.size, type: file.type || 'application/octet-stream', content });
+    }
+    setAttachments(next);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
   const firstEmail = to.split(/[,;\s]+/).filter(Boolean)[0];
   const contact = firstEmail ? getContactByEmail(firstEmail) : undefined;
 
@@ -1041,19 +1445,128 @@ function ComposeView({
     setFeedback({ ok: true, msg: '已从 Tandem 工作台预填草稿, 补完收件人后即可发送.' });
   }, [initialDraft]);
 
-  // 回复 / 全部回复 / 转发: 预填收件人/抄送/主题, 并把引用块写入编辑器
+  // 回复 / 全部回复 / 转发 / 编辑草稿: 预填收件人/抄送/主题, 并把引用块写入编辑器
   useEffect(() => {
     if (!composeDraft) return;
+    restoreCheckedRef.current = true; // 有明确来源草稿时, 不再弹本地恢复
+    setRestorable(null);
     setTo(composeDraft.to);
     setCc(composeDraft.cc);
+    setBcc(composeDraft.bcc ?? '');
+    if (composeDraft.cc || composeDraft.bcc) setShowCcBcc(true);
     setSubject(composeDraft.subject);
     setBodyHtml(composeDraft.html);
+    setDraftUid(composeDraft.draftUid ?? null);
     if (editorRef.current) editorRef.current.innerHTML = composeDraft.html;
-    const label = composeDraft.mode === 'forward' ? '转发' : composeDraft.mode === 'replyAll' ? '全部回复' : '回复';
-    setFeedback({ ok: true, msg: `已进入${label}模式, 在引用上方输入内容即可.` });
+    const label =
+      composeDraft.mode === 'forward' ? '转发'
+        : composeDraft.mode === 'replyAll' ? '全部回复'
+          : composeDraft.mode === 'reply' ? '回复'
+            : composeDraft.draftUid ? '编辑草稿' : '撰写';
+    setFeedback({ ok: true, msg: composeDraft.draftUid ? '已载入草稿, 可继续编辑后发送.' : `已进入${label}模式, 在引用上方输入内容即可.` });
     // 光标置顶, 方便在引用上方书写
     setTimeout(() => editorRef.current?.focus(), 0);
   }, [composeDraft]);
+
+  // 挂载时检测本地未发送草稿 (仅在无明确来源草稿时提示恢复)
+  useEffect(() => {
+    if (restoreCheckedRef.current) return;
+    restoreCheckedRef.current = true;
+    if (composeDraft || initialDraft) return;
+    const local = loadLocalDraft();
+    if (local && (local.to || local.subject || stripHtml(local.html).trim())) {
+      setRestorable(local);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 自动保存到本地 (防抖 1s), 任一字段变化即写入; 空内容不保存
+  useEffect(() => {
+    const hasContent = Boolean(to.trim() || cc.trim() || bcc.trim() || subject.trim() || bodyText.trim());
+    if (!hasContent) return;
+    const timer = setTimeout(() => {
+      saveLocalDraft({ to, cc, bcc, subject, html: bodyHtml, savedAt: Date.now() });
+      setAutoSavedAt(new Date().toLocaleTimeString('zh-CN'));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [to, cc, bcc, subject, bodyHtml, bodyText]);
+
+  function restoreLocalDraft() {
+    if (!restorable) return;
+    setTo(restorable.to);
+    setCc(restorable.cc);
+    setBcc(restorable.bcc);
+    if (restorable.cc || restorable.bcc) setShowCcBcc(true);
+    setSubject(restorable.subject);
+    setBodyHtml(restorable.html);
+    if (editorRef.current) editorRef.current.innerHTML = restorable.html;
+    setRestorable(null);
+    setFeedback({ ok: true, msg: '已恢复上次未发送的草稿.' });
+  }
+
+  function discardLocalDraft() {
+    clearLocalDraft();
+    setRestorable(null);
+  }
+
+  // 载入签名 / 模板 / 撤回延迟偏好
+  useEffect(() => {
+    setSignature(loadSignature());
+    setTemplates(loadTemplates());
+    setUndoDelay(loadUndoDelay());
+  }, []);
+
+  // 新邮件(非回复/转发/草稿)自动追加签名, 每次挂载仅一次
+  useEffect(() => {
+    if (signatureInsertedRef.current) return;
+    if (composeDraft || initialDraft) return; // 回复/转发/草稿由各自逻辑处理
+    const sig = signature;
+    if (!sig.trim()) return;
+    signatureInsertedRef.current = true;
+    setBodyHtml((cur) => {
+      if (cur.includes(SIGNATURE_MARKER)) return cur;
+      const next = cur + signatureBlock(sig);
+      if (editorRef.current) editorRef.current.innerHTML = next;
+      return next;
+    });
+  }, [signature, composeDraft, initialDraft]);
+
+  function persistSignature() {
+    saveSignature(signature);
+    setShowSignatureEditor(false);
+    setFeedback({ ok: true, msg: signature.trim() ? '签名已保存' : '签名已清除' });
+  }
+
+  function applyTemplate(tpl: MailTemplate) {
+    if (tpl.subject) setSubject(tpl.subject);
+    // 保留已存在的签名块: 模板正文在前, 签名在后
+    const sigPart = signature.trim() && !tpl.html.includes(SIGNATURE_MARKER) ? signatureBlock(signature) : '';
+    const next = tpl.html + sigPart;
+    setBodyHtml(next);
+    if (editorRef.current) editorRef.current.innerHTML = next;
+    setShowTemplateMenu(false);
+    setFeedback({ ok: true, msg: `已套用模板「${tpl.name}」` });
+  }
+
+  function saveCurrentAsTemplate() {
+    const name = window.prompt('模板名称：', subject.trim() || '未命名模板');
+    if (!name) return;
+    // 保存时剥离签名块, 避免模板与签名重复
+    const html = editorRef.current?.innerHTML ?? bodyHtml;
+    const cleaned = html.replace(new RegExp(`<div ${SIGNATURE_MARKER}[\\s\\S]*?</div>`, 'g'), '');
+    const tpl: MailTemplate = { id: `tpl_${Date.now()}`, name, subject, html: cleaned };
+    const next = [...templates.filter((t) => t.name !== name), tpl];
+    setTemplates(next);
+    saveTemplates(next);
+    setShowTemplateMenu(false);
+    setFeedback({ ok: true, msg: `已保存为模板「${name}」` });
+  }
+
+  function deleteTemplate(id: string) {
+    const next = templates.filter((t) => t.id !== id);
+    setTemplates(next);
+    saveTemplates(next);
+  }
 
   function syncBody() {
     if (editorRef.current) setBodyHtml(editorRef.current.innerHTML);
@@ -1107,15 +1620,8 @@ function ComposeView({
     }
   }
 
-  async function handleSend() {
-    if (!canSend) {
-      setFeedback({ ok: false, msg: 'SMTP 未配置, 无法发送. 联系管理员.' });
-      return;
-    }
-    if (!to.trim() || !subject.trim() || !bodyText.trim()) {
-      setFeedback({ ok: false, msg: '收件人 / 主题 / 正文均不可为空' });
-      return;
-    }
+  // 撤回窗口结束后真正执行发送
+  async function doSend() {
     setBusy(true);
     setFeedback(null);
     try {
@@ -1126,9 +1632,13 @@ function ComposeView({
         body: JSON.stringify({
           to: to.split(/[,;\s]+/).filter(Boolean),
           cc: cc.trim() ? cc.split(/[,;\s]+/).filter(Boolean) : undefined,
+          bcc: bcc.trim() ? bcc.split(/[,;\s]+/).filter(Boolean) : undefined,
           subject,
           html: bodyHtml,
           text: bodyText,
+          attachments: attachments.length
+            ? attachments.map((a) => ({ filename: a.name, content: a.content, contentType: a.type }))
+            : undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -1141,6 +1651,15 @@ function ComposeView({
         setBodyHtml('');
         if (editorRef.current) editorRef.current.innerHTML = '';
         setCc('');
+        setBcc('');
+        setAttachments([]);
+        clearLocalDraft();
+        setAutoSavedAt(null);
+        // 发送成功后删除对应的草稿箱副本 (若来自草稿)
+        if (draftUid) {
+          fetch(`/api/mail/inbox?uids=${draftUid}&folder=Drafts`, { method: 'DELETE', credentials: 'include' }).catch(() => {});
+          setDraftUid(null);
+        }
       }
     } catch (e) {
       setFeedback({ ok: false, msg: (e as Error).message });
@@ -1149,16 +1668,96 @@ function ComposeView({
     }
   }
 
+  // 点击发送: 先进入撤回窗口 (可配置秒数), 到点再真正发送
+  function handleSend() {
+    if (!canSend) {
+      setFeedback({ ok: false, msg: 'SMTP 未配置, 无法发送. 联系管理员.' });
+      return;
+    }
+    if (!to.trim() || !subject.trim() || !bodyText.trim()) {
+      setFeedback({ ok: false, msg: '收件人 / 主题 / 正文均不可为空' });
+      return;
+    }
+    if (undoDelay <= 0) {
+      void doSend();
+      return;
+    }
+    setFeedback(null);
+    setUndoRemaining(undoDelay);
+    if (undoTimerRef.current) clearInterval(undoTimerRef.current);
+    undoTimerRef.current = setInterval(() => {
+      setUndoRemaining((r) => {
+        if (r <= 1) {
+          if (undoTimerRef.current) clearInterval(undoTimerRef.current);
+          undoTimerRef.current = null;
+          void doSend();
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+  }
+
+  function cancelSend() {
+    if (undoTimerRef.current) clearInterval(undoTimerRef.current);
+    undoTimerRef.current = null;
+    setUndoRemaining(0);
+    setFeedback({ ok: true, msg: '已撤销发送，可继续编辑。' });
+  }
+
+  // 卸载时清理撤回计时器
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearInterval(undoTimerRef.current);
+  }, []);
+
+  const sending = undoRemaining > 0;
+
   return (
     <div className="w-full max-w-3xl min-w-0 space-y-4">
+      {sending && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-footnote text-warning">
+          <Send className="h-3.5 w-3.5 shrink-0" />
+          <span>邮件将在 {undoRemaining} 秒后发送。</span>
+          <button className="ml-auto rounded bg-warning/20 px-2.5 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/30" onClick={cancelSend}>撤销发送</button>
+        </div>
+      )}
+      {restorable && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-info/30 bg-info/10 px-3 py-2 text-footnote text-ink-secondary">
+          <FileText className="h-3.5 w-3.5 shrink-0 text-info" />
+          <span>发现上次未发送的草稿（{new Date(restorable.savedAt).toLocaleString('zh-CN')}）。</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button className="rounded bg-info/20 px-2 py-0.5 text-[11px] font-medium text-info hover:bg-info/30" onClick={restoreLocalDraft}>恢复</button>
+            <button className="rounded px-2 py-0.5 text-[11px] text-ink-tertiary hover:text-danger" onClick={discardLocalDraft}>丢弃</button>
+          </div>
+        </div>
+      )}
       <div className="space-y-3 rounded-lg border border-border bg-[rgb(var(--surface-1))] p-4 shadow-soft-sm sm:p-5">
+        {/* 联系人自动补全候选 */}
+        <datalist id="mail-recipient-suggestions">
+          {recipientOptions.map((o) => (
+            <option key={o.email} value={o.email}>{o.label}</option>
+          ))}
+        </datalist>
         <Field label="收件人" hint="支持多个, 用逗号或空格分隔">
-          <Input
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="alice@example.com, bob@example.com"
-            autoComplete="off"
-          />
+          <div className="flex items-start gap-2">
+            <Input
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="alice@example.com, bob@example.com"
+              autoComplete="off"
+              list="mail-recipient-suggestions"
+              className="flex-1"
+            />
+            {!showCcBcc && (
+              <button
+                type="button"
+                className="shrink-0 mt-2 text-[11px] text-brand-500 hover:underline"
+                onClick={() => setShowCcBcc(true)}
+              >
+                抄送/密送
+              </button>
+            )}
+          </div>
           {/* 外部联系人智能档案提示 */}
           {contact && (
             <div className="flex items-center gap-2 mt-1.5 text-[11px] text-ink-secondary bg-surface-2 rounded px-2 py-1">
@@ -1170,14 +1769,28 @@ function ComposeView({
             </div>
           )}
         </Field>
-        <Field label="抄送 (Cc)" hint="可选">
-          <Input
-            value={cc}
-            onChange={(e) => setCc(e.target.value)}
-            placeholder="(留空则无)"
-            autoComplete="off"
-          />
-        </Field>
+        {showCcBcc && (
+          <>
+            <Field label="抄送 (Cc)" hint="可选">
+              <Input
+                value={cc}
+                onChange={(e) => setCc(e.target.value)}
+                placeholder="(留空则无)"
+                autoComplete="off"
+                list="mail-recipient-suggestions"
+              />
+            </Field>
+            <Field label="密送 (Bcc)" hint="收件人之间互不可见">
+              <Input
+                value={bcc}
+                onChange={(e) => setBcc(e.target.value)}
+                placeholder="(留空则无)"
+                autoComplete="off"
+                list="mail-recipient-suggestions"
+              />
+            </Field>
+          </>
+        )}
         <Field label="主题">
           <Input
             value={subject}
@@ -1200,7 +1813,123 @@ function ComposeView({
                 const url = window.prompt('输入链接地址 (含 https://)');
                 if (url) exec('createLink', url);
               }}><Link2 className="h-3.5 w-3.5" /></ToolbarBtn>
+              <span className="mx-1 h-4 w-px bg-border" />
+              <label className="inline-flex items-center gap-1 rounded px-1 text-[11px] text-ink-tertiary hover:text-ink-primary cursor-pointer" title="字体颜色">
+                <span aria-hidden>A</span>
+                <input
+                  type="color"
+                  className="h-4 w-4 cursor-pointer border-0 bg-transparent p-0"
+                  onChange={(e) => exec('foreColor', e.target.value)}
+                  aria-label="字体颜色"
+                />
+              </label>
+              <select
+                className="rounded border border-border bg-transparent px-1 py-0.5 text-[11px] text-ink-secondary"
+                defaultValue="3"
+                onChange={(e) => { exec('fontSize', e.target.value); e.target.selectedIndex = 0; }}
+                aria-label="字号"
+                title="字号"
+              >
+                <option value="3">字号</option>
+                <option value="1">小</option>
+                <option value="3">正常</option>
+                <option value="5">大</option>
+                <option value="7">特大</option>
+              </select>
+              <span className="mx-1 h-4 w-px bg-border" />
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary"
+                onClick={() => fileInputRef.current?.click()}
+                title="添加附件"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+                附件
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFilesSelected(e.target.files)}
+              />
+              <span className="mx-1 h-4 w-px bg-border" />
+              <div className="relative">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary"
+                  onClick={() => setShowTemplateMenu((v) => !v)}
+                  title="邮件模板"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  模板
+                </button>
+                {showTemplateMenu && (
+                  <div className="absolute left-0 top-full z-20 mt-1 w-60 rounded-md border border-border bg-[rgb(var(--surface-1))] p-1 shadow-soft-md">
+                    {templates.length === 0 && (
+                      <p className="px-2 py-1.5 text-[11px] text-ink-tertiary">暂无模板</p>
+                    )}
+                    {templates.map((t) => (
+                      <div key={t.id} className="flex items-center gap-1 rounded px-1 hover:bg-surface-2">
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate px-1 py-1 text-left text-[11px] text-ink-secondary"
+                          onClick={() => applyTemplate(t)}
+                          title={t.subject || t.name}
+                        >
+                          {t.name}
+                        </button>
+                        <button type="button" className="shrink-0 px-1 text-ink-tertiary hover:text-danger" onClick={() => deleteTemplate(t.id)} title="删除模板">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="mt-1 border-t border-border pt-1">
+                      <button type="button" className="w-full rounded px-2 py-1 text-left text-[11px] font-medium text-info hover:bg-info/10" onClick={saveCurrentAsTemplate}>
+                        + 保存当前为模板
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] hover:bg-surface-2 ${showSignatureEditor ? 'text-info' : 'text-ink-tertiary hover:text-ink-primary'}`}
+                onClick={() => setShowSignatureEditor((v) => !v)}
+                title="邮件签名"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                签名
+              </button>
             </div>
+            {showSignatureEditor && (
+              <div className="space-y-1.5 border-b border-border bg-surface-2/50 px-2 py-2">
+                <p className="text-[11px] text-ink-tertiary">签名 (纯文本, 新邮件自动追加到正文末尾)</p>
+                <textarea
+                  value={stripHtml(signature)}
+                  onChange={(e) => setSignature(escapeHtml(e.target.value).replace(/\n/g, '<br/>'))}
+                  rows={3}
+                  className="w-full rounded border border-border bg-[rgb(var(--surface-1))] px-2 py-1 text-caption"
+                  placeholder="例如：\n张三 | 瑞合瑞德集团\n手机 138xxxx"
+                />
+                <div className="flex items-center gap-2">
+                  <button type="button" className="rounded bg-info/15 px-2.5 py-0.5 text-[11px] font-medium text-info hover:bg-info/25" onClick={persistSignature}>保存签名</button>
+                  <label className="ml-auto flex items-center gap-1 text-[11px] text-ink-tertiary">
+                    撤回窗口
+                    <select
+                      value={undoDelay}
+                      onChange={(e) => { const v = Number(e.target.value); setUndoDelay(v); saveUndoDelay(v); }}
+                      className="rounded border border-border bg-transparent px-1 py-0.5"
+                    >
+                      <option value={0}>关闭</option>
+                      <option value={5}>5 秒</option>
+                      <option value={10}>10 秒</option>
+                      <option value={20}>20 秒</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
             <div
               ref={editorRef}
               contentEditable
@@ -1211,6 +1940,33 @@ function ComposeView({
             />
           </div>
         </Field>
+
+        {/* 附件列表 */}
+        {attachments.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-footnote text-ink-tertiary">
+              <span>附件 {attachments.length} 个</span>
+              <span>{(totalAttachBytes / 1024 / 1024).toFixed(2)} MB / 25 MB</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((a, i) => (
+                <div key={`${a.name}-${i}`} className="inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary">
+                  <Paperclip className="h-3 w-3 shrink-0" />
+                  <span className="max-w-[180px] truncate" title={a.name}>{a.name}</span>
+                  <span className="text-ink-tertiary">({(a.size / 1024).toFixed(0)} KB)</span>
+                  <button
+                    type="button"
+                    className="ml-0.5 text-ink-tertiary hover:text-danger"
+                    onClick={() => setAttachments((list) => list.filter((_, idx) => idx !== i))}
+                    aria-label={`移除附件 ${a.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* AI 回复草稿 */}
         {aiReplyDraft && (
@@ -1313,15 +2069,20 @@ function ComposeView({
               body: JSON.stringify({
                 to: to.split(/[,;\s]+/).filter(Boolean),
                 cc: cc.trim() ? cc.split(/[,;\s]+/).filter(Boolean) : undefined,
+                bcc: bcc.trim() ? bcc.split(/[,;\s]+/).filter(Boolean) : undefined,
                 subject,
                 text: bodyText,
+                html: bodyHtml || undefined,
+                replaceUid: draftUid ?? undefined,
               }),
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok || !json.ok) {
               setFeedback({ ok: false, msg: json.error ?? `保存失败 (${res.status})` });
             } else {
-              setFeedback({ ok: true, msg: '草稿已保存' });
+              const newUid = Number(json.uid) || null;
+              if (newUid) setDraftUid(newUid);
+              setFeedback({ ok: true, msg: '草稿已保存到草稿箱' });
             }
           } catch (e) {
             setFeedback({ ok: false, msg: (e as Error).message });
@@ -1332,10 +2093,13 @@ function ComposeView({
           <FileText className="h-4 w-4 mr-1.5" />
           {busy ? '保存中...' : '存草稿'}
         </Button>
-        <Button onClick={handleSend} disabled={busy || !canSend} className="w-full justify-center sm:w-auto rheem-btn-pill">
+        <Button onClick={handleSend} disabled={busy || !canSend || sending} className="w-full justify-center sm:w-auto rheem-btn-pill">
           <Send className="h-4 w-4 mr-1.5" />
-          {busy ? '发送中...' : canSend ? '立即发送' : 'SMTP 未配置'}
+          {sending ? `${undoRemaining}s 后发送...` : busy ? '发送中...' : canSend ? '立即发送' : 'SMTP 未配置'}
         </Button>
+        {autoSavedAt && (
+          <span className="self-center text-[11px] text-ink-tertiary sm:ml-auto">已自动保存 {autoSavedAt}</span>
+        )}
       </div>
     </div>
   );

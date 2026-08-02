@@ -61,6 +61,7 @@ export type AuditAction =
   // CompanyBrain Decision 闭环 (CA-13)
   | 'company_brain.decision_recorded'     // 中央 AI 输出落地 CompanyBrainDecision
   | 'company_brain.feedback_submitted'    // 用户/治理委员会对中央 AI 输出反馈 (adopted/modified/overruled/ignored)
+  | 'company_brain.episodic_reflection'   // Tier0-Evo · 情景级反思记录 (单次对话即时学习信号)
   // Governance · OKR 主航道偏离 (§B-015, 灵魂层第 2 条)
   | 'governance.okr_drift_detected'       // checkOkrDrift 判定 DRIFT_SUSPECTED, 写入治理审计
   // Skill Gateway · 4 道闸 (P4, MANIFESTO §19)
@@ -153,6 +154,7 @@ export type AuditAction =
   | 'kpi.target_locked'          // 周期 active 后 target 不可改
   | 'kpi.target_amendment_requested' // 目标修订签批流: 提交申请
   | 'kpi.target_amendment_approved'  // 目标修订签批流: owner/admin 批准, 落地改写 targetValue
+  | 'kpi.target_amendment_cascade_warning' // 目标修订签批流: 批准后父级 target 与子级 target 和不一致
   | 'kpi.target_amendment_rejected'  // 目标修订签批流: owner/admin 驳回
   | 'kpi.actuals_imported_erp'   // 通道 B: ERP 自动采集
   | 'kpi.actuals_manual_entry'   // 通道 C: 财务/HR/内勤人工补录
@@ -174,7 +176,24 @@ export type AuditAction =
   | 'kpi.causal_link.create'     // 建因果链
   | 'kpi.causal_link.update'     // 改 strength/hypothesis
   | 'kpi.causal_link.validate'   // 年终复盘验证假设
-  | 'kpi.causal_link.delete';    // 删因果链
+  | 'kpi.causal_link.delete'     // 删因果链
+  // 薪酬模块 · 技能认证
+  | 'comp.certification_submitted'
+  | 'comp.certification_approved'
+  | 'comp.certification_rejected'
+  // 薪酬模块 · 矩阵版本
+  | 'comp.matrix_version_draft'
+  | 'comp.matrix_version_published'
+  | 'comp.matrix_version_archived'
+  // PMS 经销商报价 (报价目前无 audit 留痕 → 补齐治理闭环)
+  | 'pms.quote.created'          // 创建草稿报价
+  | 'pms.quote.issued'          // 签发 (生成验真码, 授予官方背书)
+  | 'pms.quote.revised'         // 出新版本 (改价, 旧版 superseded)
+  | 'pms.quote.revoked'         // 作废
+  // PMS 选型配置器 (规则一经发布即改变全渠道推荐 → 治理敏感写留痕)
+  | 'pms.selector.updated'      // 规则集编辑 (工况/规则变更)
+  | 'pms.selector.published'    // 规则集发布 (对经销商生效)
+  | 'pms.selector.deleted';     // 规则集归档 (软删)
 
 export interface AuditEntry {
   id: string;

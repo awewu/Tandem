@@ -20,6 +20,7 @@ import {
   type ImMembership,
   type ImMemberRole,
   type ImAttachment,
+  type ForwardedMessageItem,
 } from '../types/im';
 import { normalizeOrgChannelName } from './channel-name';
 
@@ -36,7 +37,9 @@ export type ImBusEvent =
   | { type: 'message_updated'; channelId: string; message: ImMessage }
   | { type: 'channel_updated'; channelId: string; channel: ImChannel }
   | { type: 'unread_changed'; channelId: string; userId: string; unread: number }
-  | { type: 'read_receipt_changed'; channelId: string; userId: string; lastReadAt: string };
+  | { type: 'read_receipt_changed'; channelId: string; userId: string; lastReadAt: string }
+  // §Sprint2 typing 指示 (transient, 不落库)
+  | { type: 'typing'; channelId: string; userId: string; at: string };
 
 export function subscribeIm(handler: (e: ImBusEvent) => void): () => void {
   _bus.on('event', handler);
@@ -45,6 +48,14 @@ export function subscribeIm(handler: (e: ImBusEvent) => void): () => void {
 
 function broadcast(e: ImBusEvent): void {
   _bus.emit('event', e);
+}
+
+/**
+ * §Sprint2 广播"正在输入" (transient, 不落库, 不校验成员资格由调用方 API 做)。
+ * 前端 debounce 触发; 订阅端排除自己 + 短超时自动清。
+ */
+export function emitTyping(channelId: string, userId: string): void {
+  broadcast({ type: 'typing', channelId, userId, at: new Date().toISOString() });
 }
 
 // ---------------------------------------------------------------------------
@@ -171,16 +182,12 @@ export async function getChannelMessages(
   options: { limit?: number; before?: string } = {}
 ): Promise<ImMessage[]> {
   const store = getStore();
-  const all = await store.imMessages.list({ channelId });
-  let msgs = all
-    .filter((m) => !m.deletedAt)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  if (options.before) {
-    msgs = msgs.filter((m) => m.createdAt < options.before!);
-  }
-  const limit = options.limit ?? 100;
-  // 取最新的 limit 条
-  return msgs.slice(-limit);
+  // 下推到存储层: 频道 + 排除软删 + createdAt 游标 + 取最新 N 条 (升序返回).
+  // 旧实现把整个频道历史全量读入内存再 JS 过滤/切片 (每频道 O(N)).
+  return store.imMessages.listByChannel(channelId, {
+    limit: options.limit ?? 100,
+    before: options.before,
+  });
 }
 
 /**
@@ -284,6 +291,9 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
 
   broadcast({ type: 'message', channelId: channel.id, message });
 
+  // §Sprint1 IM 搜索: 异步索引消息向量 (fire-and-forget, fail-soft, 不阻塞发送)
+  indexMessageForSearch(channel, message);
+
   // @Persona 提及: 触发异步 AI 回复
   const personaMention = mentions.find((m) => m.kind === 'persona');
   if (personaMention && senderKind === 'user') {
@@ -305,6 +315,113 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
   }
 
   return message;
+}
+
+// ---------------------------------------------------------------------------
+// §Sprint2 消息转发 / 合并转发
+// ---------------------------------------------------------------------------
+
+export interface ForwardMessagesInput {
+  fromMessageIds: string[];
+  toChannelId: string;
+  operatorId: string;
+  tenantId?: string;
+  /** true = 合并成一条 forward 附件; false = 逐条以 operator 身份转发 */
+  merge?: boolean;
+}
+
+/**
+ * 转发消息到目标频道。
+ * 权限: operator 必须为【目标频道】成员, 且对【每条源消息所在频道】可见 (否则拒绝)。
+ */
+export async function forwardMessages(input: ForwardMessagesInput): Promise<ImMessage[]> {
+  const store = getStore();
+  const ids = Array.from(new Set(input.fromMessageIds ?? []));
+  if (ids.length === 0) throw new Error('no messages to forward');
+
+  // 目标频道: operator 必须为成员 (同租户)。
+  const target = await getChannelIfVisible(input.toChannelId, input.operatorId, input.tenantId);
+  if (!target) throw new Error('forbidden: not a member of target channel');
+
+  // 逐条加载 + 校验 operator 对源频道可见 (按传入顺序保留时序)。
+  const channelVisibility = new Map<string, boolean>();
+  const items: ForwardedMessageItem[] = [];
+  for (const id of ids) {
+    const msg = await store.imMessages.get(id);
+    if (!msg || msg.deletedAt) throw new Error(`source message ${id} not found`);
+    let visible = channelVisibility.get(msg.channelId);
+    if (visible === undefined) {
+      visible = (await getChannelIfVisible(msg.channelId, input.operatorId, input.tenantId)) !== null;
+      channelVisibility.set(msg.channelId, visible);
+    }
+    if (!visible) throw new Error('forbidden: source message not visible');
+    items.push({
+      messageId: msg.id,
+      channelId: msg.channelId,
+      senderId: msg.senderId,
+      body: msg.body,
+      createdAt: msg.createdAt,
+    });
+  }
+
+  if (input.merge) {
+    const preview = `[合并转发] ${items.length} 条消息`;
+    const message = await sendMessage({
+      channelId: input.toChannelId,
+      senderId: input.operatorId,
+      body: preview,
+      attachments: [{ kind: 'forward', preview, forwardedItems: items }],
+    });
+    return [message];
+  }
+
+  // 逐条转发: 保留原文, 以 operator 身份新发 (时序与源一致)。
+  const results: ImMessage[] = [];
+  for (const it of items) {
+    const message = await sendMessage({
+      channelId: input.toChannelId,
+      senderId: input.operatorId,
+      body: it.body,
+    });
+    results.push(message);
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// §Sprint1 IM 搜索 · 消息向量索引 (fail-soft, 承 vector-store C6 三段降级)
+// ---------------------------------------------------------------------------
+
+/** 异步索引一条消息 (fire-and-forget)。ownerId=channelId 作频道命名空间隔离。 */
+function indexMessageForSearch(channel: ImChannel, message: ImMessage): void {
+  const text = (message.body ?? '').trim();
+  if (!text) return;
+  void (async () => {
+    try {
+      const { upsertEmbedding } = await import('../infra/vector-store');
+      await upsertEmbedding({
+        entityType: 'im_message',
+        entityId: message.id,
+        tenantId: channel.tenantId ?? 'default',
+        ownerId: channel.id,
+        text,
+      });
+    } catch {
+      /* 向量层不可用不影响发送 */
+    }
+  })();
+}
+
+/** 异步删除一条消息向量 (撤回/软删时调, 幂等)。 */
+function unindexMessage(messageId: string): void {
+  void (async () => {
+    try {
+      const { deleteEmbedding } = await import('../infra/vector-store');
+      await deleteEmbedding('im_message', messageId);
+    } catch {
+      /* fail-soft */
+    }
+  })();
 }
 
 async function triggerAutoAgentReplies(opts: {
@@ -391,6 +508,9 @@ export async function recallMessage(
     body: '',
   });
   if (!updated) throw new Error('update failed');
+
+  // §Sprint1 IM 搜索: 撤回后移除向量, 防召回已撤回消息
+  unindexMessage(messageId);
 
   broadcast({ type: 'message_updated', channelId: channel.id, message: updated });
   return updated;
@@ -772,6 +892,49 @@ export async function spawnDecisionRoomFromMessage(
   });
 
   return { cardId: result.cardId, messageId: msg.id };
+}
+
+export interface SpawnDecisionRoomFromTextInput {
+  channelId: string;
+  triggeredBy: string;
+  /** 议题标题 (必填, 通常取自群总结的待办/概览) */
+  title: string;
+  /** 议题背景描述 (通常拼装整份群总结) */
+  description?: string;
+}
+
+/**
+ * §Sprint3 群总结闭环: 无源消息地把一件事项 (如群总结提炼的待办) 开成议事室。
+ * 与 spawnDecisionRoomFromMessage 共用 ConvergenceOrchestrator, 差异是不回链某条消息。
+ */
+export async function spawnDecisionRoomFromText(
+  input: SpawnDecisionRoomFromTextInput
+): Promise<{ cardId: string; channelId: string }> {
+  const store = getStore();
+  const channel = await store.imChannels.get(input.channelId);
+  if (!channel) throw new Error('channel gone');
+
+  const title = (input.title || '').trim() || `${channel.name || '群聊'} 中讨论的事项`;
+
+  const { getOrchestrator } = await import('../boot');
+  const orch = getOrchestrator();
+  const result = await orch.start({
+    title,
+    description: input.description?.trim()
+      ? `从群总结触发:\n\n${input.description.trim()}`
+      : `从群总结触发: ${title}`,
+    ownerId: input.triggeredBy,
+  });
+
+  // 在频道发系统消息回链, 让全员看到"已开议事室"
+  await sendMessage({
+    channelId: channel.id,
+    senderId: 'system',
+    senderKind: 'system',
+    body: `🏛️ 议事室已开: **${title}** (源自群总结)\n\n[/convergence/${result.cardId}](议事室链接)`,
+  });
+
+  return { cardId: result.cardId, channelId: channel.id };
 }
 
 // ---------------------------------------------------------------------------

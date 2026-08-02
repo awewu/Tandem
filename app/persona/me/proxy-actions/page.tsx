@@ -14,6 +14,25 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 
+interface ApprovalTraceStep {
+  tool: string;
+  summary: string;
+  ok: boolean;
+}
+
+interface ApprovalEvidenceRef {
+  type: 'okr' | 'kr' | 'memory' | 'decision' | 'initiative';
+  id: string;
+  label?: string;
+}
+
+interface ApprovalPacket {
+  reasoningTrace?: ApprovalTraceStep[];
+  evidenceRefs?: ApprovalEvidenceRef[];
+  alternativesConsidered?: string[];
+  confidence?: 'high' | 'medium' | 'low';
+}
+
 interface ProxyAction {
   id: string;
   userId: string;
@@ -60,6 +79,27 @@ const ZONE_BADGE: Record<ProxyAction['zone'], { label: string; cls: string }> = 
   red: { label: '🔴 红区', cls: 'text-danger' },
 };
 
+const CONFIDENCE_LABEL: Record<string, { label: string; cls: string }> = {
+  high: { label: '高置信', cls: 'text-success' },
+  medium: { label: '中置信', cls: 'text-warning' },
+  low: { label: '低置信', cls: 'text-danger' },
+};
+
+const EVIDENCE_LABEL: Record<string, string> = {
+  okr: '目标',
+  kr: '关键结果',
+  memory: '记忆',
+  decision: '决议',
+  initiative: '举措',
+};
+
+function getApprovalPacket(meta?: Record<string, unknown>): ApprovalPacket | null {
+  if (!meta?.approvalPacket) return null;
+  const p = meta.approvalPacket as ApprovalPacket;
+  if (!p.reasoningTrace && !p.evidenceRefs && !p.alternativesConsidered && !p.confidence) return null;
+  return p;
+}
+
 function timeRemaining(iso?: string): string {
   if (!iso) return '';
   const ms = new Date(iso).getTime() - Date.now();
@@ -77,6 +117,7 @@ export default function ProxyActionsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedbackBusy, setFeedbackBusy] = useState<Record<string, boolean>>({});
   const [feedbackOk, setFeedbackOk] = useState<Record<string, boolean>>({});
+  const [expandedTraces, setExpandedTraces] = useState<Record<string, boolean>>({});
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -237,7 +278,7 @@ export default function ProxyActionsPage() {
           return (
             <li
               key={a.id}
-              className="rounded-lg border border bg-white p-4 shadow-soft-sm"
+              className="rounded-lg border border bg-surface-1 p-4 shadow-soft-sm"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -258,6 +299,69 @@ export default function ProxyActionsPage() {
                   {a.body && (
                     <p className="mt-1 line-clamp-2 text-caption text-ink-secondary">{a.body}</p>
                   )}
+
+                  {/* P0 #7: 审批包 — 推理过程 + 证据 + 备选方案 (防 rubber-stamping) */}
+                  {(() => {
+                    const pkt = getApprovalPacket(a.metadata);
+                    if (!pkt) return null;
+                    const expanded = expandedTraces[a.id] ?? false;
+                    return (
+                      <div className="mt-2 rounded-md border border bg-surface-2 px-3 py-2">
+                        <button
+                          onClick={() => setExpandedTraces((prev) => ({ ...prev, [a.id]: !expanded }))}
+                          className="flex w-full items-center justify-between text-footnote font-medium text-ink-secondary hover:text-ink-primary"
+                        >
+                          <span>AI 推理过程{pkt.confidence && (() => { const c = CONFIDENCE_LABEL[pkt.confidence]; return c ? <span className={`ml-2 ${c.cls}`}>[{c.label}]</span> : null; })()}</span>
+                          <span>{expanded ? '收起' : '展开'}</span>
+                        </button>
+                        {expanded && (
+                          <div className="mt-2 space-y-2">
+                            {pkt.reasoningTrace && pkt.reasoningTrace.length > 0 && (
+                              <div>
+                                <div className="text-footnote font-medium text-ink-tertiary">推理步骤</div>
+                                <ol className="mt-1 space-y-1">
+                                  {pkt.reasoningTrace.map((step, i) => (
+                                    <li key={i} className="text-footnote text-ink-secondary">
+                                      <span className={step.ok ? 'text-success' : 'text-danger'}>{step.ok ? '[OK]' : '[FAIL]'}</span>{' '}
+                                      <span className="font-mono">{step.tool}</span>: {step.summary}
+                                    </li>
+                                  ))}
+                                </ol>
+                              </div>
+                            )}
+                            {pkt.evidenceRefs && pkt.evidenceRefs.length > 0 && (
+                              <div>
+                                <div className="text-footnote font-medium text-ink-tertiary">引用依据</div>
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  {pkt.evidenceRefs.map((ref, i) => (
+                                    <span key={i} className="rounded bg-surface-1 px-1.5 py-0.5 text-footnote text-ink-secondary">
+                                      {EVIDENCE_LABEL[ref.type] ?? ref.type}: {ref.id.slice(0, 20)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {pkt.alternativesConsidered && pkt.alternativesConsidered.length > 0 && (
+                              <div>
+                                <div className="text-footnote font-medium text-ink-tertiary">已考虑但未采纳</div>
+                                <ul className="mt-1 space-y-0.5">
+                                  {pkt.alternativesConsidered.map((alt, i) => (
+                                    <li key={i} className="text-footnote text-ink-tertiary line-through">
+                                      {alt}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="border-t border pt-1.5 text-footnote text-ink-tertiary">
+                              请确认 AI 的提议理由是否合理 — 如果你不理解为什么, 请选择否决
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {a.vetoReason && (
                     <p className="mt-2 text-footnote text-danger">
                       否决理由: {a.vetoReason}

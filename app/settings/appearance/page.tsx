@@ -206,7 +206,7 @@ export default function AppearancePage() {
 
           {/* Preview cards */}
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
-            <div className="rounded-lg border border-border p-6 bg-white">
+            <div className="rounded-lg border border-border p-6 bg-surface-1">
               <p className="text-footnote text-ink-tertiary mb-3">亮底预览</p>
               <div className="flex items-center justify-center min-h-[120px]">
                 <BrandLogo variant={variant} theme={logoTheme} size={variant === 'mark' ? 64 : 36} />
@@ -283,15 +283,15 @@ export default function AppearancePage() {
             </p>
             <p className="mt-2 text-caption text-ink-secondary leading-relaxed">
               把 SVG/PNG 文件按命名约定放入{' '}
-              <code className="font-mono text-[12px] bg-white px-1 rounded">
+              <code className="font-mono text-[12px] bg-surface-1 px-1 rounded">
                 public/brand/
               </code>{' '}
               即可生效 (无需重启)。命名规则:{' '}
-              <code className="font-mono text-[12px] bg-white px-1 rounded">
+              <code className="font-mono text-[12px] bg-surface-1 px-1 rounded">
                 {`{variant}-{theme}.{svg,png}`}
               </code>
               ；缺失时按候选链回退到{' '}
-              <code className="font-mono text-[12px] bg-white px-1 rounded">
+              <code className="font-mono text-[12px] bg-surface-1 px-1 rounded">
                 logo.svg
               </code>{' '}
               再到内置占位块。后续 M3 接入 MinIO 后将提供 web 上传。

@@ -7,9 +7,9 @@
  *
  * 纪律: 绿区 · 代行允许 · 纯只读 (不写任何业务真值)。
  *
- * 接线 (待完成, 见文件末尾 TODO):
- *   1. builtin.ts registerBuiltinSkills() 注册 PmsPipelineDigestSkill
- *   2. company-brain-perception.ts PERCEPTION_TOOLSET 加 'pms.pipeline_digest'
+ * 接线 (已完成, 探针实测 LIVE):
+ *   1. builtin.ts registerBuiltinSkills() 已注册 PmsPipelineDigestSkill
+ *   2. company-brain-perception.ts PERCEPTION_TOOLSET 已含 'pms.pipeline_digest'
  */
 
 import type { Skill } from './registry';

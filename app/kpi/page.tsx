@@ -1143,7 +1143,7 @@ export function KpiContent() {
               onClick={() => setActiveKpiId(null)}
             />
             {/* Drawer 容器 */}
-            <div className="relative w-full max-w-lg h-full bg-white shadow-soft flex flex-col animate-slide-in-right">
+            <div className="relative w-full max-w-lg h-full bg-surface-1 shadow-soft flex flex-col animate-slide-in-right">
               {/* Header */}
               <header className="px-5 py-4 border-b flex items-center justify-between">
                 <div className="flex items-center gap-2">

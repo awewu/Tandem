@@ -87,7 +87,7 @@ export default function EthicsPage() {
         <p className="text-caption text-ink-secondary inline-flex items-center gap-2">
           <Mail className="h-4 w-4 text-ink-tertiary shrink-0" />
           应急离线通道:{' '}
-          <code className="font-mono text-[12px] bg-white px-1.5 py-0.5 rounded">
+          <code className="font-mono text-[12px] bg-surface-1 px-1.5 py-0.5 rounded">
             ethics@&lt;your-tenant&gt;
           </code>{' '}
           (V1 暂未配置)

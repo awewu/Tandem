@@ -20,6 +20,7 @@ import { scanExpiringOpportunities } from './public-pool-service';
 import { createAlert } from './alert-service';
 import { shouldEscalate } from './alert-service';
 import { rollupCurrentPeriodTargets } from './performance-target-service';
+import { assembleQuotePricingReport } from './quote-insights-service';
 
 // --- 纯函数 (可测) ---
 
@@ -106,6 +107,32 @@ export async function scanWarrantyExpiry(tenantId: string, now: Date, withinDays
   return created;
 }
 
+/**
+ * 异常低价预警 (P4 · management by exception):
+ *   汇总全量已签发报价 → analyzeQuotePricing 检出 critical 异常 (破限价 / 深度离群) →
+ *   沉淀为持久告警, 让管理层被动收到而非主动翻洞察页。经销商自由报价不受影响。
+ *   dedup: 同一 (报价×产品) 的未处理告警不重复建。只报 critical, 避免噪音。
+ */
+export async function scanQuotePricingAnomalies(tenantId: string): Promise<number> {
+  const report = await assembleQuotePricingReport(tenantId);
+  let created = 0;
+  for (const a of report.anomalies) {
+    if (a.severity !== 'critical') continue;
+    const entityId = `${a.quoteId}:${a.productKey}`;
+    if (await hasOpenAlert(tenantId, 'quote_price_anomaly', entityId)) continue;
+    await createAlert({
+      tenantId,
+      type: 'quote_price_anomaly',
+      severity: 'high',
+      entityType: 'pms_quote',
+      entityId,
+      message: `报价异常低价: ${a.productLabel} — ${a.detail}`,
+    });
+    created++;
+  }
+  return created;
+}
+
 /** 未处理告警 SLA 超时升级 */
 export async function escalateOverdueAlerts(tenantId: string, now: Date): Promise<number> {
   const [alerts, rules] = await Promise.all([
@@ -138,6 +165,7 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
   poolWarned: number;
   qualificationAlerts: number;
   warrantyAlerts: number;
+  priceAnomalyAlerts: number;
   escalated: number;
   targetsRolledUp: number;
 }> {
@@ -150,6 +178,12 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
   });
   const qualificationAlerts = await scanQualificationExpiry(tenantId, now);
   const warrantyAlerts = await scanWarrantyExpiry(tenantId, now);
+  let priceAnomalyAlerts = 0;
+  try {
+    priceAnomalyAlerts = await scanQuotePricingAnomalies(tenantId);
+  } catch (e) {
+    console.error('[pms] scanQuotePricingAnomalies failed (fail-soft):', e instanceof Error ? e.message : e);
+  }
   const escalated = await escalateOverdueAlerts(tenantId, now);
   // 业绩目标: 每日自动汇总当前存活周期 (本月/本季/本年) 实际达成 + 同环比
   let targetsRolledUp = 0;
@@ -164,6 +198,7 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
     poolWarned: (pool?.yellow ?? 0) + (pool?.red ?? 0),
     qualificationAlerts,
     warrantyAlerts,
+    priceAnomalyAlerts,
     escalated,
     targetsRolledUp,
   };

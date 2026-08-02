@@ -4,6 +4,9 @@ import {
   addressSimilarity,
   phoneMatch,
   classifyDuplicate,
+  normalizeName,
+  nameSimilarityLexical,
+  scoreDuplicate,
 } from '@/lib/pms/duplicate-check';
 import { generateDedupeKey } from '@/lib/pms/opportunity-service';
 
@@ -71,10 +74,15 @@ describe('PMS duplicate-check · 五维查重纯函数', () => {
   });
 });
 
-describe('PMS duplicate-check · classifyDuplicate 阈值分级', () => {
-  it('< 0.60 → pass', () => {
+describe('PMS duplicate-check · classifyDuplicate 阈值分级 (含 suspect 疑似档)', () => {
+  it('< 0.45 → pass', () => {
     expect(classifyDuplicate(0)).toBe('pass');
-    expect(classifyDuplicate(0.59)).toBe('pass');
+    expect(classifyDuplicate(0.44)).toBe('pass');
+  });
+
+  it('[0.45, 0.60) → suspect (人工复核)', () => {
+    expect(classifyDuplicate(0.45)).toBe('suspect');
+    expect(classifyDuplicate(0.59)).toBe('suspect');
   });
 
   it('[0.60, 0.80) → warning', () => {
@@ -85,6 +93,72 @@ describe('PMS duplicate-check · classifyDuplicate 阈值分级', () => {
   it('>= 0.80 → duplicate', () => {
     expect(classifyDuplicate(0.8)).toBe('duplicate');
     expect(classifyDuplicate(1)).toBe('duplicate');
+  });
+});
+
+describe('PMS duplicate-check · normalizeName 归一化 (破简称/全角/噪声词)', () => {
+  it('剥离公司实体后缀 + 项目通用词', () => {
+    expect(normalizeName('杭州希尔顿酒店管理有限公司')).toBe('杭州希尔顿酒店');
+    expect(normalizeName('华住集团热水系统改造项目')).toBe('华住热水');
+  });
+
+  it('全角转半角 + 转小写 + 去标点空白', () => {
+    expect(normalizeName('ＡＢＣ－１２３')).toBe('abc123');
+    expect(normalizeName('北京 · 华住（总部）')).toBe('北京华住总部');
+  });
+
+  it('空值安全', () => {
+    expect(normalizeName(undefined)).toBe('');
+    expect(normalizeName(null)).toBe('');
+  });
+});
+
+describe('PMS duplicate-check · nameSimilarityLexical 简称匹配', () => {
+  it('简称 vs 全称: 归一化后字面相似度显著高于原始 (剩余靠语义层补)', () => {
+    const raw = jaccardSimilarity('希尔顿', '杭州希尔顿酒店管理有限公司');
+    const norm = nameSimilarityLexical('希尔顿', '杭州希尔顿酒店管理有限公司');
+    expect(norm).toBeGreaterThan(raw);
+    expect(norm).toBeGreaterThan(0.4);
+  });
+
+  it('任一空 → 0', () => {
+    expect(nameSimilarityLexical('', '希尔顿')).toBe(0);
+  });
+
+  it('别名词典: 中英混写规范化后可匹配 (Hilton → 希尔顿)', () => {
+    expect(normalizeName('Hilton酒店')).toBe('希尔顿酒店');
+    // 中英两种写法归一到同一规范名 → 完全匹配
+    expect(nameSimilarityLexical('Hilton酒店', '希尔顿酒店')).toBe(1);
+  });
+});
+
+describe('PMS duplicate-check · scoreDuplicate 综合评分 (修复漏判)', () => {
+  it('同名 + 同电话 → 直判撞单 (旧算法只得 0.425 放过)', () => {
+    const s = scoreDuplicate({ nameSim: 0.9, projectSim: 0.3, addrSim: null, phoneExact: true });
+    expect(s).toBeGreaterThanOrEqual(0.8);
+    expect(classifyDuplicate(s)).toBe('duplicate');
+  });
+
+  it('电话一致但名称不相似 → 至少预警', () => {
+    const s = scoreDuplicate({ nameSim: 0.2, projectSim: 0.1, addrSim: null, phoneExact: true });
+    expect(s).toBeGreaterThanOrEqual(0.6);
+    expect(classifyDuplicate(s)).not.toBe('pass');
+  });
+
+  it('信息不全(缺地址)不再结构性拉低: 高名+高项目 → 撞单', () => {
+    const s = scoreDuplicate({ nameSim: 0.95, projectSim: 0.9, addrSim: null, phoneExact: false });
+    expect(s).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it('地址在场时纳入加权平均', () => {
+    const withAddr = scoreDuplicate({ nameSim: 0.9, projectSim: 0.9, addrSim: 0.2, phoneExact: false });
+    const noAddr = scoreDuplicate({ nameSim: 0.9, projectSim: 0.9, addrSim: null, phoneExact: false });
+    expect(withAddr).toBeLessThan(noAddr); // 低地址分拉低总分
+  });
+
+  it('全不相似 → pass', () => {
+    const s = scoreDuplicate({ nameSim: 0.1, projectSim: 0.1, addrSim: 0.1, phoneExact: false });
+    expect(classifyDuplicate(s)).toBe('pass');
   });
 });
 

@@ -152,6 +152,28 @@ export async function setFeedback(
     '[company-brain-decision] feedback recorded'
   );
 
+  // Tier0-Evo · 情景级反思: 负向反馈 (推翻/修改) 即时记录, 让学习频率从月级提升到情景级.
+  //   采纳(adopted)/无声忽略(ignored) 不触发 (无学习价值). fire-and-forget, 动态 import 断循环依赖.
+  if (feedback.outcome === 'overruled' || feedback.outcome === 'modified') {
+    void (async () => {
+      try {
+        const { recordEpisodicReflection } = await import('./company-brain-reflection');
+        await recordEpisodicReflection({
+          tenantId: decision.tenantId,
+          context: decision.context,
+          query: decision.inputSummary,
+          responseSummary: decision.outputSummary,
+          signal: feedback.outcome === 'overruled' ? 'overruled' : 'negative_feedback',
+          note: feedback.reason,
+          refId: decision.id,
+          actorUserId: feedback.feedbackBy,
+        });
+      } catch {
+        /* 情景反思失败绝不阻塞反馈主流程 */
+      }
+    })();
+  }
+
   return updated;
 }
 

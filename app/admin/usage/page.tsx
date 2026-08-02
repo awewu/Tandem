@@ -40,6 +40,7 @@ interface UsageData {
       failures: number;
     }>;
     byScenario: Array<{ scenario: string; calls: number; total_tokens: number; cost_micro_usd: number }>;
+    byFeature?: Array<{ feature: string; calls: number; total_tokens: number; cost_micro_usd: number }>;
     daily: Array<{ day: string; calls: number; cost_micro_usd: number }>;
     failures: Array<{ errorMessage: string; cnt: number }>;
   };
@@ -196,6 +197,20 @@ export default function UsagePage() {
               ])}
             />
           </Section>
+
+          {(data.llm.byFeature?.length ?? 0) > 0 && (
+            <Section title="LLM 各 Feature 维度 (call-site 级成本, 按成本降序)">
+              <Table
+                headers={['Feature (调用点)', '调用', 'Total Tokens', '成本估算']}
+                rows={(data.llm.byFeature ?? []).map((r) => [
+                  r.feature,
+                  fmtNum(r.calls),
+                  fmtNum(r.total_tokens),
+                  fmtUsd(r.cost_micro_usd),
+                ])}
+              />
+            </Section>
+          )}
 
           {data.llm.failures.length > 0 && (
             <Section title="LLM 最近失败原因">

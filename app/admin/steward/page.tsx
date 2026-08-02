@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Shield,
@@ -125,14 +124,11 @@ export default function StewardWorkbenchPage() {
         <CardContent>
           <div className="flex items-center gap-2">
             <span className="text-footnote text-muted-foreground">当前签字身份:</span>
-            <Input
-              value={signerId}
-              onChange={(e) => setSignerId(e.target.value)}
-              className="h-8 w-48 font-mono text-footnote"
-              placeholder="signerId (e.g. u_steward)"
-            />
+            <span className="h-8 rounded-md border border-border bg-surface-2 px-3 py-1 font-mono text-footnote">
+              {signerId}
+            </span>
             <span className="ml-auto text-footnote text-muted-foreground">
-              真实环境: 从登录态自动注入, 此处供演示
+              服务端以登录态强制绑定签字人身份, 不可代签
             </span>
           </div>
         </CardContent>
@@ -356,7 +352,7 @@ function PromotionCard({
             return (
               <div
                 key={r}
-                className="flex items-center gap-2 rounded-sm border bg-white px-2 py-1 text-footnote"
+                className="flex items-center gap-2 rounded-sm border bg-surface-1 px-2 py-1 text-footnote"
               >
                 {signed ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
@@ -716,7 +712,7 @@ function Stat({
       ? 'text-warning'
       : 'text-foreground';
   return (
-    <div className="rounded border bg-white p-3 text-center">
+    <div className="rounded border bg-surface-1 p-3 text-center">
       <div className={`text-title-3 font-semibold ${cls}`}>{value}</div>
       <div className="mt-1 text-footnote text-muted-foreground">{label}</div>
     </div>

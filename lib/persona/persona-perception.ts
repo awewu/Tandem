@@ -107,6 +107,9 @@ export async function personaPerceptionPass(
       maxTokens: 600,
       adaptiveTopology: true,
       aiTraceId: checkId,
+      // 高价值前沿接线: 成本归因 + FIDES 信息流硬拦截 (只读感知, 纵深防御)
+      feature: 'persona_perception',
+      enableInfoFlow: true,
     });
 
     const okInvocations = loop.toolInvocations.filter((t) => t.ok);

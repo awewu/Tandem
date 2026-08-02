@@ -103,6 +103,8 @@ export interface ChatRequest {
     decisionCardId?: string;
     /** §IM-7 (CHARTER-FOUR-PILLARS) · 调用方 trace id, 透传到 LlmUsageLog.requestId. 例: IM 消息 id, 议事 cardId, ⌘K session id */
     requestId?: string;
+    /** Call-site 级 feature 标签, 透传到 LlmUsageLog.feature. 例: 'boss_ai_stream' / 'verify_step' / 'planguard' / 'reranker' */
+    feature?: string;
   };
 }
 

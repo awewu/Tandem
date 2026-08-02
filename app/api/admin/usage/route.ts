@@ -65,7 +65,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   ]);
 
   // ---- LlmUsageLog 维度 ----
-  const [llmByProvider, llmByScenario, llmDaily, llmFailures] = await Promise.all([
+  const [llmByProvider, llmByScenario, llmByFeature, llmDaily, llmFailures] = await Promise.all([
     db.execute(sql`
       SELECT
         "provider",
@@ -93,6 +93,19 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
       GROUP BY "scenario"
       ORDER BY cost_micro_usd DESC NULLS LAST
       LIMIT 10
+    `),
+    db.execute(sql`
+      SELECT
+        COALESCE("feature", '(untagged)') AS feature,
+        COUNT(*)::int AS calls,
+        SUM("tokensIn" + "tokensOut")::int AS total_tokens,
+        SUM("costMicroUsd")::bigint AS cost_micro_usd
+      FROM "LlmUsageLog"
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
+        AND "tenantId" = ${auth.tenantId}
+      GROUP BY COALESCE("feature", '(untagged)')
+      ORDER BY cost_micro_usd DESC NULLS LAST
+      LIMIT 15
     `),
     db.execute(sql`
       SELECT
@@ -188,6 +201,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
     llm: {
       byProvider: rowsOf(llmByProvider),
       byScenario: rowsOf(llmByScenario),
+      byFeature: rowsOf(llmByFeature),
       daily: rowsOf(llmDaily),
       failures: rowsOf(llmFailures),
     },

@@ -840,8 +840,8 @@ function ReportPageInner() {
         className={cn(
           "w-full text-left rounded border text-footnote transition-all",
           isSelected || isOpen
-            ? "bg-white border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
-            : "bg-white hover:bg-muted/50 border-border"
+            ? "bg-surface-1 border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
+            : "bg-surface-1 hover:bg-muted/50 border-border"
         )}
       >
         <button
@@ -895,7 +895,7 @@ function ReportPageInner() {
                 </div>
                 <div className="space-y-1.5">
                   {reportPlans.map((initiative) => (
-                    <div key={initiative.id} className="flex items-center gap-2 rounded border border-border bg-white px-2 py-1.5">
+                    <div key={initiative.id} className="flex items-center gap-2 rounded border border-border bg-surface-1 px-2 py-1.5">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[11px] font-medium text-ink-primary">{initiative.title}</p>
                         <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -938,7 +938,7 @@ function ReportPageInner() {
                 }
               }
               placeholder="写下今天围绕这个 KR 做了什么、遇到什么阻碍、下一步准备做什么..."
-              className="min-h-[96px] bg-white text-footnote leading-relaxed font-sans placeholder:opacity-60 text-ink-primary"
+              className="min-h-[96px] bg-surface-1 text-footnote leading-relaxed font-sans placeholder:opacity-60 text-ink-primary"
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground">
@@ -982,9 +982,15 @@ function ReportPageInner() {
           <p className="mt-1 text-[12.5px] md:text-caption text-ink-tertiary leading-relaxed">
             写下今天的进展, AI 帮你提炼成 Action Plan, 一键推流到 OKR 进度.
           </p>
+          {/* 三入口互链: 澄清"在哪写进展" (对标审计 P1-1 迷路问题) */}
+          <nav className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] md:text-footnote text-muted-foreground">
+            <span className="font-medium text-ink-secondary">当前: 写日报推流</span>
+            <a href="/okr" className="hover:text-primary hover:underline">目标与对齐 → OKR</a>
+            <a href="/tti" className="hover:text-primary hover:underline">四要素填报 → TTI</a>
+          </nav>
         </div>
         {activeCycle && (
-          <Badge variant="outline" className="shrink-0 h-6 text-[11px] bg-white border-border font-medium">
+          <Badge variant="outline" className="shrink-0 h-6 text-[11px] bg-surface-1 border-border font-medium">
             {activeCycle.name}
           </Badge>
         )}
@@ -1038,7 +1044,7 @@ function ReportPageInner() {
                         <section
                           key={objective.id}
                           className={cn(
-                            "rounded-md border bg-white transition-all",
+                            "rounded-md border bg-surface-1 transition-all",
                             isObjectiveOpen ? "border-border shadow-soft-sm" : "border-border hover:border-border",
                           )}
                         >
@@ -1068,7 +1074,7 @@ function ReportPageInner() {
                                     已写 {filledCount}
                                   </Badge>
                                 )}
-                                <Badge variant="outline" className="bg-white text-[10px] font-medium">
+                                <Badge variant="outline" className="bg-surface-1 text-[10px] font-medium">
                                   {krs.length} KR
                                 </Badge>
                                 <ChevronDown
@@ -1117,7 +1123,7 @@ function ReportPageInner() {
                       <p className="text-[11px] text-muted-foreground">作者本人始终可见；指定的人进入日报页可看到这条内容。</p>
                     </div>
                     {reportVisibility === 'selected' && (
-                      <Badge variant="outline" className="bg-white text-[10px]">
+                      <Badge variant="outline" className="bg-surface-1 text-[10px]">
                         已选 {selectedReportViewers.length} 人
                       </Badge>
                     )}
@@ -1139,7 +1145,7 @@ function ReportPageInner() {
                           "rounded-md border px-3 py-2 text-left transition",
                           reportVisibility === item.value
                             ? "border-primary/50 bg-primary/5 text-ink-primary"
-                            : "border-border bg-white text-ink-secondary hover:bg-surface-2",
+                            : "border-border bg-surface-1 text-ink-secondary hover:bg-surface-2",
                         )}
                       >
                         <div className="text-[12px] font-semibold">{item.label}</div>
@@ -1152,7 +1158,7 @@ function ReportPageInner() {
                       <button
                         type="button"
                         onClick={() => setViewerSelectOpen((open) => !open)}
-                        className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-white px-3 text-left text-[12px] text-ink-secondary transition hover:bg-surface-2"
+                        className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-surface-1 px-3 text-left text-[12px] text-ink-secondary transition hover:bg-surface-2"
                         aria-expanded={viewerSelectOpen}
                       >
                         <span className={cn(selectedReportViewers.length === 0 && "text-muted-foreground")}>
@@ -1186,14 +1192,14 @@ function ReportPageInner() {
                       )}
 
                       {viewerSelectOpen && (
-                        <div className="absolute left-0 right-0 z-20 rounded-md border border-border bg-white p-2 shadow-soft-lg">
+                        <div className="absolute left-0 right-0 z-20 rounded-md border border-border bg-surface-1 p-2 shadow-soft-lg">
                           <div className="relative">
                             <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
                             <input
                               value={viewerSearch}
                               onChange={(e) => setViewerSearch(e.target.value)}
                               placeholder="搜索姓名或账号"
-                              className="h-8 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-[12px] outline-none focus:border-info/40 focus:bg-white focus:ring-2 focus:ring-info/20"
+                              className="h-8 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-[12px] outline-none focus:border-info/40 focus:bg-surface-1 focus:ring-2 focus:ring-info/20"
                             />
                           </div>
                           {viewerOptions.length === 0 ? (
@@ -1222,7 +1228,7 @@ function ReportPageInner() {
                                         "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
                                         checked
                                           ? "border-primary bg-primary text-white"
-                                          : "border-border bg-white text-transparent",
+                                          : "border-border bg-surface-1 text-transparent",
                                       )}
                                     >
                                       ✓
@@ -1255,7 +1261,7 @@ function ReportPageInner() {
                             "h-9 w-9 rounded-full border flex items-center justify-center transition-colors",
                             isActive
                               ? "bg-ink-primary border-ink-primary text-white"
-                              : "bg-white border-border text-ink-tertiary hover:bg-surface-2"
+                              : "bg-surface-1 border-border text-ink-tertiary hover:bg-surface-2"
                           )}
                           title={label}
                         >
@@ -1319,7 +1325,7 @@ function ReportPageInner() {
                       正在生成
                     </span>
                   </div>
-                  <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono bg-white/60 rounded p-3 border border-border">
+                  <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono bg-surface-1/60 rounded p-3 border border-border">
                     {streamingText}
                     <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
                   </pre>
@@ -1374,7 +1380,7 @@ function ReportPageInner() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] text-muted-foreground">AI 生成的是草稿，可先修改再提交。</p>
                     {!pushedSuccess && (
-                      <Badge variant="outline" className="text-[10px] bg-white text-info border-info/20">
+                      <Badge variant="outline" className="text-[10px] bg-surface-1 text-info border-info/20">
                         可编辑
                       </Badge>
                     )}
@@ -1390,7 +1396,7 @@ function ReportPageInner() {
                       value={analysisResult.achievements.join('\n')}
                       onChange={(e) => updateAnalysisLines('achievements', e.target.value)}
                       placeholder="一行一条，例如：完成报价流程联调"
-                      className="min-h-[72px] resize-y bg-white text-[11px] leading-relaxed"
+                      className="min-h-[72px] resize-y bg-surface-1 text-[11px] leading-relaxed"
                     />
                   </label>
 
@@ -1404,7 +1410,7 @@ function ReportPageInner() {
                       value={analysisResult.blockers.join('\n')}
                       onChange={(e) => updateAnalysisLines('blockers', e.target.value)}
                       placeholder="没有卡点可留空；一行一条"
-                      className="min-h-[60px] resize-y bg-white text-[11px] leading-relaxed"
+                      className="min-h-[60px] resize-y bg-surface-1 text-[11px] leading-relaxed"
                     />
                   </label>
 
@@ -1418,14 +1424,14 @@ function ReportPageInner() {
                       value={analysisResult.nextSteps.join('\n')}
                       onChange={(e) => updateAnalysisLines('nextSteps', e.target.value)}
                       placeholder="一行一条，例如：明天补齐异常场景验证"
-                      className="min-h-[72px] resize-y bg-white text-[11px] leading-relaxed"
+                      className="min-h-[72px] resize-y bg-surface-1 text-[11px] leading-relaxed"
                     />
                   </label>
                 </div>
 
                 {/* 2. 反向推流建议区 */}
                 <div className="space-y-3">
-                  <div className="bg-white rounded-md p-3 border border-border shadow-soft-sm space-y-3">
+                  <div className="bg-surface-1 rounded-md p-3 border border-border shadow-soft-sm space-y-3">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Suggested OKR Alignment (对账进度变化)</p>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
@@ -1451,7 +1457,7 @@ function ReportPageInner() {
                           max={selectedKr ? Math.max(selectedKr.startValue, selectedKr.targetValue) : undefined}
                           step="0.01"
                           onChange={(e) => updateSuggestedValue(e.target.value)}
-                          className="h-8 w-full rounded-md border border-border bg-white px-2 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
+                          className="h-8 w-full rounded-md border border-border bg-surface-1 px-2 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
                         />
                       </label>
                       <label className="space-y-1">
@@ -1464,7 +1470,7 @@ function ReportPageInner() {
                             max={100}
                             step={1}
                             onChange={(e) => updateSuggestedPercent(e.target.value)}
-                            className="h-8 w-full rounded-md border border-border bg-white px-2 pr-6 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
+                            className="h-8 w-full rounded-md border border-border bg-surface-1 px-2 pr-6 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
                           />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
                         </div>
@@ -1474,7 +1480,7 @@ function ReportPageInner() {
                         <select
                           value={analysisResult.suggestedConfidence}
                           onChange={(e) => updateAnalysisResult({ suggestedConfidence: e.target.value as AnalysisConfidence })}
-                          className="h-8 w-full rounded-md border border-border bg-white px-2 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
+                          className="h-8 w-full rounded-md border border-border bg-surface-1 px-2 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
                         >
                           {CONFIDENCE_OPTIONS.map((item) => (
                             <option key={item.value} value={item.value}>{item.label}</option>
@@ -1510,7 +1516,7 @@ function ReportPageInner() {
                       value={analysisResult.explanation}
                       onChange={(e) => updateAnalysisResult({ explanation: e.target.value })}
                       placeholder="补充为什么这样更新 OKR 进度"
-                      className="min-h-[52px] resize-y bg-white text-[11px] leading-relaxed"
+                      className="min-h-[52px] resize-y bg-surface-1 text-[11px] leading-relaxed"
                     />
                   </label>
 
@@ -1548,7 +1554,7 @@ function ReportPageInner() {
             </Card>
           )}
           </div>
-          <Card className="h-[320px] shrink-0 border-border bg-white">
+          <Card className="h-[320px] shrink-0 border-border bg-surface-1">
             <CardContent className="flex h-full min-h-0 flex-col space-y-3 p-5">
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -1587,7 +1593,7 @@ function ReportPageInner() {
                             {nameOf(report.authorId)} · {report.reportDate ?? new Date(report.createdAt).toLocaleString('zh-CN')}
                           </p>
                         </div>
-                        <Badge variant="outline" className="shrink-0 bg-white text-[10px]">
+                        <Badge variant="outline" className="shrink-0 bg-surface-1 text-[10px]">
                           {report.scope === 'non_okr'
                             ? `${report.hours ?? 0}h`
                             : report.visibility === 'public' ? '全员' : report.visibility === 'selected' ? '指定人' : '仅自己'}
@@ -1618,7 +1624,7 @@ function ReportPageInner() {
 
       {/* §P2 移动端 sticky CTA · md+ 隐藏 · safe-area 适配 */}
       <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pointer-events-none">
-        <div className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md shadow-[0_-2px_24px_rgba(0,0,0,0.06)] border border-border/70 p-2.5">
+        <div className="pointer-events-auto rounded-2xl bg-surface-1/95 backdrop-blur-md shadow-[0_-2px_24px_rgba(0,0,0,0.06)] border border-border/70 p-2.5">
           {stickyState === 'idle' && (
             <div className="flex items-center justify-center gap-1.5 py-2 text-[12px] text-ink-tertiary">
               <Target className="h-3.5 w-3.5" />

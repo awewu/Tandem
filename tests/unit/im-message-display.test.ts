@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseImPopupDirection, formatImMessageTimestamp, getImReadReceiptSummary } from '@/lib/im/message-display';
+import { chooseImPopupDirection, formatImMessageTimestamp, formatImDateDivider, shouldShowImDateDivider, getImReadReceiptSummary } from '@/lib/im/message-display';
 import type { ImMembership } from '@/lib/types/im';
 
 function member(userId: string, lastReadAt?: string): ImMembership {
@@ -53,6 +53,32 @@ describe('IM message display helpers', () => {
     expect(summary.readerCount).toBe(2);
     expect(summary.readers.map((m) => m.userId)).toEqual(['reader-1', 'reader-2']);
     expect(summary.unreadMembers.map((m) => m.userId)).toEqual(['unread-1', 'unread-2']);
+  });
+
+  it('formats date divider as 今天/昨天/M月D日/跨年', () => {
+    const now = new Date(2026, 6, 31, 20, 6);
+    expect(formatImDateDivider(new Date(2026, 6, 31, 8, 0).toISOString(), now)).toBe('今天');
+    expect(formatImDateDivider(new Date(2026, 6, 30, 23, 59).toISOString(), now)).toBe('昨天');
+    expect(formatImDateDivider(new Date(2026, 6, 12, 10, 0).toISOString(), now)).toBe('7月12日');
+    expect(formatImDateDivider(new Date(2025, 11, 30, 10, 0).toISOString(), now)).toBe('2025年12月30日');
+    expect(formatImDateDivider('not-a-date', now)).toBe('');
+  });
+
+  it('shows date divider for first message or when crossing a local day', () => {
+    const day1a = new Date(2026, 6, 30, 9, 0).toISOString();
+    const day1b = new Date(2026, 6, 30, 23, 0).toISOString();
+    const day2 = new Date(2026, 6, 31, 0, 30).toISOString();
+    // 首条 (无 prev) → 显示
+    expect(shouldShowImDateDivider(null, day1a)).toBe(true);
+    expect(shouldShowImDateDivider(undefined, day1a)).toBe(true);
+    // 同日 → 不显示
+    expect(shouldShowImDateDivider(day1a, day1b)).toBe(false);
+    // 跨日 → 显示
+    expect(shouldShowImDateDivider(day1b, day2)).toBe(true);
+    // 当前非法日期 → 不显示
+    expect(shouldShowImDateDivider(day1a, 'not-a-date')).toBe(false);
+    // prev 非法但 current 合法 → 显示 (兜底)
+    expect(shouldShowImDateDivider('not-a-date', day2)).toBe(true);
   });
 
   it('opens the read receipt popup downward when there is not enough room above', () => {

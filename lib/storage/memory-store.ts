@@ -15,8 +15,13 @@ import type {
   AuthSession,
   AuthInvite,
   AuthEvent,
+  ImMessageRepository,
+  ChannelMessageQuery,
+  MessageSearchQuery,
 } from './repository';
+import type { ImMessage } from '../types/im';
 import { generateId } from './repository';
+import { getActiveTenantScope, isRecordVisibleInScope } from './tenant-scope';
 import { instrumentBusinessRepositories } from '@/lib/business-log/repository';
 
 function paginate<T>(rows: T[], opts?: ListOptions): T[] {
@@ -30,16 +35,26 @@ class InMemoryRepository<T extends { id: string }> implements Repository<T> {
   private data = new Map<string, T>();
 
   async get(id: string): Promise<T | null> {
-    return this.data.get(id) ?? null;
+    const item = this.data.get(id) ?? null;
+    // 租户作用域激活时: 跨租户记录视为 not-found (不泄漏存在性).
+    if (item !== null && !isRecordVisibleInScope(item)) return null;
+    return item;
   }
 
   async list(filter?: Partial<T>, opts?: ListOptions): Promise<T[]> {
+    const scopeActive = getActiveTenantScope() !== undefined;
+    // 作用域激活时剥离调用方传入的 tenantId 键 (防越权列举, 与 drizzle applyTenantScopeToFilter
+    // "覆盖 tenantId" 语义对齐); 租户维度改由 isRecordVisibleInScope 按有效租户判定.
+    const entries = filter
+      ? Object.entries(filter).filter(([key]) => !(scopeActive && key === 'tenantId'))
+      : [];
     const all = Array.from(this.data.values());
-    const filtered = filter
-      ? all.filter((item) =>
-          Object.entries(filter).every(([key, val]) => (item as never)[key] === val),
-        )
+    let filtered = entries.length
+      ? all.filter((item) => entries.every(([key, val]) => (item as never)[key] === val))
       : all;
+    // 逐条按有效租户 (tenantId ?? 'default') 过滤 (与 drizzle 列 eq 同口径,
+    // 避免对无 tenantId 字段的记录 (如 ImMessage) 误滤为空).
+    filtered = filtered.filter((item) => isRecordVisibleInScope(item));
     return paginate(filtered, opts);
   }
 
@@ -62,6 +77,41 @@ class InMemoryRepository<T extends { id: string }> implements Repository<T> {
 
   async delete(id: string): Promise<void> {
     this.data.delete(id);
+  }
+}
+
+/** IM 消息仓储 (memory): 复用 scope-aware list, 再按 createdAt 做游标/限行. */
+class InMemoryImMessageRepository
+  extends InMemoryRepository<ImMessage>
+  implements ImMessageRepository
+{
+  async listByChannel(
+    channelId: string,
+    query: ChannelMessageQuery = {},
+  ): Promise<ImMessage[]> {
+    const all = await this.list({ channelId } as Partial<ImMessage>);
+    let msgs = all
+      .filter((m) => !m.deletedAt)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (query.before) msgs = msgs.filter((m) => m.createdAt < query.before!);
+    const limit = query.limit ?? 100;
+    return msgs.slice(-limit);
+  }
+
+  async searchByBody(query: MessageSearchQuery): Promise<ImMessage[]> {
+    const q = (query.query ?? '').trim().toLowerCase();
+    if (!q) return [];
+    const limit = query.limit ?? 30;
+    const channelSet = query.channelIds && query.channelIds.length > 0
+      ? new Set(query.channelIds)
+      : null;
+    const all = await this.list();
+    return all
+      .filter((m) => !m.deletedAt)
+      .filter((m) => !channelSet || channelSet.has(m.channelId))
+      .filter((m) => (m.body ?? '').toLowerCase().includes(q))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
   }
 }
 
@@ -293,6 +343,8 @@ export function createInMemoryStore(): TandemStore {
     // P0 Eval / Trace-Grading 台
     evalTraces: new InMemoryRepository(),
     evalAttributions: new InMemoryRepository(),
+    episodicReflections: new InMemoryRepository(),
+    correctionPatches: new InMemoryRepository(),
     origins: new InMemoryRepository(),
     materials: new InMemoryRepository(),
     memories: new InMemoryRepository(),
@@ -319,7 +371,7 @@ export function createInMemoryStore(): TandemStore {
     kpiCausalLinks: new InMemoryRepository(),
     kpiTargetAmendments: new InMemoryRepository(),
     imChannels: new InMemoryRepository(),
-    imMessages: new InMemoryRepository(),
+    imMessages: new InMemoryImMessageRepository(),
     imMemberships: new InMemoryRepository(),
     imPresence: new InMemoryRepository(),
     imMentionInbox: new InMemoryRepository(),

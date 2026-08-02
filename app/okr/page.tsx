@@ -22,7 +22,7 @@ import {
   CheckCircle2, AlertCircle, AlertTriangle, Edit2, MessageSquare,
   Calendar, User, Tag, Cloud, Save, X, Filter, FileSpreadsheet, FileJson,
   Sparkles, Stethoscope, TrendingUp, ListChecks, Award, Activity, Eye,
-  BookOpen, CalendarRange, Network, Edit3,
+  BookOpen, CalendarRange, Network, Edit3, ChevronLeft, MoreHorizontal,
 } from 'lucide-react';
 import { OKRInitiatives } from '@/components/okr/okr-initiatives';
 import { OKRComments } from '@/components/okr/okr-comments';
@@ -49,6 +49,8 @@ import {
 import { hasOkrApproverRole } from '@/lib/okr/visibility';
 import { useCurrentUserId, useAuthStore } from '@/lib/hooks/use-current-user';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
+import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   hydrateOkrFromApi,
   persistCreateObjective, persistUpdateObjective, persistDeleteObjective,
@@ -89,6 +91,7 @@ function ApprovalActions({ objective }: { objective: Objective }) {
 
   const isOwner = !!meUserId && objective.ownerId === meUserId;
   const isApprover = hasOkrApproverRole(roles);
+  const { toast } = useToast();
 
   const acts = new Set<LifecycleAction>();
   if (isOwner) availableActions(objective.status, 'owner' as LifecycleActor).forEach((a) => acts.add(a));
@@ -105,9 +108,10 @@ function ApprovalActions({ objective }: { objective: Objective }) {
     updateObjective(objective.id, { status: to });
     try {
       await persistUpdateObjective(objective.id, { status: to });
+      toast({ variant: 'success', title: `已${TRANSITIONS[action].label}` });
     } catch (err: any) {
       updateObjective(objective.id, { status: prev });
-      alert(`操作失败：${err?.message || err}`);
+      toast({ variant: 'destructive', title: '操作失败', description: err?.message || String(err) });
     } finally {
       setBusy(null);
     }
@@ -229,9 +233,17 @@ export default function OKRPage() {
   // 真实登录用户 id (B4 Phase-2: 新建 OKR 默认归属当前用户, 保证落库后本人可见).
   const meUser = useAuthStore((s) => s.user);
   const meUserId = meUser?.id;
+  const { toast } = useToast();
+  const { confirm: confirmDialog, dialog: confirmDialogEl } = useConfirm();
 
   // ===== 视图状态 =====
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
+  // 移动端: 详情右栏在 <md 隐藏, 选中后用全屏浮层展示 (桌面无此浮层, md:hidden 守卫).
+  // 与 selectedObjId 分离: 首屏 auto-select 不应弹出浮层, 仅用户主动点选才开.
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  // 移动端顶部次要操作 (模板/AI起草/校准/健康度/导入导出) 收进"更多"下拉 (桌面走 md:flex 平铺).
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const [view, setView] = useState<'tree' | 'list'>('tree');
   type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti' | 'retro' | 'monthly' | 'alignment';
   const [detailTab, setDetailTab] = useState<DetailTab>('overview');
@@ -326,6 +338,16 @@ export default function OKRPage() {
     document.addEventListener('pointerdown', closeOnOutsidePointer);
     return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
   }, [ownerFilterLabel, ownerFilterOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onPointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && mobileMenuRef.current?.contains(event.target)) return;
+      setMobileMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [mobileMenuOpen]);
 
   const filteredOwnerFilterItems = useMemo(() => {
     const q = ownerFilterSearch.trim().toLowerCase();
@@ -434,6 +456,11 @@ export default function OKRPage() {
 
   const selected = objectives.find((o) => o.id === selectedObjId) || null;
   const selectedKRs = keyResults.filter((k) => k.objectiveId === selectedObjId);
+  // 用户主动点选目标: 选中 + 移动端弹出详情浮层 (桌面浮层 md:hidden 不显示, 无副作用).
+  const openObjective = (id: string) => {
+    setSelectedObjId(id);
+    setMobileDetailOpen(true);
+  };
   useEffect(() => {
     if (filteredObjectives.length === 0) {
       if (selectedObjId) setSelectedObjId(null);
@@ -559,6 +586,13 @@ export default function OKRPage() {
         else await persistCreateKeyResult(d);
         await hydrateOkrFromApi(true);
       }
+      toast({
+        variant: 'success',
+        title:
+          editing.kind === 'objective'
+            ? (('id' in editing.data && editing.data.id) ? '目标已更新' : '目标已创建')
+            : (('id' in editing.data && editing.data.id) ? 'KR 已更新' : 'KR 已创建'),
+      });
       setEditing(null);
     } catch (err: any) {
       setSaveError(`保存失败：${err?.message || err}`);
@@ -600,21 +634,28 @@ export default function OKRPage() {
     e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const text = String(reader.result || '');
       try {
         if (file.name.toLowerCase().endsWith('.json')) {
           const snap = parseSnapshot(text);
-          if (!confirm(`将完全替换当前 OKR 数据：${snap.objectives.length} 个目标 / ${snap.keyResults.length} 个 KR。确定继续？`)) return;
+          const ok = await confirmDialog({
+            title: '替换全部 OKR 数据',
+            description: `将完全替换当前 OKR 数据：${snap.objectives.length} 个目标 / ${snap.keyResults.length} 个 KR。\n此操作不可恢复。`,
+            confirmText: '替换',
+            destructive: true,
+          });
+          if (!ok) return;
           replaceAll(snap);
-          alert(`已导入 ${snap.objectives.length} 个目标 / ${snap.keyResults.length} 个 KR`);
+          toast({ variant: 'success', title: '导入成功', description: `已导入 ${snap.objectives.length} 个目标 / ${snap.keyResults.length} 个 KR` });
         } else {
           const result = importTitaCSV(text, { people, cycles });
           const initCount = result.initiatives.length;
           const msg = `将合并 CSV 数据：${result.objectives.length} 个目标 / ${result.keyResults.length} 个 KR / ${initCount} 个行动项。\n` +
             (result.warnings.length > 0 ? `\n⚠️ 警告 ${result.warnings.length} 条：\n${result.warnings.slice(0, 3).join('\n')}\n` : '') +
             `\n注意：将与现有数据合并（不覆盖）。继续？`;
-          if (!confirm(msg)) return;
+          const ok = await confirmDialog({ title: '合并导入 CSV', description: msg, confirmText: '合并导入' });
+          if (!ok) return;
           const s = useOKRStore.getState();
           replaceAll({
             cycles: result.cycles,
@@ -623,10 +664,10 @@ export default function OKRPage() {
             keyResults: [...keyResults, ...result.keyResults],
             initiatives: [...s.initiatives, ...result.initiatives],
           });
-          alert(`已导入 ${result.objectives.length} 个目标 / ${result.keyResults.length} 个 KR / ${initCount} 个行动项`);
+          toast({ variant: 'success', title: '导入成功', description: `已导入 ${result.objectives.length} 个目标 / ${result.keyResults.length} 个 KR / ${initCount} 个行动项` });
         }
       } catch (err: any) {
-        alert(`导入失败：${err?.message || err}`);
+        toast({ variant: 'destructive', title: '导入失败', description: err?.message || String(err) });
       }
     };
     reader.readAsText(file, 'utf-8');
@@ -685,7 +726,7 @@ export default function OKRPage() {
               isSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50'
             )}
             style={{ marginLeft: depth * 20 }}
-            onClick={() => setSelectedObjId(obj.id)}
+            onClick={() => openObjective(obj.id)}
           >
             <button
               className="text-muted-foreground hover:text-foreground mt-0.5"
@@ -795,14 +836,21 @@ export default function OKRPage() {
               <Button
                 size="sm" variant="ghost" className="h-7 w-7 p-0 text-danger"
                 onClick={async () => {
-                  if (confirm(`删除目标「${selected.title}」（连同其 KR 与子目标）？`)) {
-                    try {
-                      await persistDeleteObjective(selected.id);
-                      await hydrateOkrFromApi(true);
-                      setSelectedObjId(null);
-                    } catch (err: any) {
-                      alert(`删除失败：${err?.message || err}`);
-                    }
+                  const ok = await confirmDialog({
+                    title: '删除目标',
+                    description: `删除「${selected.title}」将连同其 KR 与子目标一并移除，且不可恢复。`,
+                    confirmText: '删除目标',
+                    destructive: true,
+                  });
+                  if (!ok) return;
+                  try {
+                    await persistDeleteObjective(selected.id);
+                    await hydrateOkrFromApi(true);
+                    setSelectedObjId(null);
+                    setMobileDetailOpen(false);
+                    toast({ variant: 'success', title: '目标已删除' });
+                  } catch (err: any) {
+                    toast({ variant: 'destructive', title: '删除失败', description: err?.message || String(err) });
                   }
                 }}
               >
@@ -1031,12 +1079,19 @@ export default function OKRPage() {
                       </Button>
                       <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-danger"
                         onClick={async () => {
-                          if (!confirm('删除此 KR？')) return;
+                          const ok = await confirmDialog({
+                            title: '删除 KR',
+                            description: '该 KR 及其 check-in 将被移除，且不可恢复。',
+                            confirmText: '删除',
+                            destructive: true,
+                          });
+                          if (!ok) return;
                           try {
                             await persistDeleteKeyResult(kr.id);
                             await hydrateOkrFromApi(true);
+                            toast({ variant: 'success', title: 'KR 已删除' });
                           } catch (err: any) {
-                            alert(`删除失败：${err?.message || err}`);
+                            toast({ variant: 'destructive', title: '删除失败', description: err?.message || String(err) });
                           }
                         }}>
                         <Trash2 className="h-3 w-3" />
@@ -1178,6 +1233,13 @@ export default function OKRPage() {
             >
               <Sparkles className="h-3 w-3 text-brand-500" /> AI 信号
             </a>
+            {/* 三入口互链 (对标审计 P1-1): 从"目标与对齐"跳到"填报进展"的两个专用视图 */}
+            <a href="/tti" className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40" title="TTI 四要素填报视图">
+              <Sparkles className="h-3 w-3 text-primary" /> TTI 填报
+            </a>
+            <a href="/report" className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40" title="5 分钟日报 → 推流 OKR 进度">
+              <Edit3 className="h-3 w-3" /> 写日报
+            </a>
             <div className="flex border rounded">
               <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={handleExportJSON} title="导出 JSON 全量备份">
                 <FileJson className="h-3 w-3 mr-1" /> JSON
@@ -1193,6 +1255,54 @@ export default function OKRPage() {
             <Button size="sm" variant="outline" className="h-7 text-footnote" disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
               <Cloud className="h-3 w-3 mr-1" /> 同步 Tita
             </Button>
+          </div>
+
+          {/* 移动端"更多"下拉: 把次要操作收进一处 (桌面平铺见上方 hidden md:flex 块) */}
+          <div ref={mobileMenuRef} className="relative md:hidden">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-footnote"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label="更多操作"
+            >
+              <MoreHorizontal className="h-4 w-4" /> 更多
+            </Button>
+            {mobileMenuOpen && (
+              <div className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-soft-lg">
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); setShowTemplates(true); }}>
+                  <Sparkles className="h-3.5 w-3.5 text-warning" /> 模板库
+                </button>
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); setShowBulkCreate(true); }}>
+                  <Sparkles className="h-3.5 w-3.5 text-brand-500" /> AI 起草 4 套
+                </button>
+                <a href="/okr/calibration" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => setMobileMenuOpen(false)}>
+                  <CalendarRange className="h-3.5 w-3.5" /> 校准下属
+                </a>
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); setShowHealth((v) => !v); }}>
+                  <Stethoscope className="h-3.5 w-3.5" /> 健康度诊断
+                </button>
+                <a href="/insights" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => setMobileMenuOpen(false)}>
+                  <Sparkles className="h-3.5 w-3.5 text-brand-500" /> AI 信号
+                </a>
+                <a href="/tti" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => setMobileMenuOpen(false)}>
+                  <Sparkles className="h-3.5 w-3.5 text-primary" /> TTI 填报
+                </a>
+                <a href="/report" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => setMobileMenuOpen(false)}>
+                  <Edit3 className="h-3.5 w-3.5" /> 写日报
+                </a>
+                <div className="my-1 border-t border-border" />
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); handleExportJSON(); }}>
+                  <FileJson className="h-3.5 w-3.5" /> 导出 JSON
+                </button>
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); handleExportCSV(); }}>
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> 导出 CSV
+                </button>
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); importInputRef.current?.click(); }}>
+                  <Upload className="h-3.5 w-3.5" /> 导入 CSV/JSON
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1387,7 +1497,7 @@ export default function OKRPage() {
                       'grid grid-cols-[minmax(0,1fr)_110px] gap-3 border-b px-3 py-3 cursor-pointer transition-colors last:border-b-0 md:grid-cols-[minmax(220px,1.3fr)_120px_90px_130px] lg:grid-cols-[minmax(260px,1.4fr)_minmax(180px,0.9fr)_120px_90px_130px]',
                       obj.id === selectedObjId ? 'bg-primary/5' : 'hover:bg-muted/40'
                     )}
-                    onClick={() => setSelectedObjId(obj.id)}
+                    onClick={() => openObjective(obj.id)}
                   >
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
@@ -1437,9 +1547,27 @@ export default function OKRPage() {
             </div>
           )}
         </div>
-        {/* 右栏详情 (mobile 隐藏, 详情编辑走桌面; mobile 用户进入 OKR 看进度 + /report 写进展) */}
+        {/* 右栏详情 (desktop: 常驻右栏; mobile: 见下方全屏浮层) */}
         <div className="hidden min-w-0 flex-1 bg-muted/10 overflow-hidden md:block">{renderDetail()}</div>
       </div>
+
+      {/* ===== 移动端详情浮层 (md:hidden; 点选目标后全屏展示, 内含编辑/check-in 入口) ===== */}
+      {mobileDetailOpen && selected && (
+        <div className="fixed inset-0 z-40 flex flex-col bg-background md:hidden">
+          <div className="flex items-center gap-2 border-b px-3 py-2 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 -ml-1"
+              onClick={() => setMobileDetailOpen(false)}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> 返回列表
+            </Button>
+            <span className="min-w-0 flex-1 truncate text-caption font-medium">{selected.title}</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">{renderDetail()}</div>
+        </div>
+      )}
 
       {/* ===== 编辑弹窗 ===== */}
       {editing && (
@@ -1471,13 +1599,18 @@ export default function OKRPage() {
             try {
               await persistCreateCheckIn(payload);
               await hydrateOkrFromApi(true);
+              setCheckinFor(null);
+              toast({ variant: 'success', title: 'Check-in 已记录', description: '进度与信心已更新' });
             } catch (err: any) {
-              alert(`Check-in 失败：${err?.message || err}`);
+              // 失败保留弹窗内容, 不丢用户输入
+              toast({ variant: 'destructive', title: 'Check-in 失败', description: err?.message || String(err) });
             }
-            setCheckinFor(null);
           }}
         />
       )}
+
+      {/* 品牌化确认对话框 (替换原生 confirm) */}
+      {confirmDialogEl}
 
       {/* ===== 模板库弹窗 ===== */}
       <OKRTemplatePicker
@@ -1783,7 +1916,8 @@ function EditDialog({
               </div>
               {/* FP&A 锚定: KR → BSC KPI 数据契约桥 (三省六部推演用, 选填) */}
               <div className="rounded-md border border-dashed border-brand-200 bg-brand-50/40 dark:bg-brand-900/10 p-3 space-y-2">
-                <div className="text-footnote font-medium text-brand-700 dark:text-brand-600 flex items-center gap-1 flex-wrap">                  <Network className="h-3 w-3" /> FP&amp;A 锚定 · 这个 KR 推动哪个 BSC 指标
+                <div className="text-footnote font-medium text-brand-700 dark:text-brand-600 flex items-center gap-1 flex-wrap">
+                  <Network className="h-3 w-3" /> FP&amp;A 锚定 · 这个 KR 推动哪个 BSC 指标
                   <span className="text-[10px] font-normal text-muted-foreground">三省六部推演用 · 选填</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

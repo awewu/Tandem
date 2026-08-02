@@ -33,6 +33,7 @@ export interface TargetSuggestionRow {
   growthRateUsed: number;
   suggestedTarget: number;
   alreadySet: boolean;
+  existingKpiId?: string;
   cascadeWarning: {
     parentSubjectCode: string;
     parentSuggestedTarget: number;
@@ -47,13 +48,16 @@ interface Props {
   assigneeName: (id: string) => string;
   /** 采纳一条建议: 由调用方决定如何预填 / 落地 (通常打开新建 KPI 对话框) */
   onAdopt: (row: TargetSuggestionRow) => void;
+  /** 一条建议成功更新已存在的草稿 KPI 后, 由调用方刷新数据 */
+  onUpdated?: () => void;
 }
 
-export function TargetSuggestionPanel({ cycleId, subjects, assigneeName, onAdopt }: Props) {
+export function TargetSuggestionPanel({ cycleId, subjects, assigneeName, onAdopt, onUpdated }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [defaultGrowthRate, setDefaultGrowthRate] = useState('0');
   const [rateByCode, setRateByCode] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<TargetSuggestionRow[]>([]);
   const [priorFiscalYear, setPriorFiscalYear] = useState<number | null>(null);
@@ -85,6 +89,27 @@ export function TargetSuggestionPanel({ cycleId, subjects, assigneeName, onAdopt
       setNote(data.note ?? null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateExisting = async (row: TargetSuggestionRow) => {
+    if (!row.existingKpiId) return;
+    setUpdatingId(row.existingKpiId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/kpi/${row.existingKpiId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetValue: row.suggestedTarget }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? '更新失败');
+      onUpdated?.();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -126,7 +151,7 @@ export function TargetSuggestionPanel({ cycleId, subjects, assigneeName, onAdopt
 
           {subjectCodesInUse.length > 0 && (
             <div className="space-y-1.5 border-t pt-3">
-              <p className="text-footnote text-muted-foreground">按科目覆盖增长率 (留空用默认值, 改完点"生成建议"重新计算)</p>
+              <p className="text-footnote text-muted-foreground">按科目覆盖增长率 (留空用默认值, 改完点&quot;生成建议&quot;重新计算)</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {subjectCodesInUse.map((code) => (
                   <div key={code} className="flex items-center gap-1.5">
@@ -181,9 +206,21 @@ export function TargetSuggestionPanel({ cycleId, subjects, assigneeName, onAdopt
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{s.suggestedTarget.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">
                         {s.alreadySet ? (
-                          <Badge variant="outline" className="text-footnote">
-                            <Check className="h-3 w-3 mr-1" /> 已设定
-                          </Badge>
+                          s.existingKpiId ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-[11px]"
+                              disabled={updatingId === s.existingKpiId}
+                              onClick={() => updateExisting(s)}
+                            >
+                              {updatingId === s.existingKpiId ? '更新中…' : '用建议值更新'}
+                            </Button>
+                          ) : (
+                            <Badge variant="outline" className="text-footnote">
+                              <Check className="h-3 w-3 mr-1" /> 已设定
+                            </Badge>
+                          )
                         ) : (
                           <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={() => onAdopt(s)}>
                             采纳

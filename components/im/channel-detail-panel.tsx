@@ -42,9 +42,15 @@ import {
   Trash2,
   LogOut,
   Search,
+  MessageSquareText,
+  CheckCircle2,
+  ListChecks,
+  HelpCircle,
+  Landmark,
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
+import type { ImSummaryScope, SummarizeChannelOutput } from '@/lib/im/summary';
 import { displayImChannelName } from '@/lib/im/channel-name';
 
 interface OrgUser {
@@ -307,14 +313,153 @@ function AddMembersDialog({ channelId, operatorId, existingIds, onAdded, onClose
   );
 }
 
+// ─── 群总结结构化渲染 (§Sprint3) ────────────────────────────
+
+function scopeLabel(scope: SummarizeChannelOutput['scope']): string {
+  return scope === 'unread' ? '未读' : scope === 'today' ? '今日' : '最近';
+}
+
+function SummaryView({
+  result,
+  onRegenerate,
+  onAssignTodo,
+  onSpawnRoom,
+}: {
+  result: SummarizeChannelOutput;
+  onRegenerate: () => void;
+  onAssignTodo: (todo: SummarizeChannelOutput['summary']['todos'][number]) => Promise<boolean>;
+  onSpawnRoom: () => Promise<string | null>;
+}) {
+  const s = result.summary;
+  const [dispatch, setDispatch] = useState<Record<number, 'idle' | 'sending' | 'done' | 'error'>>({});
+  const [roomState, setRoomState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [roomCardId, setRoomCardId] = useState<string | null>(null);
+
+  async function handleSpawnRoom() {
+    if (roomState === 'sending' || roomState === 'done') return;
+    setRoomState('sending');
+    const cardId = await onSpawnRoom();
+    if (cardId) { setRoomCardId(cardId); setRoomState('done'); }
+    else setRoomState('error');
+  }
+
+  async function handleAssign(i: number, todo: SummarizeChannelOutput['summary']['todos'][number]) {
+    if (dispatch[i] === 'sending' || dispatch[i] === 'done') return;
+    setDispatch((p) => ({ ...p, [i]: 'sending' }));
+    const ok = await onAssignTodo(todo);
+    setDispatch((p) => ({ ...p, [i]: ok ? 'done' : 'error' }));
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {/* meta: 范围 / 条数 / 人数 / 是否 AI */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-tertiary">
+        <span>{scopeLabel(result.scope)} · {result.messageCount} 条 · {result.participantCount} 人</span>
+        {!result.aiGenerated && <span className="rounded-full bg-warning/10 px-1.5 py-0.5 text-warning">降级</span>}
+      </div>
+
+      {/* 概览 */}
+      {s.overview && (
+        <div className="rounded-lg border border-brand-100 bg-brand-50 p-2.5 text-[12px] leading-relaxed text-ink-primary whitespace-pre-wrap">
+          {s.overview}
+        </div>
+      )}
+
+      {/* 核心讨论 */}
+      {s.topics.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1 text-[11.5px] font-medium text-ink-secondary"><MessageSquareText className="h-3 w-3" /> 核心讨论</div>
+          <ul className="space-y-1 pl-1">
+            {s.topics.map((t, i) => (
+              <li key={i} className="text-[12px] text-ink-primary">
+                <span className="font-medium">{t.title}</span>
+                {t.detail ? <span className="text-ink-secondary">：{t.detail}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 决定事项 */}
+      {s.decisions.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1 text-[11.5px] font-medium text-ink-secondary"><CheckCircle2 className="h-3 w-3 text-success" /> 决定事项</div>
+          <ul className="list-disc space-y-0.5 pl-5 text-[12px] text-ink-primary">
+            {s.decisions.map((d, i) => <li key={i}>{d}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {/* 待跟进 (含负责人) */}
+      {s.todos.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1 text-[11.5px] font-medium text-ink-secondary"><ListChecks className="h-3 w-3 text-brand-600" /> 待跟进</div>
+          <ul className="space-y-1.5">
+            {s.todos.map((t, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[12px] text-ink-primary">
+                <span className="mt-0.5 shrink-0 rounded-full bg-brand-50 px-1.5 text-[10.5px] text-brand-700">{t.owner}</span>
+                <span className="flex-1">{t.task}</span>
+                {t.ownerId ? (
+                  dispatch[i] === 'done' ? (
+                    <span className="mt-0.5 shrink-0 text-[10.5px] text-success">已派发</span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={dispatch[i] === 'sending'}
+                      onClick={() => void handleAssign(i, t)}
+                      className="mt-px shrink-0 rounded-full border border-brand-200 px-1.5 py-0.5 text-[10.5px] text-brand-600 hover:bg-brand-50 disabled:opacity-50"
+                      title={`把这条待办作为 @指派 发给 ${t.owner}`}
+                    >
+                      {dispatch[i] === 'sending' ? '…' : dispatch[i] === 'error' ? '重试' : '派发'}
+                    </button>
+                  )
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 未决问题 */}
+      {s.questions.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1 text-[11.5px] font-medium text-ink-secondary"><HelpCircle className="h-3 w-3 text-warning" /> 未决问题</div>
+          <ul className="list-disc space-y-0.5 pl-5 text-[12px] text-ink-primary">
+            {s.questions.map((q, i) => <li key={i}>{q}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-0.5">
+        <button type="button" onClick={onRegenerate}
+          className="flex items-center gap-1 text-[11.5px] text-brand-600 hover:underline">
+          <Sparkles className="h-3 w-3" /> 重新生成
+        </button>
+        {roomState === 'done' && roomCardId ? (
+          <a href={`/convergence/${roomCardId}`} className="flex items-center gap-1 text-[11.5px] text-success hover:underline">
+            <Landmark className="h-3 w-3" /> 议事室已开 →
+          </a>
+        ) : (
+          <button type="button" onClick={() => void handleSpawnRoom()} disabled={roomState === 'sending'}
+            className="flex items-center gap-1 text-[11.5px] text-brand-600 hover:underline disabled:opacity-50">
+            <Landmark className="h-3 w-3" /> {roomState === 'sending' ? '开设中…' : roomState === 'error' ? '重试开议事室' : '开议事室'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── 主面板 ────────────────────────────────────────────────
 
 export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose, onDissolve, onLeft }: Props) {
   const [members, setMembers] = useState<ImMembership[]>([]);
   const [orgUsers, setOrgUsers] = useState<Map<string, OrgUser>>(new Map());
   const [okrs, setOkrs] = useState<OkrItem[]>([]);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryResult, setSummaryResult] = useState<SummarizeChannelOutput | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryScope, setSummaryScope] = useState<ImSummaryScope>('recent');
 
   const [editingAnn, setEditingAnn] = useState(false);
   const [annDraft, setAnnDraft] = useState(channel.announcement ?? '');
@@ -478,15 +623,74 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
     } finally { setMgmtBusy(false); }
   }
 
-  async function requestSummary() {
+  async function requestSummary(scope: ImSummaryScope = summaryScope) {
     if (summaryLoading) return;
-    setSummaryLoading(true); setSummary(null);
+    setSummaryScope(scope);
+    setSummaryLoading(true);
+    setSummaryResult(null);
+    setSummaryError(null);
     try {
-      const res = await fetch(`/api/im/channels/${channel.id}/summary`, { method: 'POST' });
+      const res = await fetch(`/api/im/channels/${channel.id}/summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope }),
+      });
       const data = await res.json();
-      setSummary(data.summary ?? '总结生成失败');
-    } catch { setSummary('网络错误，请重试'); }
-    finally { setSummaryLoading(false); }
+      if (!res.ok || !data.result) {
+        setSummaryError(data.error === 'not found' ? '无权总结此频道' : '总结生成失败');
+        return;
+      }
+      setSummaryResult(data.result as SummarizeChannelOutput);
+    } catch {
+      setSummaryError('网络错误，请重试');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  // §Sprint3 派发闭环: 把群总结的一条待办以 @指派 消息发到频道 (进 assignee 的定向未读队列)。
+  async function assignTodo(todo: SummarizeChannelOutput['summary']['todos'][number]): Promise<boolean> {
+    if (!todo.ownerId) return false;
+    const ownerName = orgUsers.get(todo.ownerId)?.name ?? todo.owner;
+    const safeName = ownerName.replace(/[[\]()]/g, '').trim() || todo.ownerId;
+    const body = `@[${safeName}](${todo.ownerId}:assign) ${todo.task}\n（来自群总结）`;
+    try {
+      const res = await fetch(`/api/im/channels/${channel.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ body }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // §Sprint3 群总结闭环: 把整份群总结开成议事室 (title=概览首句, description=完整总结)。
+  async function spawnRoomFromSummary(): Promise<string | null> {
+    if (!summaryResult) return null;
+    const s = summaryResult.summary;
+    const firstSentence = (s.overview || '').split(/[。\n]/)[0].trim();
+    const title = (firstSentence || `${displayImChannelName(channel)} 群讨论`).slice(0, 50);
+    const descParts: string[] = [];
+    if (s.overview) descParts.push(s.overview);
+    if (s.decisions.length) descParts.push('已达成:\n' + s.decisions.map((d) => `- ${d}`).join('\n'));
+    if (s.todos.length) descParts.push('待跟进:\n' + s.todos.map((t) => `- [${t.owner}] ${t.task}`).join('\n'));
+    if (s.questions.length) descParts.push('未决:\n' + s.questions.map((q) => `- ${q}`).join('\n'));
+    try {
+      const res = await fetch(`/api/im/channels/${channel.id}/spawn-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title, description: descParts.join('\n\n') }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data.cardId === 'string' ? data.cardId : null;
+    } catch {
+      return null;
+    }
   }
 
   function confColor(c: string) {
@@ -739,24 +943,49 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
             )}
           </div>
 
-          {/* ── 智能总结 ── */}
+          {/* ── 智能总结 (§Sprint3 群总结: 结构化 + 范围切换) ── */}
           <div>
             <SectionHeader icon={Sparkles} label="智能总结" open={openSummary}
-              onToggle={() => { setOpenSummary((v) => !v); if (!openSummary && !summary) void requestSummary(); }} />
+              onToggle={() => { setOpenSummary((v) => !v); if (!openSummary && !summaryResult && !summaryLoading) void requestSummary(); }} />
             {openSummary && (
-              <div className="px-3 pb-3">
+              <div className="px-3 pb-3 space-y-2.5">
+                {/* 范围切换: 最近 / 未读 / 今日 */}
+                <div className="flex items-center gap-1">
+                  {([
+                    { key: 'recent', label: '最近' },
+                    { key: 'unread', label: '未读' },
+                    { key: 'today', label: '今日' },
+                  ] as { key: ImSummaryScope; label: string }[]).map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      disabled={summaryLoading}
+                      onClick={() => void requestSummary(s.key)}
+                      className={`rounded-full px-2.5 py-0.5 text-[11.5px] transition disabled:opacity-50 ${
+                        summaryScope === s.key
+                          ? 'bg-brand-600 text-white'
+                          : 'border border-hairline text-ink-secondary hover:bg-surface-3'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+
                 {summaryLoading ? (
                   <div className="flex items-center gap-2 text-[12px] text-ink-tertiary">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> AI 正在阅读群聊…
                   </div>
-                ) : summary ? (
+                ) : summaryError ? (
                   <div className="space-y-2">
-                    <div className="rounded-lg border border-brand-100 bg-brand-50 p-2.5 text-[12px] leading-relaxed text-ink-primary whitespace-pre-wrap">{summary}</div>
+                    <div className="rounded-lg border border-danger/30 bg-danger/5 p-2.5 text-[12px] text-danger">{summaryError}</div>
                     <button type="button" onClick={() => void requestSummary()}
                       className="flex items-center gap-1 text-[11.5px] text-brand-600 hover:underline">
-                      <Sparkles className="h-3 w-3" /> 重新生成
+                      <Sparkles className="h-3 w-3" /> 重试
                     </button>
                   </div>
+                ) : summaryResult ? (
+                  <SummaryView result={summaryResult} onRegenerate={() => void requestSummary()} onAssignTodo={assignTodo} onSpawnRoom={spawnRoomFromSummary} />
                 ) : (
                   <button type="button" onClick={() => void requestSummary()}
                     className="flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-[12px] text-brand-700 hover:bg-brand-100 transition">

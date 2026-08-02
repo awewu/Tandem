@@ -223,6 +223,11 @@ export interface SaveCalibrationsInput {
   /** 调用方传入的 store updater (避免直接耦合 Zustand client store) */
   updateObjective: (id: string, patch: Partial<Objective>) => void;
   /**
+   * P0-2 闭环: 落库回调 (client 传 persistUpdateObjective). 不传则只写内存 (旧行为).
+   * 缺它时校准分会被下次 hydrate 覆盖 = 假闭环.
+   */
+  persistObjective?: (id: string, patch: Partial<Objective>) => Promise<void>;
+  /**
    * 可选 audit 回调 (server-only).
    * Client 不传 → 仅写 store; Server 传入 lib/audit/log → 同步走链式 hash.
    * 这样设计避免 audit 模块传递引入 postgres 进 client bundle.
@@ -247,10 +252,14 @@ export async function saveCalibrations(input: SaveCalibrationsInput): Promise<Sa
       skipped++;
       continue;
     }
-    input.updateObjective(u.objectiveId, {
-      managerScore: u.managerScore,
-      reviewedAt: Date.now(),
-    } as Partial<Objective>);
+    const patch = { managerScore: u.managerScore, reviewedAt: Date.now() } as Partial<Objective>;
+    input.updateObjective(u.objectiveId, patch);
+    if (input.persistObjective) {
+      // 落库失败不阻断整批 (乐观内存已更新); 记 skip 计数外的告警交给 caller.
+      try {
+        await input.persistObjective(u.objectiveId, patch);
+      } catch { /* 离线/权限失败: 保留内存乐观值, 下次校准重试 */ }
+    }
     applied++;
   }
 

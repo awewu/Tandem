@@ -15,6 +15,8 @@ import {
   approveReflection,
   analyzeOkrHealth,
   setOptimizationProposalStatus,
+  recordEpisodicReflection,
+  listEpisodicReflections,
 } from '@/lib/persona/company-brain-reflection';
 import { recordDecision, setFeedback } from '@/lib/persona/company-brain-decision';
 import {
@@ -36,6 +38,9 @@ async function reset() {
   }
   for (const r of await store.companyBrainReflections.list()) {
     await store.companyBrainReflections.delete(r.id);
+  }
+  for (const e of await store.episodicReflections.list()) {
+    await store.episodicReflections.delete(e.id);
   }
   for (const v of await store.companyBrainVersions.list()) {
     await store.companyBrainVersions.delete(v.id);
@@ -533,5 +538,76 @@ describe('§CA-13 · CompanyBrain Reflection 生成器', () => {
     for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
     const r = await generateReflection({ useLlm: false });
     expect(await setOptimizationProposalStatus(r!.id, 'no-such-proposal', 'dismissed', 'owner1')).toBeNull();
+  });
+});
+
+describe('Tier0-Evo · 情景级反思闭环', () => {
+  beforeEach(reset);
+
+  async function waitForEpisodics(min: number, timeoutMs = 500): Promise<Awaited<ReturnType<typeof listEpisodicReflections>>> {
+    const deadline = Date.now() + timeoutMs;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const list = await listEpisodicReflections('default', 30);
+      if (list.length >= min || Date.now() > deadline) return list;
+      await new Promise((res) => setTimeout(res, 10));
+    }
+  }
+
+  it('recordEpisodicReflection → listEpisodicReflections 往返 + 租户隔离', async () => {
+    await recordEpisodicReflection({
+      context: 'im_reply', query: 'q1', responseSummary: 'a1', signal: 'overruled', note: '跑偏了',
+    });
+    await recordEpisodicReflection({
+      tenantId: 'other', context: 'boss_ai', query: 'q2', responseSummary: 'a2', signal: 'user_complaint',
+    });
+    const mine = await listEpisodicReflections('default', 30);
+    expect(mine).toHaveLength(1);
+    expect(mine[0].signal).toBe('overruled');
+    expect(await listEpisodicReflections('other', 30)).toHaveLength(1);
+  });
+
+  it('setFeedback(overruled) 即时触发情景反思 (负向信号)', async () => {
+    const d = await seedDecision({ outcome: 'overruled', reason: '与红线冲突' });
+    const list = await waitForEpisodics(1);
+    const epi = list.find((e) => e.refId === d!.id);
+    expect(epi).toBeDefined();
+    expect(epi!.signal).toBe('overruled');
+    expect(epi!.note).toBe('与红线冲突');
+  });
+
+  it('setFeedback(modified) → negative_feedback 信号', async () => {
+    await seedDecision({ outcome: 'modified', reason: '部分对' });
+    const list = await waitForEpisodics(1);
+    expect(list.some((e) => e.signal === 'negative_feedback')).toBe(true);
+  });
+
+  it('setFeedback(adopted) 不触发情景反思 (无学习价值)', async () => {
+    await seedDecision({ outcome: 'adopted' });
+    // 给 fire-and-forget 一点时间, 确认它不会写入
+    await new Promise((res) => setTimeout(res, 60));
+    expect(await listEpisodicReflections('default', 30)).toHaveLength(0);
+  });
+
+  it('generateReflection 汇总窗口内 episodic 信号进 episodicSummary', async () => {
+    await seedVersion();
+    for (let i = 0; i < 5; i++) await seedDecision({ outcome: 'adopted' });
+    await recordEpisodicReflection({ context: 'im_reply', query: 'x', responseSummary: 'y', signal: 'guardrail_block', note: '越狱尝试' });
+    await recordEpisodicReflection({ context: 'boss_ai', query: 'x2', responseSummary: 'y2', signal: 'overruled' });
+
+    const r = await generateReflection({ useLlm: false });
+    expect(r).not.toBeNull();
+    expect(r!.episodicSummary).toBeDefined();
+    expect(r!.episodicSummary!.total).toBe(2);
+    expect(r!.episodicSummary!.bySignal.guardrail_block).toBe(1);
+    expect(r!.episodicSummary!.bySignal.overruled).toBe(1);
+    expect(r!.episodicSummary!.recentNotes.some((n) => n.includes('越狱尝试'))).toBe(true);
+  });
+
+  it('无 episodic 记录时 episodicSummary 缺省', async () => {
+    await seedVersion();
+    for (let i = 0; i < 5; i++) await seedDecision({ outcome: 'adopted' });
+    const r = await generateReflection({ useLlm: false });
+    expect(r!.episodicSummary).toBeUndefined();
   });
 });

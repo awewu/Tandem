@@ -69,7 +69,7 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
       req.signal.addEventListener('abort', onAbort);
 
       try {
-        const hits = await searchNotesForAsk(auth.userId, question, { topK: 6 });
+        const hits = await searchNotesForAsk(auth.userId, question, { topK: 6, actorUserId: auth.userId });
         if (hits.length === 0) {
           send({ citations: [] });
           send({ content: '你还没有任何笔记。先记几条，我就能帮你回顾和检索了。' });

@@ -200,7 +200,7 @@ export default function WeeklyRecapPage() {
           {/* 主管/HR 代审选人区 (U1-B B端高阶特色) */}
           {selectedAssignee && (
             <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-              <SelectTrigger className="w-48 h-8 text-footnote bg-white">
+              <SelectTrigger className="w-48 h-8 text-footnote bg-surface-1">
                 <SelectValue placeholder="选择审阅人选" />
               </SelectTrigger>
               <SelectContent>
@@ -220,7 +220,7 @@ export default function WeeklyRecapPage() {
                 onClick={() => setDays(d)}
                 className={cn(
                   'px-2.5 h-7 rounded transition-colors',
-                  d === days ? 'bg-white shadow-soft-sm font-semibold' : 'text-muted-foreground hover:text-foreground',
+                  d === days ? 'bg-surface-1 shadow-soft-sm font-semibold' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {d} 天

@@ -173,7 +173,7 @@ export default function LlmSettingsPage() {
 
       {!loading && (
         <div className="space-y-6">
-          <div className="rounded-lg border border bg-white p-4 shadow-soft-sm">
+          <div className="rounded-lg border border bg-surface-1 p-4 shadow-soft-sm">
             <h2 className="mb-2 font-semibold">已注册的 Provider</h2>
             <div className="flex flex-wrap gap-2">
               {available.length === 0 ? (
@@ -203,7 +203,7 @@ export default function LlmSettingsPage() {
             </div>
           )}
 
-          <div className="rounded-lg border border bg-white p-4 shadow-soft-sm">
+          <div className="rounded-lg border border bg-surface-1 p-4 shadow-soft-sm">
             <h2 className="mb-3 font-semibold">默认 Provider（兜底）</h2>
             <select
               value={defaultProvider}
@@ -219,7 +219,7 @@ export default function LlmSettingsPage() {
             </select>
           </div>
 
-          <div className="rounded-lg border border bg-white p-4 shadow-soft-sm">
+          <div className="rounded-lg border border bg-surface-1 p-4 shadow-soft-sm">
             <h2 className="mb-3 font-semibold">按场景指定（精细控制）</h2>
             <div className="space-y-3">
               {SCENARIOS.map((s) => (
@@ -277,7 +277,7 @@ export default function LlmSettingsPage() {
               <p className="text-footnote text-warning">控制员工个人AI 是否可以消耗中央AI (公司) 的 token 配额。</p>
 
               {/* 旗舰模型展示 */}
-              <div className="flex items-center gap-3 rounded-md border border-warning/30 bg-white px-4 py-3">
+              <div className="flex items-center gap-3 rounded-md border border-warning/30 bg-surface-1 px-4 py-3">
                 <span className="text-headline">🏆</span>
                 <div>
                   <div className="text-caption font-semibold">中央AI 旗舰模型</div>
@@ -286,7 +286,7 @@ export default function LlmSettingsPage() {
               </div>
 
               {/* 个人AI token 开关 */}
-              <div className="flex items-center justify-between rounded-md border border bg-white px-4 py-3">
+              <div className="flex items-center justify-between rounded-md border border bg-surface-1 px-4 py-3">
                 <div>
                   <div className="text-caption font-medium">允许员工个人AI 使用中央AI token</div>
                   <div className="text-footnote text-ink-secondary">关闭后员工个人AI 只能用自己配置的 API key</div>
@@ -308,7 +308,7 @@ export default function LlmSettingsPage() {
 
               {/* 月度 token 配额 */}
               {policy.allowPersonalAiTokens && (
-                <div className="rounded-md border border bg-white px-4 py-3 space-y-2">
+                <div className="rounded-md border border bg-surface-1 px-4 py-3 space-y-2">
                   <div className="text-caption font-medium">每用户月度 Token 配额</div>
                   <div className="flex items-center gap-3">
                     <input
@@ -325,7 +325,7 @@ export default function LlmSettingsPage() {
               )}
 
               {/* Provider 白名单 */}
-              <div className="rounded-md border border bg-white px-4 py-3 space-y-2">
+              <div className="rounded-md border border bg-surface-1 px-4 py-3 space-y-2">
                 <div className="text-caption font-medium">个人AI Provider 白名单</div>
                 <div className="text-footnote text-ink-secondary">勾选后员工只能选这些 provider；不选 = 不限制</div>
                 <div className="flex flex-wrap gap-2 pt-1">

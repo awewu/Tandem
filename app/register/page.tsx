@@ -216,7 +216,7 @@ function Field({
   return (
     <div>
       <p className="mb-1 text-footnote text-muted-foreground">{label}</p>
-      <div className="flex items-center gap-2 rounded border bg-white px-2 py-1.5">
+      <div className="flex items-center gap-2 rounded border bg-surface-1 px-2 py-1.5">
         <span className="text-muted-foreground">{icon}</span>
         {children}
       </div>

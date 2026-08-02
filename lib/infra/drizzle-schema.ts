@@ -478,6 +478,8 @@ export const llmUsageLog = pgTable(
     costMicroUsd: integer('costMicroUsd').notNull().default(0),
     /** 追踪请求链路 (可关联 baseline-guard checkId / api request id / ...) */
     requestId: text('requestId'),
+    /** Call-site 级 feature 标签 (比 scenario 更细粒度): 'boss_ai_stream' / 'verify_step' / 'planguard' / ... */
+    feature: text('feature'),
     success: boolean('success').notNull().default(true),
     errorMessage: text('errorMessage'),
     createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
@@ -486,6 +488,7 @@ export const llmUsageLog = pgTable(
     userIdx: index('LlmUsageLog_userId_idx').on(t.userId),
     providerIdx: index('LlmUsageLog_provider_idx').on(t.provider),
     scenarioIdx: index('LlmUsageLog_scenario_idx').on(t.scenario),
+    featureIdx: index('LlmUsageLog_feature_idx').on(t.feature),
     createdAtIdx: index('LlmUsageLog_createdAt_idx').on(t.createdAt),
     tenantCreatedIdx: index('LlmUsageLog_tenant_created_idx').on(t.tenantId, t.createdAt),
   }),
@@ -1652,6 +1655,138 @@ export const pmsProductCatalog = pgTable(
 );
 
 /**
+ * pms_quotes · 报价单 (三层文档模型: 方案→系统→明细, systems 存 jsonb)
+ * 报价即凭证文档: 改价=新版本(version+1, 旧版 superseded)。
+ * 验真: verifyCode 公开查询, 只回真伪+授权经销商 (不露价)。草稿 verifyCode 为空。
+ */
+export const pmsQuotes = pgTable(
+  'pms_quotes',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId').notNull(),
+    dealerOrgId: text('dealerOrgId').notNull(),
+    opportunityId: text('opportunityId').notNull(),
+    projectId: text('projectId'),
+    issuerId: text('issuerId').notNull(),
+    title: text('title').notNull(),
+    customerName: text('customerName').notNull(),
+    customerContact: text('customerContact'),
+    scenario: text('scenario'),
+    systems: jsonb('systems').default([]),
+    currency: text('currency').notNull().default('CNY'),
+    equipmentTotal: numeric('equipmentTotal').default('0'),
+    materialTotal: numeric('materialTotal').default('0'),
+    installTotal: numeric('installTotal').default('0'),
+    freightTotal: numeric('freightTotal').default('0'),
+    taxTotal: numeric('taxTotal').default('0'),
+    serviceTotal: numeric('serviceTotal').default('0'),
+    otherTotal: numeric('otherTotal').default('0'),
+    totalAmount: numeric('totalAmount').default('0'),
+    terms: jsonb('terms'),
+    validUntil: timestamp('validUntil', { precision: 3, mode: 'date' }),
+    version: integer('version').notNull().default(1),
+    status: text('status').notNull().default('draft'),
+    verifyCode: text('verifyCode'),
+    supersededById: text('supersededById'),
+    issuedAt: timestamp('issuedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    opportunityIdx: index('pms_quote_opportunity_idx').on(t.opportunityId, t.status),
+    dealerIdx: index('pms_quote_dealer_idx').on(t.dealerOrgId, t.status, t.createdAt),
+    verifyIdx: uniqueIndex('pms_quote_verify_idx').on(t.verifyCode),
+    tenantIdx: index('pms_quote_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_quote_templates · 报价方案模板库
+ * 常用系统方案(系统+明细+条款)存为模板, 建报价时一键套用。
+ * 归属: tenantId + orgId (创建组织); isShared=true → 租户内跨组织共享。
+ */
+export const pmsQuoteTemplates = pgTable(
+  'pms_quote_templates',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId').notNull(),
+    name: text('name').notNull(),
+    category: text('category'),
+    scenario: text('scenario'),
+    description: text('description'),
+    systems: jsonb('systems').notNull().default([]),
+    terms: jsonb('terms'),
+    isShared: boolean('isShared').notNull().default(false),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    orgIdx: index('pms_quote_tpl_org_idx').on(t.tenantId, t.orgId),
+    sharedIdx: index('pms_quote_tpl_shared_idx').on(t.tenantId, t.isShared),
+  }),
+);
+
+/**
+ * pms_selector_rulesets · 选型规则集 (P3 选型配置器, 配置驱动)
+ * "研"团队以数据形式维护 inputFields(工况问卷) + rules(选型规则), 业务员填工况 → 引擎产出推荐。
+ * inputFields/rules 存 jsonb; 状态 draft/published/archived。软删 archivedAt。
+ */
+export const pmsSelectorRulesets = pgTable(
+  'pms_selector_rulesets',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    name: text('name').notNull(),
+    category: text('category'),
+    scenario: text('scenario'),
+    description: text('description'),
+    systemName: text('systemName'),
+    version: integer('version').notNull().default(1),
+    status: text('status').notNull().default('draft'),
+    inputFields: jsonb('inputFields').notNull().default([]),
+    rules: jsonb('rules').notNull().default([]),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    publishedAt: timestamp('publishedAt', { precision: 3, mode: 'date' }),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    statusIdx: index('pms_selector_status_idx').on(t.tenantId, t.status),
+    categoryIdx: index('pms_selector_category_idx').on(t.tenantId, t.category),
+  }),
+);
+
+/**
+ * pms_selector_ruleset_versions · 选型规则集已发布版本快照
+ * 每次 publish 冻结一份 inputFields+rules 快照, 供审计追溯 / 回滚参考 (不就地覆盖丢历史)。
+ */
+export const pmsSelectorRulesetVersions = pgTable(
+  'pms_selector_ruleset_versions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    rulesetId: text('rulesetId').notNull(),
+    version: integer('version').notNull(),
+    name: text('name').notNull(),
+    category: text('category'),
+    scenario: text('scenario'),
+    systemName: text('systemName'),
+    inputFields: jsonb('inputFields').notNull().default([]),
+    rules: jsonb('rules').notNull().default([]),
+    publishedBy: text('publishedBy').notNull(),
+    publishedAt: timestamp('publishedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    rulesetIdx: index('pms_selector_version_ruleset_idx').on(t.tenantId, t.rulesetId),
+  }),
+);
+
+/**
  * pms_customer_accounts · 客户体系
  * 导入驱动设计，支持层级结构
  */
@@ -2171,3 +2306,220 @@ export const pmsSubmittals = pgTable(
     tenantIdx: index('pms_submittal_tenant_idx').on(t.tenantId),
   }),
 );
+
+// ===========================================================================
+// 薪酬绩效模块 comp_* (PRD §13) — 强类型表, 直连访问 (PMS 同款, 不走 TandemStore)
+// 列名 snake_case 与 scripts/migrations/2026-comp-tables.mjs 的 DDL 对齐。
+// 仅类型元数据; 不触发 DDL (建表由幂等迁移脚本负责, db:push 禁用)。
+// ===========================================================================
+
+export const compJobFamily = pgTable('comp_job_family', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  board: text('board').notNull(),
+  name: text('name').notNull(),
+  jobClass: text('job_class').notNull(),
+  sequence: text('sequence').notNull(),
+  reachableLevels: jsonb('reachable_levels').notNull().default([]),
+  matrixVersion: text('matrix_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_job_family_tenant').on(t.tenantId),
+}));
+
+export const compSkillDef = pgTable('comp_skill_def', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  familyId: text('family_id').notNull(),
+  name: text('name').notNull(),
+  skillWage: integer('skill_wage').notNull().default(0),
+  requiredAt: jsonb('required_at').notNull().default([]),
+  source: text('source').notNull().default('案例佐证'),
+  matrixVersion: text('matrix_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_skill_def_tenant').on(t.tenantId),
+  familyIdx: index('idx_comp_skill_def_family').on(t.familyId),
+}));
+
+export const compGradeBand = pgTable('comp_grade_band', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  jobClass: text('job_class').notNull(),
+  level: text('level').notNull(),
+  familyId: text('family_id'),
+  education: text('education'),
+  experience: text('experience'),
+  baseWage: integer('base_wage').notNull().default(0),
+  skillWageCached: integer('skill_wage_cached').notNull().default(0),
+  skillWageComputedAt: timestamp('skill_wage_computed_at', { withTimezone: true, mode: 'date' }),
+  taskRatio: numeric('task_ratio').notNull().default('0'),
+  taskWageStd: integer('task_wage_std').notNull().default(0),
+  skillStep: integer('skill_step').notNull().default(0),
+  taskStep: integer('task_step').notNull().default(0),
+  adjustStep: integer('adjust_step').notNull().default(0),
+  taskGears: jsonb('task_gears').notNull().default({}),
+  title: text('title'),
+  monthly: integer('monthly').notNull().default(0),
+  annual: integer('annual').notNull().default(0),
+  ratio: jsonb('ratio').notNull().default({}),
+  matrixVersion: text('matrix_version').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_grade_band_tenant').on(t.tenantId),
+  uq: uniqueIndex('uq_comp_grade_band').on(t.tenantId, t.jobClass, t.level, t.familyId),
+}));
+
+export const compMatrixVersion = pgTable('comp_matrix_version', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  version: text('version').notNull(),
+  effectiveFrom: timestamp('effective_from', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  publishedBy: text('published_by'),
+  changelog: text('changelog'),
+  status: text('status').notNull().default('draft'),
+}, (t) => ({
+  tenantIdx: index('idx_comp_matrix_version_tenant').on(t.tenantId),
+}));
+
+export const compEmployeeGrade = pgTable('comp_employee_grade', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  employeeId: text('employee_id').notNull(),
+  familyId: text('family_id').notNull(),
+  jobClass: text('job_class').notNull(),
+  currentLevel: text('current_level').notNull(),
+  education: text('education'),
+  experience: text('experience'),
+  baseWageSnapshot: integer('base_wage_snapshot').notNull().default(0),
+  taskGear: text('task_gear').notNull().default('D'),
+  effectiveFrom: timestamp('effective_from', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  effectiveTo: timestamp('effective_to', { withTimezone: true, mode: 'date' }),
+  certifiedAgainstVersion: text('certified_against_version').notNull(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_employee_grade_tenant').on(t.tenantId),
+  empIdx: index('idx_comp_employee_grade_emp').on(t.employeeId),
+}));
+
+export const compGradeCertification = pgTable('comp_grade_certification', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  employeeId: text('employee_id').notNull(),
+  familyId: text('family_id').notNull(),
+  skillId: text('skill_id').notNull(),
+  status: text('status').notNull().default('待认证'),
+  evidence: text('evidence'),
+  certifiedAt: timestamp('certified_at', { withTimezone: true, mode: 'date' }),
+  certifiedAgainstVersion: text('certified_against_version').notNull(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_cert_tenant').on(t.tenantId),
+  empIdx: index('idx_comp_cert_emp').on(t.employeeId),
+  uq: uniqueIndex('uq_comp_cert').on(t.tenantId, t.employeeId, t.skillId, t.certifiedAgainstVersion),
+}));
+
+export const compGradeChangeLog = pgTable('comp_grade_change_log', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  employeeId: text('employee_id').notNull(),
+  nodeId: text('node_id').notNull(),
+  cycle: text('cycle').notNull(),
+  changeType: text('change_type').notNull(),
+  fromGrade: text('from_grade'),
+  toGrade: text('to_grade'),
+  evidenceSnapshot: jsonb('evidence_snapshot').notNull().default({}),
+  signatureState: text('signature_state').notNull().default('待签'),
+  signedAt: timestamp('signed_at', { withTimezone: true, mode: 'date' }),
+  appealState: text('appeal_state').notNull().default('none'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_change_tenant').on(t.tenantId),
+  empIdx: index('idx_comp_change_emp').on(t.employeeId),
+}));
+
+export const compTaskCommitment = pgTable('comp_task_commitment', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  employeeId: text('employee_id').notNull(),
+  familyId: text('family_id').notNull(),
+  cycle: text('cycle').notNull(),
+  commitmentType: text('commitment_type').notNull(),
+  fromGear: text('from_gear'),
+  toGear: text('to_gear').notNull(),
+  taskWageDelta: integer('task_wage_delta').notNull().default(0),
+  reason: text('reason'),
+  status: text('status').notNull().default('proposed'),
+  proposedBy: text('proposed_by'),
+  approvedBy: text('approved_by'),
+  effectiveFrom: timestamp('effective_from', { withTimezone: true, mode: 'date' }),
+  effectiveTo: timestamp('effective_to', { withTimezone: true, mode: 'date' }),
+  evidenceSnapshot: jsonb('evidence_snapshot').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_commit_tenant').on(t.tenantId),
+  empIdx: index('idx_comp_commit_emp').on(t.employeeId),
+}));
+
+export const compGradeReview = pgTable('comp_grade_review', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  employeeId: text('employee_id').notNull(),
+  cycle: text('cycle').notNull(),
+  reviewType: text('review_type').notNull(),
+  okrPotentialScore: numeric('okr_potential_score'),
+  kpiPerformanceScore: numeric('kpi_performance_score'),
+  nineBoxRow: integer('nine_box_row'),
+  nineBoxCol: integer('nine_box_col'),
+  selfScore: numeric('self_score'),
+  peerScore: numeric('peer_score'),
+  managerScore: numeric('manager_score'),
+  sourceWeights: jsonb('source_weights').notNull().default({}),
+  review360CycleId: text('review360_cycle_id'),
+  outcome: text('outcome'),
+  snapshot: jsonb('snapshot').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_review_tenant').on(t.tenantId),
+  empIdx: index('idx_comp_review_emp').on(t.employeeId),
+  uq: uniqueIndex('uq_comp_review').on(t.tenantId, t.employeeId, t.cycle, t.reviewType),
+}));
+
+export const compMonthlySettlement = pgTable('comp_monthly_settlement', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  employeeId: text('employee_id').notNull(),
+  period: text('period').notNull(),
+  baseWage: integer('base_wage').notNull().default(0),
+  skillWage: integer('skill_wage').notNull().default(0),
+  taskWage: integer('task_wage').notNull().default(0),
+  performance: integer('performance').notNull().default(0),
+  attendance: numeric('attendance').notNull().default('1'),
+  coefficient: numeric('coefficient').notNull().default('1'),
+  gateFlags: jsonb('gate_flags').notNull().default({}),
+  basisSnapshot: jsonb('basis_snapshot').notNull().default({}),
+  status: text('status').notNull().default('draft'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_settle_tenant').on(t.tenantId),
+  empPeriodIdx: index('idx_comp_settle_emp_period').on(t.employeeId, t.period),
+  uq: uniqueIndex('uq_comp_settle').on(t.tenantId, t.employeeId, t.period),
+}));
+
+export const compBudgetPool = pgTable('comp_budget_pool', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull().default('default'),
+  departmentId: text('department_id').notNull(),
+  period: text('period').notNull(),
+  poolType: text('pool_type').notNull().default('lip'),
+  baseAmount: integer('base_amount').notNull().default(0),
+  hardCliff: boolean('hard_cliff').notNull().default(true),
+  budgetCeiling: integer('budget_ceiling'),
+  qualityCoefficient: numeric('quality_coefficient').notNull().default('1'),
+  attendanceBasis: text('attendance_basis'),
+  params: jsonb('params').notNull().default({}),
+  status: text('status').notNull().default('draft'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  tenantIdx: index('idx_comp_pool_tenant').on(t.tenantId),
+  deptPeriodIdx: index('idx_comp_pool_dept_period').on(t.departmentId, t.period),
+  uq: uniqueIndex('uq_comp_pool').on(t.tenantId, t.departmentId, t.period, t.poolType),
+}));

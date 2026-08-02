@@ -12,10 +12,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { hasInternalRole, MEMORY_GOVERNANCE_ROLES } from '@/lib/auth/roles';
 import {
   proposePromotion,
   sign,
   reject,
+  authorizeSignerRole,
   type SignerRole,
 } from '@/lib/memory/promotion-flow';
 import type { PromotionLevel } from '@/lib/types/memory';
@@ -23,6 +26,12 @@ import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function GETApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  // 治理队列含未批准的 proposedBody, 仅治理工作台角色可浏览.
+  const denied = requireRole(auth, MEMORY_GOVERNANCE_ROLES);
+  if (denied) return denied;
+
   const url = new URL(req.url);
   const status = url.searchParams.get('status');
   const level = url.searchParams.get('level');
@@ -39,11 +48,17 @@ export const GET = withApiLog(GETApiHandler, { route: '/api/tandem/memory/promot
 
 async function POSTApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  // 提议入库 = 任何正式员工可发起 (宪章: 任何员工); 外部协作者禁止提议企业知识.
+  if (!auth.demo && !hasInternalRole(auth.roles)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   try {
     const body = await req.json();
-    if (!body.materialId || !body.proposedTitle || !body.proposedBody || !body.proposerId) {
+    if (!body.materialId || !body.proposedTitle || !body.proposedBody) {
       return NextResponse.json(
-        { error: '缺必要字段: materialId, proposedTitle, proposedBody, proposerId' },
+        { error: '缺必要字段: materialId, proposedTitle, proposedBody' },
         { status: 400 }
       );
     }
@@ -53,7 +68,8 @@ async function POSTApiHandler(req: NextRequest) {
       proposedType: body.proposedType ?? 'sop',
       proposedTitle: body.proposedTitle,
       proposedBody: body.proposedBody,
-      proposerId: body.proposerId,
+      // 身份绑定: proposer 恒为登录用户, 忽略请求体 (防伪造污染审计 + 绕过 steward 冲突校验).
+      proposerId: auth.userId,
       level: body.level as PromotionLevel | undefined,
       isEmergencyTrack: body.isEmergencyTrack === true,
     });
@@ -68,21 +84,36 @@ export const POST = withApiLog(POSTApiHandler, { route: '/api/tandem/memory/prom
 
 async function PATCHApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const denied = requireRole(auth, MEMORY_GOVERNANCE_ROLES);
+  if (denied) return denied;
+
   try {
     const body = await req.json();
-    const { promotionId, action, signerId } = body;
-    if (!promotionId || !action || !signerId) {
+    const { promotionId, action } = body;
+    if (!promotionId || !action) {
       return NextResponse.json(
-        { error: '缺必要字段: promotionId, action, signerId' },
+        { error: '缺必要字段: promotionId, action' },
         { status: 400 }
       );
     }
+    // 身份绑定: 签字人/决议人恒为登录用户, 忽略请求体 signerId (防冒名签批).
+    const signerId = auth.userId;
 
     if (action === 'sign') {
       if (!body.role) {
         return NextResponse.json({ error: 'role 必填 (sign action)' }, { status: 400 });
       }
-      const updated = await sign(promotionId, signerId, body.role as SignerRole, body.comment);
+      const role = body.role as SignerRole;
+      // 角色身份校验: 自称的签字角色必须与登录用户真实持有的系统角色相符.
+      if (!auth.demo && !authorizeSignerRole(role, auth.roles)) {
+        return NextResponse.json(
+          { error: `无权以 '${role}' 身份签字 (角色不符)` },
+          { status: 403 }
+        );
+      }
+      const updated = await sign(promotionId, signerId, role, body.comment);
       return NextResponse.json({ promotion: updated });
     }
 

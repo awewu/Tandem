@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { Gauge, ScrollText, Target, Play, Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { computeEvalSummary, type EvalSummary } from '@/lib/eval/summary';
 
-type Tab = 'traces' | 'attributions' | 'regression';
+type Tab = 'traces' | 'attributions' | 'regression' | 'reliability';
 
 interface Grade {
   graderId: string;
@@ -58,6 +58,24 @@ interface Regression {
   tracesEvaluated: number;
   overallPassRate: number;
   byGrader: Record<string, { pass: number; total: number; passRate: number; avgScore: number }>;
+}
+interface PassK {
+  k: number;
+  eligibleGroups: number;
+  consistentGroups: number;
+  passAtK: number | null;
+  singlePassRate: number | null;
+}
+interface ReliabilityBucket {
+  bucket: string;
+  samples: number;
+  passRate: number | null;
+  gds: number | null;
+  avgRounds: number;
+}
+interface Reliability {
+  buckets: ReliabilityBucket[];
+  declineSlope: number | null;
 }
 
 function pct(n: number | null): string {
@@ -141,6 +159,8 @@ export default function EvalTracePage() {
   const [traces, setTraces] = useState<Trace[]>([]);
   const [attribs, setAttribs] = useState<Attribution[]>([]);
   const [regression, setRegression] = useState<Regression | null>(null);
+  const [passK, setPassK] = useState<PassK | null>(null);
+  const [reliability, setReliability] = useState<Reliability | null>(null);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -213,6 +233,27 @@ export default function EvalTracePage() {
     }
   }
 
+  async function loadReliability() {
+    setRunning(true);
+    setErr(null);
+    try {
+      const res = await fetch('/api/admin/eval/reliability', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ k: 3, limit: 500 }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setPassK(data.passK ?? null);
+      setReliability(data.reliability ?? null);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
   useEffect(() => {
     if (tab === 'traces') void loadTraces();
     else if (tab === 'attributions') void loadAttributions();
@@ -241,6 +282,7 @@ export default function EvalTracePage() {
           { id: 'traces', label: 'Traces', icon: ScrollText },
           { id: 'attributions', label: 'Attributions', icon: Target },
           { id: 'regression', label: 'Regression', icon: Gauge },
+          { id: 'reliability', label: 'Reliability', icon: TrendingDown },
         ] as const).map((t) => (
           <button
             key={t.id}
@@ -350,6 +392,68 @@ export default function EvalTracePage() {
                     <span className="text-ink-secondary">{id}</span>
                     <span className="text-ink-tertiary">
                       {b.pass}/{b.total} 通过 ({(b.passRate * 100).toFixed(0)}%) · 均分 {(b.avgScore * 100).toFixed(0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'reliability' && (
+        <section className="space-y-3">
+          <button
+            onClick={() => void loadReliability()}
+            disabled={running}
+            className="text-body flex items-center gap-2 px-4 py-2 rounded-2xl bg-brand-600 text-white shadow-soft-sm disabled:opacity-60"
+          >
+            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            算一致性 + 衰退曲线 (近 500 条 trace)
+          </button>
+          <p className="text-footnote text-ink-tertiary">
+            Pass^3 一致性 = 同一类问题连续 3 次是否都通过 (衡量 flaky 程度); 可靠性衰退曲线 = 任务轮次越多, 通过率降多快 (斜率越大越脆)。
+          </p>
+
+          {passK && (
+            <div className="rounded-2xl bg-surface-1 shadow-soft-sm p-4">
+              <div className="text-caption text-ink-secondary mb-2 flex items-center gap-1.5">
+                <Gauge className="w-3.5 h-3.5 text-brand-600" /> Pass^{passK.k} 一致性
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <StatCard
+                  label={`Pass^${passK.k}`}
+                  value={pct(passK.passAtK)}
+                  sub={`${passK.consistentGroups}/${passK.eligibleGroups} 组全过`}
+                  tone={passK.passAtK === null ? 'neutral' : passK.passAtK >= 0.7 ? 'success' : 'danger'}
+                />
+                <StatCard label="单次通过率" value={pct(passK.singlePassRate)} sub="对照 flaky 程度" />
+                <StatCard label="合格分组" value={String(passK.eligibleGroups)} sub={`≥${passK.k} 条样本`} />
+              </div>
+              {passK.eligibleGroups === 0 && (
+                <p className="text-footnote text-ink-tertiary mt-2">
+                  暂无合格分组: 需同一类问题 (kind + 归一化输入) 累计 ≥{passK.k} 条 trace。
+                </p>
+              )}
+            </div>
+          )}
+
+          {reliability && (
+            <div className="rounded-2xl bg-surface-1 shadow-soft-sm p-4">
+              <div className="text-caption text-ink-secondary mb-2 flex items-center gap-1.5">
+                <TrendingDown className="w-3.5 h-3.5 text-brand-600" /> 可靠性衰退曲线 (RDC)
+                {reliability.declineSlope !== null && (
+                  <span className={`ml-2 text-footnote px-2 py-0.5 rounded-2xl ${reliability.declineSlope > 0.2 ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}`}>
+                    衰退斜率 {(reliability.declineSlope * 100).toFixed(0)}pt
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1">
+                {reliability.buckets.map((b) => (
+                  <div key={b.bucket} className="flex items-center justify-between text-caption">
+                    <span className="text-ink-secondary">{b.bucket}</span>
+                    <span className="text-ink-tertiary">
+                      {b.samples} 条 · 通过 {pct(b.passRate)} · GDS {b.gds === null ? '—' : (b.gds * 100).toFixed(0)} · 均 {b.avgRounds.toFixed(1)} 轮
                     </span>
                   </div>
                 ))}

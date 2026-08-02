@@ -65,7 +65,7 @@
 | `OWNERSHIP-SSOT-2026-05-31.md` | Ownership SSOT + Org 后端化 |
 | `ARCHITECTURE-BREAKDOWN.md` | Tandem 7 大思路功能+架构拆解 (实现轴) |
 | `STATE-OF-THE-CODE.md` | 代码现状 |
-| `STATE-OF-THE-CODE-2026-08.md` | 代码现状整合汇总 (2026-08 并行窗口错乱恢复 + 体系盘点 + 邮箱攻坚对账) |
+| `STATE-OF-THE-CODE-2026-08.md` | 代码现状整合汇总 (2026-08 并行窗口错乱恢复 + stash@{4} 找回丢失工作 + 体系盘点) |
 | `STORE-SLICE-PLAN-2026-05-31.md` | `lib/store.ts` 拆 slice 备忘 |
 
 ## 3. UI 设计
@@ -81,6 +81,7 @@
 
 | 文件 | 一句话 |
 |---|---|
+| `COMPETITIVE-LANDSCAPE-2026-08.md` ★★ | **三赛道竞品全景 SSOT** (总纲): AI Agent/OKR/CRM 三道 + 2026-Q3 最新情报 (飞书归豆包·钉钉悟空·企微大圆·WorkBoard Gen3·纷享蜂巢·销售易 NeoAgent) + Tandem 三护城河 + 叙事纪律 |
 | `COMPETITOR-ARCHITECTURE.md` ★ | 7 竞品架构拆解 **详细 SoT** (灵魂+代码映射+gap，2026-06-01 逐条核实) |
 | `CLAUDE-COWORK-ANALYSIS.md` | Claude Cowork vs Tandem 技术体系对比分析 (4 道闸 + MCP 三原语) |
 | `EVOLUTION-CHECKLIST-FULL.md` ★ | 7 竞品**可执行进化清单** (编号项+落点+验收+核实状态) |

@@ -88,6 +88,13 @@ async function GETApiHandler(req: NextRequest, { params }: Params) {
             evt.channelId === channelId
           ) {
             sendEvent('read_receipt', { userId: evt.userId, lastReadAt: evt.lastReadAt });
+          } else if (
+            evt.type === 'typing' &&
+            evt.channelId === channelId &&
+            evt.userId !== userId
+          ) {
+            // §Sprint2 typing: 排除自己, 前端收到后短超时自动清
+            sendEvent('typing', { userId: evt.userId, at: evt.at });
           }
         } catch {
           cleanup();

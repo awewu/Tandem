@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { RiskCockpit } from '@/components/dashboard/risk-cockpit';
+import { DailyFocusCard } from '@/components/dashboard/daily-focus-card';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
 import { WorkbenchAgentView } from '@/components/dashboard/workbench-agent-view';
 import type { LaunchpadAppWithBadge, LaunchpadCategory as LpCategory } from '@/lib/types/launchpad';
@@ -241,6 +242,9 @@ export default function HomePage() {
 
         {/* ──────────── Onboarding 3步新手引导 (Top-5 #5 采纳命门) ──────────── */}
         <OnboardingTour />
+
+        {/* ──────────── 今日聚焦晨报 (个人行动优先级 + 建议下一步; 无聚焦项自动隐藏) ──────────── */}
+        <DailyFocusCard />
 
         {/* ──────────── AI 风险驾驶舱 (置顶, 时间基准客观风险; 无风险/无周期自动隐藏) ──────────── */}
         <RiskCockpit />

@@ -28,12 +28,14 @@ import {
 } from './nav-modules';
 import { BrandLogo } from './brand-logo';
 import { UserMenu } from './user-menu';
+import { toast } from '@/hooks/use-toast';
 
 export default function AppRail() {
   const pathname = usePathname();
   const { user, error } = useCurrentUser();
   const fetched = useAuthStore((s) => s.fetched);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mailUnread, setMailUnread] = useState(0);
 
   const userRoles: Role[] = useMemo(
     () =>
@@ -74,6 +76,50 @@ export default function AppRail() {
       cancelled = true;
       clearInterval(timer);
       window.removeEventListener('tandem:notifications:unread', onUnread);
+    };
+  }, [user?.id]);
+
+  // 个人邮箱未读数轮询 (IMAP STATUS) — 角标 + 新邮件提示
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    let prev = -1; // -1 表示尚未取到基线, 避免首次弹提示
+    const refreshMail = async () => {
+      try {
+        const res = await fetch('/api/mail/unread', { credentials: 'include', cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        if (cancelled || typeof data.unseen !== 'number') return;
+        const next = data.unseen;
+        // 未读数增加 → 新邮件提示
+        if (prev >= 0 && next > prev) {
+          const delta = next - prev;
+          toast({ title: '收到新邮件', description: `你有 ${delta} 封新邮件，共 ${next} 封未读。` });
+          window.dispatchEvent(new CustomEvent('tandem:mail:new', { detail: { count: delta, unseen: next } }));
+        }
+        prev = next;
+        setMailUnread(next);
+      } catch {
+        /* fail-soft */
+      }
+    };
+    // 邮箱内操作 (标记已读/收发) 后可主动刷新角标
+    const onMailUnread = (event: Event) => {
+      const detail = (event as CustomEvent<{ unseen?: number }>).detail;
+      if (typeof detail?.unseen === 'number') {
+        prev = detail.unseen;
+        setMailUnread(detail.unseen);
+      } else {
+        void refreshMail();
+      }
+    };
+    window.addEventListener('tandem:mail:unread', onMailUnread);
+    void refreshMail();
+    const timer = setInterval(refreshMail, 120_000); // 2 分钟轮询, IMAP STATUS 开销小
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener('tandem:mail:unread', onMailUnread);
     };
   }, [user?.id]);
 
@@ -131,6 +177,11 @@ export default function AppRail() {
                 {m.id === 'notifications' && unreadCount > 0 && (
                   <span className="absolute right-1.5 top-1 rounded-full bg-[rgb(var(--brand-500))] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
                     {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+                {m.id === 'mail' && mailUnread > 0 && (
+                  <span className="absolute right-1.5 top-1 rounded-full bg-[rgb(var(--brand-500))] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
+                    {mailUnread > 99 ? '99+' : mailUnread}
                   </span>
                 )}
                 <span className="text-[10px] font-medium leading-tight tracking-wide">

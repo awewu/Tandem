@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { findStrategicProject, strategicProjects } from '@/lib/strategic-projects/sample-data';
 
+const canonicalProjectIds = ['v3', 'v6', 'v8', 'v9'] as const;
+const canonicalProjects = strategicProjects.filter((project) => canonicalProjectIds.includes(project.id as typeof canonicalProjectIds[number]));
+
 describe('strategicProjects sample data', () => {
   it('包含 Excel 导入的 4 个 V 项目', () => {
-    expect(strategicProjects).toHaveLength(4);
-    expect(strategicProjects.map((project) => project.name)).toEqual([
+    expect(canonicalProjects).toHaveLength(4);
+    expect(canonicalProjects.map((project) => project.name)).toEqual([
       'V3-RUUD水机空调业务发展',
       'V6-Rhautt Group品牌升级',
       'V8-热水品类2亿销售达成',

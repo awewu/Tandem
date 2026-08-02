@@ -214,6 +214,22 @@ export interface MemoryEntry {
   sessionId?: string;
   /** 组织 id (多租户时 = tenantId, 单租户时可省) */
   orgId?: string;
+
+  // ── P1 #9 MAGMA 因果图 (记忆间因果关系, 支持 "这个决策导致了什么" 检索) ──
+  /** 导致本条记忆产生的上游记忆 id (因) */
+  causedBy?: string[];
+  /** 本条记忆导致的下游记忆 id (果) */
+  caused?: string[];
+
+  // ── P1 #8 SimpleMem 语义压缩 (存压缩版供检索, 需细节时展开 body) ──
+  /** LLM 压缩后的结构化摘要 (检索/注入时优先用, 省 token) */
+  compressedBody?: string;
+  /** 从正文蒸馏的关键事实 (结构化, ≤5 条) */
+  compressedFacts?: string[];
+
+  // ── P2 #16 Mnemis 层次化分类 (System-2 结构检索: 发现语义不远但结构相关的记忆) ──
+  /** 层次分类路径, 如 ["OKR","Q3","进度"]; 检索时做层次匹配加分 */
+  categoryPath?: string[];
 }
 
 /**

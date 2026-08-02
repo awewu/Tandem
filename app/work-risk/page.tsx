@@ -105,7 +105,7 @@ function WorkRiskInner() {
               按当前账号可见范围聚合 OKR、日程、流程审批、IM 工作安排风险
             </p>
           </div>
-          <div className="inline-flex rounded-lg border border-border bg-white p-1 shadow-soft-xs">
+          <div className="inline-flex rounded-lg border border-border bg-surface-1 p-1 shadow-soft-xs">
             {allowedScopes.map((item) => (
               <button
                 key={item}
@@ -141,7 +141,7 @@ function WorkRiskInner() {
           {(board?.sources ?? []).map((source) => {
             const Icon = SOURCE_ICON[source.source];
             return (
-              <div key={source.source} className="rounded-lg border border-border bg-white p-4 shadow-soft-xs">
+              <div key={source.source} className="rounded-lg border border-border bg-surface-1 p-4 shadow-soft-xs">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-caption font-medium text-ink-primary">
                     <Icon className="h-4 w-4 text-ink-tertiary" />
@@ -160,7 +160,7 @@ function WorkRiskInner() {
           })}
         </section>
 
-        <section className="rounded-lg border border-border bg-white shadow-soft-xs">
+        <section className="rounded-lg border border-border bg-surface-1 shadow-soft-xs">
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
               <h2 className="text-headline text-ink-primary">风险明细</h2>
@@ -215,7 +215,7 @@ function SummaryCard({
 }) {
   const color = tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-ink-tertiary';
   return (
-    <div className="rounded-lg border border-border bg-white p-4 shadow-soft-xs">
+    <div className="rounded-lg border border-border bg-surface-1 p-4 shadow-soft-xs">
       <div className="flex items-center justify-between">
         <p className="text-footnote text-ink-tertiary">{label}</p>
         <Icon className={`h-4 w-4 ${color}`} />

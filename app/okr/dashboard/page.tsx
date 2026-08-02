@@ -256,7 +256,7 @@ export default function OKRDashboardPage() {
               aria-label="选择周期"
               value={cycleId}
               onChange={(e) => setCycleId(e.target.value)}
-              className="h-9 rounded border border-input bg-white px-2 text-caption"
+              className="h-9 rounded border border-input bg-surface-1 px-2 text-caption"
             >
               {cycles.map((c) => (
                 <option key={c.id} value={c.id}>

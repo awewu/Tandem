@@ -32,6 +32,7 @@ import { getStore } from '@/lib/storage/repository';
 import { audit } from '@/lib/audit/log';
 import { actionRegistry, type ActionContext } from './action-types';
 import { executeAction, type ExecuteActionResult } from './execute-action';
+import type { ApprovalPacket } from '@/lib/types/proxy-action';
 
 export interface ProposeActionInput {
   /** 要提议的 Action Type id, 如 'kr.checkin' */
@@ -49,6 +50,8 @@ export interface ProposeActionInput {
   delegationLevel?: ActionContext['delegationLevel'];
   /** 自定义否决窗口 (毫秒), 默认 24h */
   vetoWindowMs?: number;
+  /** 审批包: 推理过程 + 证据 + 备选方案 (防 rubber-stamping) */
+  approvalPacket?: ApprovalPacket;
 }
 
 export type ProposeResultStatus = 'rejected' | 'executed' | 'pending_veto';
@@ -139,7 +142,7 @@ export async function proposeAction(p: ProposeActionInput): Promise<ProposeActio
       body: p.reason,
       refType: 'ontology_action',
       refId: p.actionId,
-      metadata: { ontologyActionId: p.actionId, ontologyInput: p.input, execOk: execResult.ok },
+      metadata: { ontologyActionId: p.actionId, ontologyInput: p.input, execOk: execResult.ok, approvalPacket: p.approvalPacket },
     });
     return { status: execResult.ok ? 'executed' : 'rejected', zone, reasons: execResult.ok ? [] : (execResult.blocked?.reasons ?? ['执行失败']), execResult };
   }
@@ -158,7 +161,7 @@ export async function proposeAction(p: ProposeActionInput): Promise<ProposeActio
     initialStatus: 'awaiting_veto',
     vetoWindowMs: p.vetoWindowMs,
     // 兑现所需: 动作 id + 入参 + 以谁名义执行
-    metadata: { ontologyActionId: p.actionId, ontologyInput: p.input, onBehalfOfUserId: p.onBehalfOfUserId },
+    metadata: { ontologyActionId: p.actionId, ontologyInput: p.input, onBehalfOfUserId: p.onBehalfOfUserId, approvalPacket: p.approvalPacket },
   });
 
   return { status: 'pending_veto', zone, reasons: zoneRes.reasons, proxyActionId: pa.id };

@@ -114,13 +114,16 @@ export async function createOpportunity(input: {
     projectName: input.projectName,
   });
   
-  // 3. 如果查重失败（撞单），返回查重结果
+  // 3. 如果查重失败（撞单），返回查重结果 (仅 duplicate 阻断; suspect/warning 放行但标记)
   if (duplicateResult.status === 'duplicate') {
     return {
       opportunity: undefined,
       duplicateCheck: duplicateResult,
     };
   }
+  // suspect(疑似)/warning(提示) 均不阻断, 落库标 questioned 供人工复核
+  const flaggedForReview =
+    duplicateResult.status === 'warning' || duplicateResult.status === 'suspect';
   
   // 4. 创建商机 (dedupeKey 唯一索引 pms_opp_dedupkey_idx 兜底并发精确撞单)
   const id = nanoid();
@@ -157,7 +160,7 @@ export async function createOpportunity(input: {
       region: input.region,
       channel: input.channel,
       dedupeKey,
-      duplicateStatus: duplicateResult.status === 'warning' ? 'questioned' : null,
+      duplicateStatus: flaggedForReview ? 'questioned' : null,
       reviewStatus: input.reviewStatus || 'pending_review',
       lastFollowUpAt: null,
       createdAt: now,
@@ -186,7 +189,7 @@ export async function createOpportunity(input: {
     id,
     ...input,
     dedupeKey,
-    duplicateStatus: duplicateResult.status === 'warning' ? 'questioned' : null,
+    duplicateStatus: flaggedForReview ? 'questioned' : null,
     lastFollowUpAt: null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
@@ -194,7 +197,7 @@ export async function createOpportunity(input: {
   
   return {
     opportunity,
-    duplicateCheck: duplicateResult.status === 'warning' ? duplicateResult : undefined,
+    duplicateCheck: flaggedForReview ? duplicateResult : undefined,
   };
 }
 

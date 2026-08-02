@@ -12,6 +12,8 @@ import {
   mapServerCycle,
   mapCyclePeriod,
   mapObjectiveStatus,
+  objectiveToBody,
+  keyResultToBody,
 } from '@/lib/store/okr-sync';
 import type * as Server from '@/lib/types/okr-tti';
 
@@ -89,6 +91,84 @@ describe('B4 · mapServerObjective', () => {
   it('parentObjectiveId 缺失 → parentId null', () => {
     const c = mapServerObjective({ ...server, parentObjectiveId: undefined });
     expect(c.parentId).toBeNull();
+  });
+
+  // P0-1 闭环回归: 服务端手动覆盖进度 0-1 → 客户端 0-100 (此前硬编码 null → 刷新丢覆盖).
+  it('progressOverride: 服务端 0-1 → 客户端 0-100', () => {
+    expect(mapServerObjective({ ...server, progressOverride: 0.7 }).progressOverride).toBe(70);
+    expect(mapServerObjective({ ...server, progressOverride: 0 }).progressOverride).toBe(0);
+    expect(mapServerObjective({ ...server, progressOverride: 1 }).progressOverride).toBe(100);
+  });
+  it('progressOverride: 服务端 null/undefined → 客户端 null (回退 rollup)', () => {
+    expect(mapServerObjective({ ...server, progressOverride: null }).progressOverride).toBeNull();
+    expect(mapServerObjective({ ...server, progressOverride: undefined }).progressOverride).toBeNull();
+  });
+});
+
+// P0-1 闭环回归: 客户端 → 服务端下发, 与 mapServerObjective 构成往返闭环.
+describe('P0-1 · objectiveToBody · progressOverride 双向闭环', () => {
+  it('客户端 0-100 → 服务端 0-1', () => {
+    expect(objectiveToBody({ progressOverride: 70 }).progressOverride).toBe(0.7);
+    expect(objectiveToBody({ progressOverride: 0 }).progressOverride).toBe(0);
+    expect(objectiveToBody({ progressOverride: 100 }).progressOverride).toBe(1);
+  });
+  it('null 显式清除覆盖 → 原样下发 null', () => {
+    expect(objectiveToBody({ progressOverride: null }).progressOverride).toBeNull();
+  });
+  it('字段缺失 → 不下发 (undefined, 避免部分更新误清覆盖)', () => {
+    const body = objectiveToBody({ title: '只改标题' });
+    expect(body.progressOverride).toBeUndefined();
+  });
+  it('往返: 客户端整数百分比 → 服务端 → 客户端 数值稳定', () => {
+    for (const pct of [0, 25, 67, 70, 100]) {
+      const server = objectiveToBody({ progressOverride: pct }).progressOverride as number;
+      const back = mapServerObjective({
+        id: 'o', cycleId: 'c', level: 'individual', ownerId: 'u', title: 't',
+        visibility: 'public', weight: 100, status: 'active', confidence: 'on-track',
+        tags: [], collaboratorIds: [], watcherIds: [], progressOverride: server,
+        createdAt: ISO, updatedAt: ISO,
+      } as Server.Objective).progressOverride;
+      expect(back).toBe(pct);
+    }
+  });
+});
+
+// P0-2 闭环回归: 评分/复盘字段必须进 body (此前 objectiveToBody 完全不含 → 落库无门).
+describe('P0-2 · objectiveToBody · 评分/复盘落库', () => {
+  it('score → finalScore (改名), selfScore/managerScore 原样, reviewedAt ms→ISO', () => {
+    const body = objectiveToBody({
+      selfScore: 0.6, managerScore: 0.7, score: 0.8,
+      retrospective: '复盘', reviewedAt: ISO_MS,
+    });
+    expect(body.selfScore).toBe(0.6);
+    expect(body.managerScore).toBe(0.7);
+    expect(body.finalScore).toBe(0.8);       // client score → server finalScore
+    expect(body.retrospective).toBe('复盘');
+    expect(body.reviewedAt).toBe(ISO);        // ms → ISO 字符串
+  });
+  it('字段缺失 → 不下发 (undefined, 避免误清评分)', () => {
+    const body = objectiveToBody({ title: '只改标题' });
+    expect(body.selfScore).toBeUndefined();
+    expect(body.managerScore).toBeUndefined();
+    expect(body.finalScore).toBeUndefined();
+    expect(body.retrospective).toBeUndefined();
+    expect(body.reviewedAt).toBeUndefined();
+  });
+  it('null 显式清空评分 → 原样下发 null', () => {
+    const body = objectiveToBody({ selfScore: null, managerScore: null, score: null });
+    expect(body.selfScore).toBeNull();
+    expect(body.managerScore).toBeNull();
+    expect(body.finalScore).toBeNull();
+  });
+});
+
+describe('P0-2 · keyResultToBody · KR 自评/终评落库', () => {
+  it('selfScore/finalScore 存在则下发, 缺失则 undefined', () => {
+    expect(keyResultToBody({ selfScore: 0.5 }).selfScore).toBe(0.5);
+    expect(keyResultToBody({ finalScore: 0.9 }).finalScore).toBe(0.9);
+    const empty = keyResultToBody({ title: 't' });
+    expect(empty.selfScore).toBeUndefined();
+    expect(empty.finalScore).toBeUndefined();
   });
 });
 

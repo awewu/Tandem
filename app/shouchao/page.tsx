@@ -31,6 +31,7 @@ import {
 } from '@/lib/shouchao/voice-note';
 import { BlockEditor } from '@/components/shouchao/block-editor';
 import { DistillPanel } from '@/components/shouchao/distill-panel';
+import { useNoteDraft } from '@/components/shouchao/use-note-draft';
 import { useAuthStore, useCurrentUser, type AuthUser } from '@/lib/hooks/use-current-user';
 import { isCapacitor, refreshMobileSession } from '@/lib/capacitor/client';
 import {
@@ -142,19 +143,21 @@ export default function ShouchaoPage() {
   const [distillOpen, setDistillOpen] = useState(false);
   const router = useRouter();
 
-  // 编辑草稿
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [summary, setSummary] = useState('');
-  const [sourceUrl, setSourceUrl] = useState<string | undefined>(undefined);
-  const [pinned, setPinned] = useState(false);
-  const [shared, setShared] = useState(false);
-  /** 编辑器模式: block=块编辑(Notion 式) / md=Markdown 源码 */
-  const [editorMode, setEditorMode] = useState<'block' | 'md'>('block');
+  // 编辑草稿 (内聚状态簇抽到 useNoteDraft; 同名解构, 调用站点不变)
+  const {
+    title, setTitle,
+    content, setContent,
+    tags, setTags,
+    summary, setSummary,
+    sourceUrl, setSourceUrl,
+    pinned, setPinned,
+    shared, setShared,
+    editorMode, setEditorMode,
+    dirty, setDirty,
+    markDirty, loadDraft,
+  } = useNoteDraft();
   const [tagFilter, setTagFilter] = useState<string | null>(null);
 
-  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiBusy, setAiBusy] = useState<null | 'summarize' | 'polish' | 'tags'>(null);
   // AI 创作洞察 (点评/拷问/发芽): 产出不改原文, 显示在面板, 可追加到正文
@@ -305,14 +308,7 @@ export default function ShouchaoPage() {
   // ---- 选中笔记 → 载入草稿 ----
   function selectNote(n: Note) {
     setActiveId(n.id);
-    setTitle(n.title);
-    setContent(n.content);
-    setTags(n.tags ?? []);
-    setSummary(n.summary ?? '');
-    setSourceUrl(n.sourceUrl);
-    setPinned(!!n.pinned);
-    setShared(!!n.sharedToPersona);
-    setDirty(false);
+    loadDraft(n);
     setInsight(null);
     setOutgoing([]);
     setBacklinks([]);
@@ -369,10 +365,6 @@ export default function ShouchaoPage() {
     } catch {
       showToast('err', '创建笔记失败');
     }
-  }
-
-  function markDirty() {
-    if (!dirty) setDirty(true);
   }
 
   // ---- 新建 ----
@@ -2287,7 +2279,7 @@ function AccountPolicyPanel() {
   }
 
   return (
-    <article className="rounded-2xl border border-border bg-white px-4 py-4">
+    <article className="rounded-2xl border border-border bg-surface-1 px-4 py-4">
       <div className="mb-3 border-b border-border pb-3">
         <h3 className="text-body font-bold text-ink-primary">{policy.title}</h3>
         <p className="mt-1 text-footnote text-ink-tertiary">搭子手抄内查看，不跳转到牛马搭子页面</p>

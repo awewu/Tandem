@@ -10,9 +10,13 @@
  *
  * 用途:
  *   - Steward 工作台浏览
- *   - e2e 获取真实 memoryId 以测试降级流程
+ *   - 个人记事本 (detail=1, ownerUserId=self)
  *
- * 注意: 这是管控类 API (公司知识资产), 生产环境需加 cookie 鉴权. V1 PoC 暂开放读.
+ * 安全 (P0 修复):
+ *   - requireAuth: 必须登录.
+ *   - 租户隔离: 仅返回本租户 (orgId===tenant, 历史空 orgId 视同 default 租户 = 前向安全).
+ *   - 逐条可见性: admin/owner 全看; steward 看全部非 personal (治理浏览);
+ *     其余用户走 canViewMemory (个人记事本仅本人/主管可见, 杜绝跨用户读他人笔记全文).
  */
 
 export const dynamic = 'force-dynamic';
@@ -20,10 +24,15 @@ export const dynamic = 'force-dynamic';
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { canViewMemory } from '@/lib/types/memory';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function GETApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+
   const url = new URL(req.url);
   const status = url.searchParams.get('status');
   const type = url.searchParams.get('type');
@@ -34,8 +43,23 @@ async function GETApiHandler(req: NextRequest) {
   const detail = url.searchParams.get('detail') === '1';
   const limit = Math.max(1, Math.min(500, Number(url.searchParams.get('limit') ?? '100')));
 
+  const isAdmin = auth.roles.includes('admin') || auth.roles.includes('owner');
+  const isSteward = isAdmin || auth.roles.includes('steward');
+  const viewer = { userId: auth.userId };
+
   const store = getStore();
   let memories = await store.memories.list();
+
+  // 租户隔离 + 逐条可见性 (P0). demo 模式 (dev/e2e) 放行全部.
+  if (!auth.demo) {
+    memories = memories.filter((m) => {
+      if ((m.orgId ?? auth.tenantId) !== auth.tenantId) return false;
+      if (isAdmin) return true;
+      if (isSteward && m.ownershipLevel !== 'personal') return true;
+      return canViewMemory(m, viewer);
+    });
+  }
+
   if (status) memories = memories.filter((m) => m.status === status);
   if (type) memories = memories.filter((m) => m.type === type);
   if (ownershipLevel) memories = memories.filter((m) => m.ownershipLevel === ownershipLevel);

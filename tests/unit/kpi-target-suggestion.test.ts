@@ -208,12 +208,13 @@ describe('POST /api/kpi/target-suggestions', () => {
     const priorCycle = await seedCycle(2025, 'closed');
     await seedKpi(priorCycle.id, subject.id, 'u1', 1000000);
     const newCycle = await seedCycle(2026, 'draft');
-    await seedKpi(newCycle.id, subject.id, 'u1', 0);
+    const existingKpi = await seedKpi(newCycle.id, subject.id, 'u1', 0);
 
     currentAuth = ctx('u_hr', ['steward']);
     const res = await suggestPOST(postReq('http://x/api/kpi/target-suggestions', { cycleId: newCycle.id }));
     const data = await res.json();
     expect(data.suggestions[0].alreadySet).toBe(true);
+    expect(data.suggestions[0].existingKpiId).toBe(existingKpi.id);
   });
 
   it('returns empty suggestions with a note when no prior fiscal year cycle exists', async () => {

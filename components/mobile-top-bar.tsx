@@ -47,7 +47,7 @@ export function MobileTopBar() {
           'md:hidden',
           'sticky top-0 z-30',
           'flex h-[calc(44px+var(--capacitor-effective-top-inset,0px))] items-center px-3',
-          'border-b border-border/80 bg-white',
+          'border-b border-border/80 bg-surface-1',
           'pt-[var(--capacitor-effective-top-inset,0px)]',
           'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
         )}

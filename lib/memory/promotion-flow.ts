@@ -97,6 +97,41 @@ export async function proposePromotion(input: ProposeInput): Promise<MemoryPromo
 
 export type SignerRole = MemorySignerRole;
 
+/**
+ * 治理不变量 (P0 修复): 签字角色身份校验.
+ *
+ * 请求体自称的 signing role (ceo/clevel/team_leader/…) 必须与签字人真实持有的
+ * 系统角色 (token roles) 相符, 否则任何登录用户都能伪造 CEO 签字 → 投毒 baseline.
+ *
+ * 映射 (系统角色 → 可担任的签字角色):
+ *   owner              → ceo / clevel / team_leader / dept_leader / kr_owner / steward
+ *   admin              → clevel / team_leader / dept_leader / kr_owner / steward
+ *   exec (职能高管)     → clevel
+ *   manager (主管)      → team_leader / dept_leader / kr_owner
+ *   steward            → steward
+ *
+ * 注:
+ *   - steward 另有 stewards 表二次校验 (sign() 内, 权威来源), 此处仅门禁.
+ *   - kr_owner 的"该 KR 归属人"深校验属后续增强 (当前仅要求管理层身份).
+ *   - business_leader 视同 dept_leader.
+ */
+const SIGNER_ROLE_ALLOWED_SYSTEM_ROLES: Record<MemorySignerRole, readonly string[]> = {
+  ceo: ['owner'],
+  clevel: ['owner', 'admin', 'exec'],
+  team_leader: ['owner', 'admin', 'manager'],
+  dept_leader: ['owner', 'admin', 'manager'],
+  business_leader: ['owner', 'admin', 'manager'],
+  kr_owner: ['owner', 'admin', 'manager'],
+  steward: ['owner', 'admin', 'steward'],
+};
+
+export function authorizeSignerRole(role: SignerRole, authRoles: readonly string[]): boolean {
+  const normalized: MemorySignerRole = role === 'business_leader' ? 'dept_leader' : role;
+  const allowed = SIGNER_ROLE_ALLOWED_SYSTEM_ROLES[normalized];
+  if (!allowed) return false;
+  return authRoles.some((r) => allowed.includes(r));
+}
+
 export async function sign(
   promotionId: string,
   signerId: string,
@@ -247,6 +282,11 @@ async function materializePromotion(req: MemoryPromotionRequest): Promise<Memory
     ownerId: null,
     text: `${entry.title}\n${entry.body}`,
   }).catch(() => {});
+
+  // P1 #8 SimpleMem: 物化即压缩正文 (fire-and-forget, 长正文才压; 失败保留原始 body)
+  void import('./compression')
+    .then(({ compressAndStore }) => compressAndStore(entry.id))
+    .catch(() => {});
 
   // 跨域事件广播: Persona / OKR cascade / Notification 可订阅
   try {

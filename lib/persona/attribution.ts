@@ -17,6 +17,7 @@ import type { CheckIn } from '@/lib/types/okr-tti';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
 import { computeKRProgress, effectiveObjectiveProgress } from '@/lib/types/okr-tti';
+import { recordEvalTraceSafe } from '@/lib/eval/service';
 
 /** 改善阈值: delta ≥ +5pt → positive; ≤ −2pt → negative; 其余 neutral */
 const POSITIVE_DELTA = 0.05;
@@ -156,9 +157,41 @@ export async function runAttributionPass(input: RunAttributionInput = {}): Promi
     if (summary.samples > 0) {
       logger.info({ ...summary }, '[attribution] pass done');
     }
+
+    await recordEvalTraceSafe({
+      traceId: `attribution_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      tenantId,
+      kind: 'attribution',
+      actorUserId: '__company__',
+      isProxy: false,
+      inputSummary: `windowDays=${windowDays}`,
+      finalOutputSummary: JSON.stringify(summary),
+      toolInvocations: [],
+      roundsExecuted: 1,
+      finishedNaturally: summary.samples >= 0,
+      tokensUsed: 0,
+      latencyMs: 0,
+      meta: { ...summary },
+    });
+
     return summary;
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[attribution] pass failed (fail-soft)');
+    await recordEvalTraceSafe({
+      traceId: `attribution_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      tenantId,
+      kind: 'attribution',
+      actorUserId: '__company__',
+      isProxy: false,
+      inputSummary: `windowDays=${windowDays}`,
+      finalOutputSummary: JSON.stringify({ error: (err as Error).message, summary }),
+      toolInvocations: [],
+      roundsExecuted: 0,
+      finishedNaturally: false,
+      tokensUsed: 0,
+      latencyMs: 0,
+      meta: { error: (err as Error).message },
+    });
     return summary;
   }
 }

@@ -48,6 +48,30 @@ export type ProxyActionStatus =
 /** 24h 默认否决窗口 (毫秒) */
 export const DEFAULT_VETO_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/** 审批包: 让审批者看到 AI 的推理过程、证据和备选方案 (防 rubber-stamping) */
+export interface ApprovalTraceStep {
+  tool: string;
+  summary: string;
+  ok: boolean;
+}
+
+export interface ApprovalEvidenceRef {
+  type: 'okr' | 'kr' | 'memory' | 'decision' | 'initiative';
+  id: string;
+  label?: string;
+}
+
+export interface ApprovalPacket {
+  /** tool-loop 工具调用摘要 (让审批者看到 AI 怎么得出这个提议的) */
+  reasoningTrace?: ApprovalTraceStep[];
+  /** 引用的业务实体 (OKR/KR/Memory 等) */
+  evidenceRefs?: ApprovalEvidenceRef[];
+  /** AI 考虑过但未采纳的备选方案 */
+  alternativesConsidered?: string[];
+  /** AI 自评置信度 */
+  confidence?: 'high' | 'medium' | 'low';
+}
+
 export interface ProxyAction {
   id: string;
   /** 被代行的员工 (动作以此人名义发出) */

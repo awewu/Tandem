@@ -170,7 +170,7 @@ export default function NotificationsPage() {
             <div
               key={n.id}
               className={`flex items-start gap-3 p-4 border rounded-lg transition ${
-                n.readAt ? "bg-white" : "bg-info/10 border-info/30"
+                n.readAt ? "bg-surface-1" : "bg-info/10 border-info/30"
               }`}
             >
               <Icon size={20} className="text-ink-secondary mt-0.5" />
@@ -205,7 +205,7 @@ export default function NotificationsPage() {
       </div>
 
       {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between rounded-lg border bg-white px-4 py-3 text-caption text-ink-secondary">
+        <div className="mt-6 flex items-center justify-between rounded-lg border bg-surface-1 px-4 py-3 text-caption text-ink-secondary">
           <button
             type="button"
             className="rounded px-3 py-1.5 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"

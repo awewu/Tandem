@@ -66,14 +66,20 @@ async function seedCycle(status: KpiCycle['status'] = 'active'): Promise<KpiCycl
   } as Omit<KpiCycle, 'id'>);
 }
 
-async function seedKpi(cycleId: string, assigneeId: string, targetValue = 100): Promise<Kpi> {
+async function seedKpi(
+  cycleId: string,
+  assigneeId: string,
+  targetValue = 100,
+  parentKpiId?: string,
+): Promise<Kpi> {
   const now = new Date().toISOString();
   return getStore().kpis.create({
     cycleId,
     subjectId: 'subj_1',
-    level: 'individual',
+    level: parentKpiId ? 'individual' : 'department',
+    parentKpiId,
     assigneeId,
-    title: 'Test KPI',
+    title: parentKpiId ? 'Child KPI' : 'Test KPI',
     measureType: 'numeric',
     startValue: 0,
     targetValue,
@@ -114,17 +120,26 @@ describe('POST /api/kpi/target-amendments', () => {
     expect(stillKpi!.targetValue).toBe(100);
   });
 
-  it('rejects when cycle is still draft (should use direct PATCH instead)', async () => {
-    const cycle = await seedCycle('draft');
-    const kpi = await seedKpi(cycle.id, 'u_employee', 100);
+  it('rejects when cycle is not active (draft should use direct PATCH, closed is locked)', async () => {
+    const draftCycle = await seedCycle('draft');
+    const draftKpi = await seedKpi(draftCycle.id, 'u_employee', 100);
     currentAuth = ctx('u_manager', ['manager']);
 
-    const res = await createPOST(postReq('http://x/api/kpi/target-amendments', {
-      kpiId: kpi.id, toTargetValue: 120, reason: 'x',
+    const draftRes = await createPOST(postReq('http://x/api/kpi/target-amendments', {
+      kpiId: draftKpi.id, toTargetValue: 120, reason: 'x',
     }));
-    expect(res.status).toBe(400);
-    const data = await res.json();
-    expect(data.error).toMatch(/cycle_draft/);
+    expect(draftRes.status).toBe(400);
+    const draftData = await draftRes.json();
+    expect(draftData.error).toMatch(/cycle_not_active/);
+
+    const closedCycle = await seedCycle('closed');
+    const closedKpi = await seedKpi(closedCycle.id, 'u_employee', 100);
+    const closedRes = await createPOST(postReq('http://x/api/kpi/target-amendments', {
+      kpiId: closedKpi.id, toTargetValue: 120, reason: 'x',
+    }));
+    expect(closedRes.status).toBe(400);
+    const closedData = await closedRes.json();
+    expect(closedData.error).toMatch(/cycle_not_active/);
   });
 
   it('rejects self-amendment (assignee cannot request their own target change)', async () => {
@@ -227,6 +242,59 @@ describe('PATCH /api/kpi/target-amendments/[id] (review)', () => {
     await reviewPATCH(patchReq(`http://x/api/kpi/target-amendments/${amendment.id}`, { decision: 'approve' }), { params: { id: amendment.id } });
     const res2 = await reviewPATCH(patchReq(`http://x/api/kpi/target-amendments/${amendment.id}`, { decision: 'approve' }), { params: { id: amendment.id } });
     expect(res2.status).toBe(400);
+  });
+
+  it('rejects approval when cycle is closed', async () => {
+    const cycle = await seedCycle('closed');
+    const kpi = await seedKpi(cycle.id, 'u_employee', 100);
+    currentAuth = ctx('u_manager', ['manager']);
+    const createRes = await createPOST(postReq('http://x/api/kpi/target-amendments', { kpiId: kpi.id, toTargetValue: 120, reason: 'x' }));
+    expect(createRes.status).toBe(400);
+
+    // 模拟一条已存在的 pending amendment (绕过 POST 检查) 来验证 PATCH 侧也拦截
+    const amendment = await getStore().kpiTargetAmendments.create({
+      kpiId: kpi.id,
+      cycleId: cycle.id,
+      requestedBy: 'u_manager',
+      fromTargetValue: 100,
+      toTargetValue: 120,
+      reason: 'x',
+      status: 'pending',
+      tenantId: 'default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    currentAuth = ctx('u_owner', ['owner']);
+    const res = await reviewPATCH(
+      patchReq(`http://x/api/kpi/target-amendments/${amendment.id}`, { decision: 'approve' }),
+      { params: { id: amendment.id } },
+    );
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toMatch(/cycle_not_active/);
+  });
+
+  it('emits cascade warning when approved parent target no longer aligns with children sum', async () => {
+    const cycle = await seedCycle('active');
+    const parent = await seedKpi(cycle.id, 'u_dept', 100);
+    const childA = await seedKpi(cycle.id, 'u_employee_a', 40, parent.id);
+    const childB = await seedKpi(cycle.id, 'u_employee_b', 60, parent.id);
+
+    currentAuth = ctx('u_manager', ['manager']);
+    const createRes = await createPOST(postReq('http://x/api/kpi/target-amendments', { kpiId: parent.id, toTargetValue: 150, reason: '上调部门目标' }));
+    const { amendment } = await createRes.json();
+
+    currentAuth = ctx('u_owner', ['owner']);
+    const res = await reviewPATCH(
+      patchReq(`http://x/api/kpi/target-amendments/${amendment.id}`, { decision: 'approve' }),
+      { params: { id: amendment.id } },
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.amendment.status).toBe('approved');
+    expect(data.cascadeWarning).toBeDefined();
+    expect(data.cascadeWarning.childrenSum).toBe(childA.targetValue + childB.targetValue);
+    expect(data.cascadeWarning.deltaPct).not.toBe(0);
   });
 });
 

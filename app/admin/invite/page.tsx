@@ -126,7 +126,7 @@ export default function AdminInvitePage() {
               <p className="mb-1 text-footnote text-success">
                 ⚠️ 此邀请码仅显示一次, 请立即复制并发给受邀者:
               </p>
-              <div className="flex items-center gap-2 rounded bg-white p-2">
+              <div className="flex items-center gap-2 rounded bg-surface-1 p-2">
                 <code className="flex-1 text-headline font-bold tracking-widest">{lastCode}</code>
                 <Button size="sm" variant="outline" onClick={copy}>
                   {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}

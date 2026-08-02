@@ -170,7 +170,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
         className={`w-full flex items-center gap-2 px-2.5 py-2 rounded border text-caption transition ${
           publicAccess
             ? "border-brand-300 bg-brand-50 text-brand-700"
-            : "border-hairline bg-white text-ink-secondary"
+            : "border-hairline bg-surface-1 text-ink-secondary"
         } ${!canManage ? "opacity-60 cursor-default" : "hover:bg-surface-3"}`}
         title={canManage ? "切换：同租户所有人可读" : "仅管理者可修改"}
       >
@@ -182,7 +182,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
 
       {/* owner */}
       <div className="mt-3 space-y-1.5 text-caption">
-        <div className="flex items-center justify-between p-2 bg-white rounded border">
+        <div className="flex items-center justify-between p-2 bg-surface-1 rounded border">
           <span className="flex items-center gap-1.5 truncate">
             <Crown size={13} className="text-warning shrink-0" />
             <span className="truncate">{label(ownerId)}</span>
@@ -191,7 +191,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
         </div>
 
         {collaborators.map(({ id, role }) => (
-          <div key={id} className="flex items-center justify-between p-2 bg-white rounded border gap-2">
+          <div key={id} className="flex items-center justify-between p-2 bg-surface-1 rounded border gap-2">
             <span className="flex items-center gap-1.5 truncate flex-1">
               {role === "write" ? (
                 <Pencil size={13} className="text-success shrink-0" />
@@ -207,7 +207,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
                   value={role}
                   disabled={busy}
                   onChange={(e) => setRole(id, e.target.value as Role)}
-                  className="text-[11px] border border-hairline rounded px-1 py-0.5 bg-white"
+                  className="text-[11px] border border-hairline rounded px-1 py-0.5 bg-surface-1"
                 >
                   <option value="read">可阅读</option>
                   <option value="write">可编辑</option>
@@ -310,14 +310,14 @@ function AddCollaborator({
             onFocus={() => results.length && setOpen(true)}
             placeholder="搜索成员加为协作者…"
             aria-label="搜索协作者"
-            className="w-full pl-7 pr-2 py-1.5 text-caption border border-hairline rounded bg-white outline-none focus:border-brand-400"
+            className="w-full pl-7 pr-2 py-1.5 text-caption border border-hairline rounded bg-surface-1 outline-none focus:border-brand-400"
           />
         </div>
         <select
           aria-label="新增协作者权限"
           value={role}
           onChange={(e) => setRole(e.target.value as Role)}
-          className="text-[11px] border border-hairline rounded px-1 py-1.5 bg-white"
+          className="text-[11px] border border-hairline rounded px-1 py-1.5 bg-surface-1"
         >
           <option value="read">可阅读</option>
           <option value="write">可编辑</option>
@@ -325,7 +325,7 @@ function AddCollaborator({
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full bg-white border border-hairline rounded-md shadow-soft max-h-56 overflow-auto">
+        <div className="absolute z-10 mt-1 w-full bg-surface-1 border border-hairline rounded-md shadow-soft max-h-56 overflow-auto">
           {results.map((u) => (
             <button
               key={u.id}

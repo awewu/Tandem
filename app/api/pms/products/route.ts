@@ -10,8 +10,9 @@ import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import {
   createProduct,
+  importProducts,
   listProducts,
-  updateProductStatus,
+  updateProduct,
   createCustomerAccount,
   listCustomerAccounts,
 } from '@/lib/pms/product-catalog-service';
@@ -316,12 +317,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ product }, { status: 201 });
     }
 
-    if (action === 'update_product') {
-      if (!body.id || !body.status) {
-        return NextResponse.json({ error: 'Missing id or status' }, { status: 400 });
+    if (action === 'import_products') {
+      if (!Array.isArray(body.rows) || body.rows.length === 0) {
+        return NextResponse.json({ error: 'rows 为空' }, { status: 400 });
       }
-      const result = await updateProductStatus({ tenantId: auth.tenantId, id: body.id, status: body.status });
-      return NextResponse.json({ result });
+      const result = await importProducts(auth.tenantId, body.rows, 'import');
+      return NextResponse.json({ result }, { status: 200 });
+    }
+
+    if (action === 'update_product') {
+      if (!body.id) {
+        return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+      }
+      const { action: _a, id, ...patch } = body;
+      const product = await updateProduct(auth.tenantId, id, patch);
+      return NextResponse.json({ product });
     }
 
     if (action === 'create_customer') {

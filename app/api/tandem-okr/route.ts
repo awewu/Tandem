@@ -88,6 +88,11 @@ async function POSTApiHandler(req: NextRequest) {
       tags: Array.isArray(body.tags) ? body.tags : [],
       collaboratorIds: Array.isArray(body.collaboratorIds) ? body.collaboratorIds : [],
       watcherIds: Array.isArray(body.watcherIds) ? body.watcherIds : [],
+      // P0-1 闭环: 允许创建时带手动覆盖进度 (0-1); 非法/缺失一律 null (= 按 rollup 自动算).
+      progressOverride:
+        typeof body.progressOverride === 'number' && body.progressOverride >= 0 && body.progressOverride <= 1
+          ? body.progressOverride
+          : null,
       createdAt: now,
       updatedAt: now,
     });

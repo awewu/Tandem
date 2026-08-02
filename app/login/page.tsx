@@ -204,7 +204,7 @@ function LoginInner() {
   // §desktop: 静默续期中显示极简加载页, 避免重开应用时闪现登录表单.
   if (recovering) {
     return (
-      <main className="login-mobile-shell h-full min-h-screen w-full flex flex-col items-center justify-center bg-white gap-4">
+      <main className="login-mobile-shell h-full min-h-screen w-full flex flex-col items-center justify-center bg-surface-1 gap-4">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgb(var(--brand-500))] text-white text-headline font-extrabold">
           T
         </span>
@@ -214,7 +214,7 @@ function LoginInner() {
   }
 
   return (
-    <main className="login-mobile-shell h-full min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-white">
+    <main className="login-mobile-shell h-full min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-surface-1">
       {/* ─────── Left · Brand panel ─────── */}
       <aside className="relative hidden lg:flex flex-col justify-between p-12 bg-[rgb(var(--surface-2))] overflow-hidden">
         {/* Subtle grid texture (Rheem login background vibe) */}
@@ -629,7 +629,7 @@ function LoginMethodTabs({
           className={cn(
             'flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-caption font-medium transition-colors',
             method === t.id
-              ? 'bg-white text-ink-primary shadow-soft-xs'
+              ? 'bg-surface-1 text-ink-primary shadow-soft-xs'
               : 'text-ink-tertiary hover:text-ink-secondary',
           )}
         >

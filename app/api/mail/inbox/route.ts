@@ -117,7 +117,10 @@ const PUTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const to = Array.isArray(body.to) ? body.to.filter((s: string) => s.trim()) : [];
   const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
   const text = typeof body.text === 'string' ? body.text : '';
+  const html = typeof body.html === 'string' ? body.html : undefined;
   const cc = Array.isArray(body.cc) ? body.cc.filter((s: string) => s.trim()) : undefined;
+  const bcc = Array.isArray(body.bcc) ? body.bcc.filter((s: string) => s.trim()) : undefined;
+  const replaceUid = Number(body.replaceUid) || undefined;
 
   if (!subject && !text) {
     return NextResponse.json({ error: '主题或正文至少填一个' }, { status: 400 });
@@ -130,7 +133,7 @@ const PUTApiHandler = withErrorHandler(async (req: NextRequest) => {
   }
 
   const emailCreds = buildEmailCreds(auth.userId, creds);
-  const uid = await saveDraft(emailCreds, { to, subject, text, cc });
+  const uid = await saveDraft(emailCreds, { to, subject, text, html, cc, bcc, replaceUid });
   return NextResponse.json({ ok: true, uid });
 });
 

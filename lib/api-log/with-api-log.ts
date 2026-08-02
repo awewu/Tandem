@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { runWithBusinessLogContext } from '@/lib/business-log/context';
 import { redactBusinessLogData, redactErrorMessage } from '@/lib/business-log/redact';
+import { runInTenantScope } from '@/lib/storage/tenant-scope';
 import type { ApiLogInput, ApiLogOutcome } from './types';
 
 const BODY_LIMIT = Math.max(1_024, Number(process.env.API_LOG_BODY_MAX_BYTES ?? 32_768));
@@ -139,7 +140,13 @@ export function withApiLog<TRequest extends Request, TArgs extends unknown[]>(
     const targetId = params ? Object.values(params).find((value) => typeof value === 'string') as string | undefined : undefined;
     const requestDataPromise = readRequestData(req);
 
-    return runWithBusinessLogContext({ requestId, ...actor }, async () => {
+    // 租户隔离收口 (机制化, 2026-08): 已识别 actor 的整段 handler 在租户作用域内执行,
+    //   → 所有走 TandemStore 的 get/list 自动按 actor.tenantId 隔离 (见 lib/storage/tenant-scope.ts).
+    //   anonymous 不加作用域 (公开路由如 /verify 不受影响); org 级跨公司读走 orgId 过滤, 与 tenantId 正交, 不受影响.
+    const runScoped = <R>(fn: () => Promise<R>): Promise<R> =>
+      actor.actorType === 'anonymous' ? fn() : runInTenantScope(actor.tenantId, fn);
+
+    return runWithBusinessLogContext({ requestId, ...actor }, () => runScoped(async () => {
       try {
         const response = await handler(req, ...args);
         const outcome = outcomeForStatus(response.status);
@@ -193,6 +200,6 @@ export function withApiLog<TRequest extends Request, TArgs extends unknown[]>(
         });
         throw error;
       }
-    });
+    }));
   };
 }

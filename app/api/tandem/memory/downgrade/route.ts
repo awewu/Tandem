@@ -13,6 +13,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { MEMORY_GOVERNANCE_ROLES } from '@/lib/auth/roles';
 import {
   proposeDowngrade,
   decideDowngrade,
@@ -22,6 +24,11 @@ import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function GETApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const denied = requireRole(auth, MEMORY_GOVERNANCE_ROLES);
+  if (denied) return denied;
+
   const url = new URL(req.url);
   const status = url.searchParams.get('status');
   const memoryId = url.searchParams.get('memoryId');
@@ -38,17 +45,22 @@ export const GET = withApiLog(GETApiHandler, { route: '/api/tandem/memory/downgr
 
 async function POSTApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const denied = requireRole(auth, MEMORY_GOVERNANCE_ROLES);
+  if (denied) return denied;
   try {
     const body = await req.json();
-    if (!body.memoryId || !body.proposedBy || !body.reason) {
+    if (!body.memoryId || !body.reason) {
       return NextResponse.json(
-        { error: '缺必要字段: memoryId, proposedBy, reason' },
+        { error: '缺必要字段: memoryId, reason' },
         { status: 400 }
       );
     }
     const downgrade = await proposeDowngrade({
       memoryId: body.memoryId,
-      proposedBy: body.proposedBy,
+      // 身份绑定: 人工提议恒记为登录用户 (AI 触发走 downgrade-flow 内部, 不经此端口).
+      proposedBy: auth.userId,
       reason: body.reason,
       metrics: body.metrics,
     });
@@ -62,12 +74,16 @@ export const POST = withApiLog(POSTApiHandler, { route: '/api/tandem/memory/down
 
 async function PATCHApiHandler(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const denied = requireRole(auth, MEMORY_GOVERNANCE_ROLES);
+  if (denied) return denied;
   try {
     const body = await req.json();
-    const { downgradeId, stewardId, decision, note } = body;
-    if (!downgradeId || !stewardId || !decision) {
+    const { downgradeId, decision, note } = body;
+    if (!downgradeId || !decision) {
       return NextResponse.json(
-        { error: '缺必要字段: downgradeId, stewardId, decision' },
+        { error: '缺必要字段: downgradeId, decision' },
         { status: 400 }
       );
     }
@@ -78,7 +94,8 @@ async function PATCHApiHandler(req: NextRequest) {
         { status: 400 }
       );
     }
-    const updated = await decideDowngrade(downgradeId, stewardId, decision, note);
+    // 身份绑定: 决议人恒为登录用户; decideDowngrade 内再校验其为在册 Steward.
+    const updated = await decideDowngrade(downgradeId, auth.userId, decision, note);
     return NextResponse.json({ downgrade: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });

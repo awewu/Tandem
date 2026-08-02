@@ -791,7 +791,7 @@ export default function CalendarPage() {
               {smartSuggestions.map((s, i) => (
                 <button
                   key={i}
-                  className="shrink-0 text-caption px-2.5 py-1.5 rounded-md bg-white border border-info/30 hover:bg-info/10 transition-colors text-left"
+                  className="shrink-0 text-caption px-2.5 py-1.5 rounded-md bg-surface-1 border border-info/30 hover:bg-info/10 transition-colors text-left"
                   onClick={() => {
                     setSelectedDate(new Date(s.startTime));
                     setEditorDate(new Date(s.startTime));
