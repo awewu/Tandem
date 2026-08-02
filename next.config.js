@@ -60,6 +60,11 @@ const nextConfig = {
         source: '/api/hermes/:path*',
         destination: 'http://localhost:8000/api/:path*',
       },
+      {
+        // A2A 标准发现路径 → 实际由 app/api/mcp-server/agent-card/route.ts 处理
+        source: '/.well-known/agent-card.json',
+        destination: '/api/mcp-server/agent-card',
+      },
     ];
   },
 };
