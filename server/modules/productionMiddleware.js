@@ -16,6 +16,11 @@ const NESTJS_MIGRATED_PREFIXES = [
   '/api/v2/stores',
   '/api/v2/crm',
   '/api/v2/diagnosis',
+  '/api/v2/design',
+  '/api/v2/bim',
+  '/api/v2/delivery',
+  '/api/v2/aftersales',
+  '/api/v2/lifecycle',
   '/api/v2/quotation',
   '/api/v2/entitlement',
   // Retained brand, catalog, file, and growth APIs remain on NestJS.

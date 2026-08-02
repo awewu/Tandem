@@ -17,6 +17,9 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CrmModule } from './crm/crm.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
+import { DesignModule } from './design/design.module';
+import { BimModule } from './bim/bim.module';
+import { DeliveryModule } from './delivery/delivery.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { EntitlementModule } from './entitlement/entitlement.module';
 import { EntitlementGuard } from './entitlement/entitlement.guard';
@@ -88,6 +91,9 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     WorkflowModule,
     IngressModule,
     DispatchModule,
+    DesignModule,
+    BimModule,
+    DeliveryModule,
     GrowthModule,
     EntitlementModule,
   ],
