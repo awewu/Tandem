@@ -66,6 +66,7 @@
 | `ARCHITECTURE-BREAKDOWN.md` | Tandem 7 大思路功能+架构拆解 (实现轴) |
 | `STATE-OF-THE-CODE.md` | 代码现状 |
 | `STATE-OF-THE-CODE-2026-08.md` | 代码现状整合汇总 (2026-08 并行窗口错乱恢复 + stash@{4} 找回丢失工作 + 体系盘点) |
+| `STRATEGIC-REVIEW-2026-W31.md` | W31 战略盘点 (本周更新价值 + 竞品/行业对标 + 现存问题二次修正 + 进化路线) |
 | `STORE-SLICE-PLAN-2026-05-31.md` | `lib/store.ts` 拆 slice 备忘 |
 
 ## 3. UI 设计
