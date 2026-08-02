@@ -48,6 +48,8 @@
     ".next-dev",
     "vendor",
     "android",
-    "ios"
+    "ios",
+    "qm",
+    "StrategyOS"
   ]
 }
