@@ -23,11 +23,9 @@ module.exports = {
     // 8 大核心HVAC引擎
     'server/core/PainPointDiagnosisEngineV3.js',
     'server/core/LoadCalculationEngineV3.js',
-    'server/core/RysnovaBIMCore.js',
     'server/core/CFDSimulationEngine.js',
     'server/core/MultiDisciplineEngine.js',
     'server/core/ProfessionalStandardsLibrary.js',
-    'server/core/EnterpriseClosedLoopEngine.js',
     'server/core/AIConsultantEngine.js',
     // 关键商业引擎
     'server/core/CommercialTaxEngine.js',
@@ -89,14 +87,10 @@ module.exports = {
     '/test/supreme-comprehensive.test.js',
     '/tests/e2e/',
     // 以下测试引用的模块已在 2026-04 清理中删除（迁移至 NestJS/PG 或归档）
-    '/test/core/CustomerJourneyStore.test.js',
-    '/test/integration/mongo-store.integration.test.js',
-    '/test/services/JourneySimulator.test.js',
     '/test/AIConsultantEngine.test.js',
     '/test/AIValidationSuite.test.js',
     '/test/AdminSystemV2.test.js',
     '/test/AgencyAgent.test.js',
-    '/test/AgencyAgentEngine.test.js',
     '/test/ConfigManager.test.js',
     '/test/CoreModules.test.js',
     '/test/CriticAgent.test.js',
@@ -112,11 +106,9 @@ module.exports = {
     '/test/MasterAgent.test.js',
     '/test/MultiRoleEngine.test.js',
     '/test/QuickLockModeV2.test.js',
-    '/test/RiskBasedQualityAssurance.test.js',
     '/test/StrictValidationAgent.test.js',
     '/test/SystemCoordinationEngine.test.js',
     '/test/ThreeTierEngine.test.js',
-    '/test/core-engines-integration.test.js',
   ],
 
   // 多worker配置优化

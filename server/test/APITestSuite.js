@@ -45,7 +45,6 @@ class APITestSuite {
     await this.testTemplateAPI();
     
     // 112Agent新增接口测试
-    await this.testNewFeaturesAPI();
     
     // 管理接口测试
     await this.testAdminAPI();
@@ -319,68 +318,6 @@ class APITestSuite {
     await this.runTests(tests);
   }
 
-  async testNewFeaturesAPI() {
-    const tests = [
-      {
-        name: 'POST /api/cad/import - CAD导入',
-        method: 'POST',
-        endpoint: '/api/cad/import',
-        body: { fileData: 'dGVzdA==', fileType: 'dxf' },
-        expect: { success: true }
-      },
-      {
-        name: 'POST /api/floorplan/recognize - 户型识别',
-        method: 'POST',
-        endpoint: '/api/floorplan/recognize',
-        body: { imageData: 'dGVzdA==' },
-        expect: { success: true }
-      },
-      {
-        name: 'POST /api/ai/enhanced-diagnosis - RAG增强诊断',
-        method: 'POST',
-        endpoint: '/api/ai/enhanced-diagnosis',
-        body: {
-          roomProfile: { area: 100 },
-          basicDiagnosis: { painPoints: [] }
-        },
-        expect: { success: true }
-      },
-      {
-        name: 'GET /api/knowledge-base/stats - 知识库统计',
-        method: 'GET',
-        endpoint: '/api/knowledge-base/stats',
-        expect: { success: true }
-      },
-      {
-        name: 'GET /api/collaboration/sessions - 协作会话',
-        method: 'GET',
-        endpoint: '/api/collaboration/sessions',
-        expect: { success: true }
-      },
-      {
-        name: 'GET /api/econet/devices - 设备列表',
-        method: 'GET',
-        endpoint: '/api/econet/devices',
-        expect: { success: true }
-      },
-      {
-        name: 'POST /api/econet/device/:id/control - 设备控制',
-        method: 'POST',
-        endpoint: '/api/econet/device/test-device/control',
-        body: { command: { mode: 'on' } },
-        expect: { success: true }
-      },
-      {
-        name: 'GET /api/econet/stats - Econet统计',
-        method: 'GET',
-        endpoint: '/api/econet/stats',
-        expect: { success: true }
-      }
-    ];
-    
-    await this.runTests(tests);
-  }
-
   async testAdminAPI() {
     const tests = [
       {
@@ -399,12 +336,6 @@ class APITestSuite {
         name: 'GET /api/health - 健康检查',
         method: 'GET',
         endpoint: '/api/health',
-        expect: { success: true }
-      },
-      {
-        name: 'GET /api/monitor/status - 监控状态',
-        method: 'GET',
-        endpoint: '/api/monitor/status',
         expect: { success: true }
       }
     ];

@@ -220,6 +220,15 @@
       .map(function(x){ return x && x.url ? x.url : ''; })
       .filter(Boolean);
   }
+  function galleryBlock(p){
+    var images=galleryImgs(p);
+    if(!images.length) return '';
+    return '<section class="section pd-gallery"><div class="container">'
+      +'<div class="section-head"><div class="eyebrow">产品细节</div><h2>更多产品图片</h2></div>'
+      +'<div class="pd-gallery-grid">'+images.map(function(src,index){
+        return '<figure class="pd-gallery-item"><img src="'+e(imageUrl(src))+'" alt="'+e(p.name)+' 产品详情图 '+(index+1)+'" loading="lazy" decoding="async"></figure>';
+      }).join('')+'</div></div></section>';
+  }
   function badges(p){
     if(!p.badges||!p.badges.length) return '';
     return '<div class="pc-badges">'+p.badges.slice(0,1).map(function(b){return '<span class="pc-badge">'+e(b)+'</span>';}).join('')+'</div>';
@@ -488,6 +497,7 @@
       +       '<a class="btn btn-outline-light btn-lg" href="'+cn.sysPath+'">查看同类产品</a></div>'
       +   '</div></div></section>';
 
+    html+=galleryBlock(p);
     if(window.EVERHOT_SHOW_PRODUCT_POSITIONING){ html+=positioningBlock(p); }
     if((p.highlights||[]).length){
       html+='<section class="pd-stats-band"><div class="container pd-stats">'+highlightStats(p)+'</div></section>';

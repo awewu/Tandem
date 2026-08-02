@@ -15,14 +15,14 @@ async function run() {
   try {
     // 1. 登录
     console.log('1. 访问登录页...');
-    await page.goto('http://localhost:5000/?returnUrl=/hub');
+    await page.goto('http://localhost:5000/?returnUrl=/brand');
     await page.locator('input[type="text"]').fill('13900000000');
     await page.locator('input[type="password"]').fill('Super@2026');
     await page.locator('button:has-text("登录")').click();
 
     // 2. 进入统一门户
     console.log('2. 等待进入统一门户...');
-    await page.waitForURL('http://localhost:5000/hub', { timeout: 10000 });
+    await page.waitForURL('http://localhost:5000/brand', { timeout: 10000 });
     const hubTitle = await page.locator('text=产品目录').first().isVisible().catch(() => false);
     console.log('   门户可见:', hubTitle);
 
@@ -46,7 +46,7 @@ async function run() {
 
     // 6. 回到门户
     console.log('6. 等待回到门户...');
-    await page.waitForURL('http://localhost:5000/hub', { timeout: 10000 });
+    await page.waitForURL('http://localhost:5000/brand', { timeout: 10000 });
     console.log('   已返回门户');
 
     console.log('\n✅ 全链路烟测通过');

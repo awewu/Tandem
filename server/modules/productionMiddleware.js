@@ -16,22 +16,16 @@ const NESTJS_MIGRATED_PREFIXES = [
   '/api/v2/stores',
   '/api/v2/crm',
   '/api/v2/diagnosis',
-  '/api/v2/lifecycle',
   '/api/v2/quotation',
   '/api/v2/entitlement',
-  // 经销商工作台四域：NestJS 已实现且端到端验证通过（brand/product-catalog/bim/design）。
-  // design 在 NestJS 覆盖 projects/floor-plans/calc/releases；Express 仅有 workspace-state
-  // 且无前端调用者，整体代理到 NestJS 不影响现有调用。
+  // Retained brand, catalog, file, and growth APIs remain on NestJS.
   '/api/v2/brand',
   '/api/v2/brands',
   '/api/v2/brand-sites',
   '/api/v2/product-catalog',
   '/api/v2/file-artifact',
   '/api/v2/growth',
-  '/api/v2/bim',
-  '/api/v2/design',
 ];
-// lifecycle is also pinned to NestJS when partial legacy rollback is enabled.
 
 // P1 架构收敛（2026-07-06）：默认把【全部】 /api/v2/** 反向代理到 NestJS 单一真相源。
 // 该代理挂载在 bodyParser 之前，body stream 原样转发，POST 安全。

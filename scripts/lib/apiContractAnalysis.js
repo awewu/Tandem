@@ -25,9 +25,9 @@ function normalizeApiPath(value, options = {}) {
   if (!p.startsWith('/')) p = '/' + p;
 
   const basePath = options.basePath ? normalizeRoutePath(options.basePath) : '';
-  if (basePath && !p.startsWith(basePath) && !p.startsWith('/api') && !p.startsWith('/rysnova-bim-deliverables')) {
+  if (basePath && !p.startsWith(basePath) && !p.startsWith('/api')) {
     p = basePath.replace(/\/$/, '') + p;
-  } else if (!p.startsWith('/api') && !p.startsWith('/rysnova-bim-deliverables')) {
+  } else if (!p.startsWith('/api')) {
     p = '/api' + p;
   }
 

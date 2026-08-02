@@ -22,28 +22,14 @@
       "currentStatus": "legacy-compat",
       "ownerAgent": "legacy-fusion-migrator",
       "defaultMigrationAction": "replace-with-target-module",
-      "defaultTargetModules": ["crm", "diagnosis", "design", "rysnova-bim", "delivery", "file-artifact", "governance"],
+      "defaultTargetModules": ["crm", "diagnosis", "delivery", "file-artifact", "governance"],
       "routes": [
         {
           "id": "new-features",
           "prefix": "/api",
           "modulePath": "./legacy-api/new-features.routes",
-          "targetModules": ["diagnosis", "design", "file-artifact", "lifecycle", "governance"],
-          "targetApiNamespaces": ["/api/v2/diagnosis", "/api/v2/design", "/api/v2/file-artifact", "/api/v2/lifecycle", "/api/v2/governance"]
-        },
-        {
-          "id": "dxf-bim",
-          "prefix": "/api/dxf",
-          "modulePath": "../routes/dxfRoutes",
-          "targetModules": ["design", "rysnova-bim", "file-artifact"],
-          "targetApiNamespaces": ["/api/v2/design", "/api/v2/rysnova-bim", "/api/v2/file-artifact"]
-        },
-        {
-          "id": "rysnova-bim-base",
-          "prefix": "/api/rysnova-bim",
-          "modulePath": "../routes/rysnova-bim-simple",
-          "targetModules": ["rysnova-bim", "file-artifact"],
-          "targetApiNamespaces": ["/api/v2/rysnova-bim", "/api/v2/file-artifact"]
+          "targetModules": ["diagnosis", "file-artifact", "lifecycle", "governance"],
+          "targetApiNamespaces": ["/api/v2/diagnosis", "/api/v2/file-artifact", "/api/v2/lifecycle", "/api/v2/governance"]
         },
         {
           "id": "marketing",
@@ -51,13 +37,6 @@
           "modulePath": "../routes/marketing",
           "targetModules": ["crm", "analytics", "notification"],
           "targetApiNamespaces": ["/api/v2/crm", "/api/v2/analytics", "/api/v2/notification"]
-        },
-        {
-          "id": "construction",
-          "prefix": "/api/construction",
-          "modulePath": "../routes/construction",
-          "targetModules": ["delivery", "workflow", "file-artifact"],
-          "targetApiNamespaces": ["/api/v2/delivery", "/api/v2/workflow", "/api/v2/file-artifact"]
         },
         {
           "id": "business-domain",
@@ -79,13 +58,6 @@
           "modulePath": "../routes/reports",
           "targetModules": ["analytics", "file-artifact", "governance"],
           "targetApiNamespaces": ["/api/v2/analytics", "/api/v2/file-artifact", "/api/v2/governance"]
-        },
-        {
-          "id": "drawings-reports-compat",
-          "prefix": "/api/drawings",
-          "modulePath": "../routes/reports",
-          "targetModules": ["design", "rysnova-bim", "file-artifact"],
-          "targetApiNamespaces": ["/api/v2/design", "/api/v2/rysnova-bim", "/api/v2/file-artifact"]
         }
       ]
     },
@@ -100,25 +72,9 @@
         { "id": "oneclick", "prefix": "/api/oneclick", "modulePath": "../routes/oneclick-api", "targetApiNamespaces": ["/api/v2/quote", "/api/v2/product-catalog"] },
         { "id": "quotation", "prefix": "/api/quotation", "modulePath": "../routes/customQuotation", "targetModules": ["quote"], "targetApiNamespaces": ["/api/v2/quote"] },
         { "id": "quotation-v2", "prefix": "/api/quotation-v2", "modulePath": "../routes/quotation-v2", "targetModules": ["quote"], "targetApiNamespaces": ["/api/v2/quote"] },
-        { "id": "calculation", "prefix": "/api/calc", "modulePath": "../routes/calculation-api", "targetModules": ["quote", "design", "product-catalog"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/design", "/api/v2/product-catalog"] },
+        { "id": "calculation", "prefix": "/api/calc", "modulePath": "../routes/calculation-api", "targetModules": ["quote", "product-catalog"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/product-catalog"] },
         { "id": "three-tier", "prefix": "/api/three-tier", "modulePath": "../routes/threeTier", "targetModules": ["quote", "product-catalog", "analytics"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/product-catalog", "/api/v2/analytics"] },
         { "id": "package-purchase", "prefix": "/api/package", "modulePath": "../routes/packagePurchase", "targetModules": ["quote", "delivery", "workflow"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/delivery", "/api/v2/workflow"] }
-      ]
-    },
-    {
-      "groupId": "engineering-delivery",
-      "currentDomain": "engineering-delivery",
-      "currentStatus": "legacy-compat",
-      "ownerAgent": "solution-design-rysnova-bim-director",
-      "defaultMigrationAction": "replace-with-target-module",
-      "defaultTargetModules": ["design", "rysnova-bim", "delivery", "workflow", "file-artifact"],
-      "routes": [
-        { "id": "supreme", "prefix": "/api/supreme", "modulePath": "../routes/supreme-api", "targetModules": ["design", "quote", "rysnova-bim"], "targetApiNamespaces": ["/api/v2/design", "/api/v2/quote", "/api/v2/rysnova-bim"] },
-        { "id": "revit", "prefix": "/api/revit", "modulePath": "../routes/revit-integration", "targetModules": ["rysnova-bim", "file-artifact"], "targetApiNamespaces": ["/api/v2/rysnova-bim", "/api/v2/file-artifact"] },
-        { "id": "workflows", "prefix": "/api/workflows", "modulePath": "../routes/workflows", "targetModules": ["workflow", "delivery"], "targetApiNamespaces": ["/api/v2/workflow", "/api/v2/delivery"] },
-        { "id": "hotwater", "prefix": "/api/hotwater", "modulePath": "../routes/hotwater", "targetModules": ["design", "product-catalog"], "targetApiNamespaces": ["/api/v2/design", "/api/v2/product-catalog"] },
-        { "id": "smart-routing", "prefix": "/api/rysnova-bim", "modulePath": "../routes/smart-routing", "targetModules": ["rysnova-bim", "design"], "targetApiNamespaces": ["/api/v2/rysnova-bim", "/api/v2/design"] },
-        { "id": "delivery", "prefix": "/api/delivery", "modulePath": "../routes/delivery", "targetModules": ["delivery", "lifecycle", "workflow"], "targetApiNamespaces": ["/api/v2/delivery", "/api/v2/lifecycle", "/api/v2/workflow"] }
       ]
     },
     {
@@ -129,9 +85,7 @@
       "defaultMigrationAction": "replace-with-target-module",
       "defaultTargetModules": ["governance", "notification", "crm"],
       "routes": [
-        { "id": "ai-assistant", "prefix": "/api/ai", "modulePath": "../routes/ai-assistant", "targetModules": ["governance", "diagnosis", "quote"], "targetApiNamespaces": ["/api/v2/governance", "/api/v2/diagnosis", "/api/v2/quote"] },
-        { "id": "channel", "prefix": "/api/channel", "modulePath": "./legacy-api/channel.routes", "targetModules": ["tenant", "crm", "analytics"], "targetApiNamespaces": ["/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/crm", "/api/v2/analytics"] },
-        { "id": "v9-evolution", "prefix": "/api/v9", "modulePath": "./legacy-api/v9.routes", "targetModules": ["governance", "workflow", "analytics"], "targetApiNamespaces": ["/api/v2/governance", "/api/v2/workflow", "/api/v2/analytics"] }
+        { "id": "channel", "prefix": "/api/channel", "modulePath": "./legacy-api/channel.routes", "targetModules": ["tenant", "crm", "analytics"], "targetApiNamespaces": ["/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/crm", "/api/v2/analytics"] }
       ]
     },
     {
@@ -142,10 +96,7 @@
       "defaultMigrationAction": "retain-production-module",
       "defaultTargetModules": ["auth", "tenant", "governance"],
       "routes": [
-        { "id": "admin-guard", "prefix": "/api/admin", "middleware": "adminGuard", "targetApiNamespaces": ["/api/v2/auth", "/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/governance"] },
-        { "id": "cache-delete-guard", "prefix": "/api/cache/delete", "middleware": "adminGuard", "targetApiNamespaces": ["/api/v2/auth", "/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/governance"] },
-        { "id": "backup-guard", "prefix": "/api/backup", "middleware": "adminGuard", "targetApiNamespaces": ["/api/v2/auth", "/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/governance"] },
-        { "id": "qa-config-guard", "prefix": "/api/qa/config", "middleware": "adminGuard", "targetApiNamespaces": ["/api/v2/auth", "/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/governance"] }
+        { "id": "admin-guard", "prefix": "/api/admin", "middleware": "adminGuard", "targetApiNamespaces": ["/api/v2/auth", "/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/governance"] }
       ]
     },
     {
@@ -154,13 +105,11 @@
       "currentStatus": "production",
       "ownerAgent": "backend-platform-builder",
       "defaultMigrationAction": "retain-production-module",
-      "defaultTargetModules": ["tenant", "crm", "diagnosis", "design", "quote", "rysnova-bim", "file-artifact", "analytics", "governance"],
+      "defaultTargetModules": ["tenant", "crm", "diagnosis", "quote", "file-artifact", "analytics", "governance"],
       "routes": [
-        { "id": "core-api", "prefix": "/", "modulePath": "../routes/core-api", "targetApiNamespaces": ["/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/crm", "/api/v2/diagnosis", "/api/v2/design", "/api/v2/quote", "/api/v2/rysnova-bim", "/api/v2/file-artifact", "/api/v2/analytics", "/api/v2/governance"] },
-        { "id": "v2", "prefix": "/api/v2", "modulePath": "./v2.router", "targetModules": ["tenant", "crm", "diagnosis", "product-catalog", "quote", "design", "rysnova-bim", "delivery", "lifecycle", "analytics", "governance", "file-artifact", "notification", "workflow"], "targetApiNamespaces": ["/api/v2"] },
-        { "id": "standards", "prefix": "/", "modulePath": "../routes/standards.routes", "targetModules": ["design", "product-catalog", "rysnova-bim"], "targetApiNamespaces": ["/api/v2/design", "/api/v2/product-catalog", "/api/v2/rysnova-bim"] },
-        { "id": "closed-loop", "prefix": "/", "modulePath": "../routes/closed-loop.routes", "targetModules": ["governance", "workflow", "analytics"], "targetApiNamespaces": ["/api/v2/governance", "/api/v2/workflow", "/api/v2/analytics"] },
-        { "id": "enterprise-loop", "prefix": "/", "modulePath": "../routes/enterprise-loop.routes", "targetModules": ["governance", "workflow", "analytics"], "targetApiNamespaces": ["/api/v2/governance", "/api/v2/workflow", "/api/v2/analytics"] }
+        { "id": "core-api", "prefix": "/", "modulePath": "../routes/core-api", "targetApiNamespaces": ["/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/crm", "/api/v2/diagnosis", "/api/v2/quote", "/api/v2/file-artifact", "/api/v2/analytics", "/api/v2/governance"] },
+        { "id": "v2", "prefix": "/api/v2", "modulePath": "./v2.router", "targetModules": ["tenant", "crm", "diagnosis", "product-catalog", "quote", "delivery", "lifecycle", "analytics", "governance", "file-artifact", "notification", "workflow"], "targetApiNamespaces": ["/api/v2"] },
+        { "id": "standards", "prefix": "/", "modulePath": "../routes/standards.routes", "targetModules": ["product-catalog"], "targetApiNamespaces": ["/api/v2/product-catalog"] }
       ]
     },
     {
@@ -169,13 +118,10 @@
       "currentStatus": "production",
       "ownerAgent": "customer-project-lifecycle-director",
       "defaultMigrationAction": "retain-production-module",
-      "defaultTargetModules": ["crm", "diagnosis", "quote", "design", "delivery", "lifecycle"],
+      "defaultTargetModules": ["crm", "diagnosis", "quote", "delivery", "lifecycle"],
       "routes": [
-        { "id": "rysnova-bim-runtime", "prefix": "/", "modulePath": "../routes/rysnova-bim-runtime.routes", "targetModules": ["rysnova-bim", "file-artifact", "design"], "targetApiNamespaces": ["/api/v2/rysnova-bim", "/api/v2/file-artifact", "/api/v2/design"] },
-        { "id": "front-office-runtime", "prefix": "/", "modulePath": "../routes/front-office-runtime.routes", "targetApiNamespaces": ["/api/v2/crm", "/api/v2/diagnosis", "/api/v2/quote", "/api/v2/design", "/api/v2/delivery", "/api/v2/lifecycle"] },
-        { "id": "econet", "prefix": "/", "modulePath": "../routes/econet.routes", "targetModules": ["lifecycle", "product-catalog"], "targetApiNamespaces": ["/api/v2/lifecycle", "/api/v2/product-catalog"] },
+        { "id": "front-office-runtime", "prefix": "/", "modulePath": "../routes/front-office-runtime.routes", "targetApiNamespaces": ["/api/v2/crm", "/api/v2/diagnosis", "/api/v2/quote", "/api/v2/delivery", "/api/v2/lifecycle"] },
         { "id": "admin-routes", "prefix": "/api/admin", "modulePath": "../routes/admin.routes", "targetModules": ["auth", "tenant", "governance", "analytics"], "targetApiNamespaces": ["/api/v2/auth", "/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/governance", "/api/v2/analytics"] },
-        { "id": "tech-support", "prefix": "/", "modulePath": "../routes/tech-support.routes", "targetModules": ["rysnova-bim", "file-artifact", "delivery", "workflow"], "targetApiNamespaces": ["/api/v2/rysnova-bim", "/api/v2/file-artifact", "/api/v2/delivery", "/api/v2/workflow"] },
         { "id": "ops-runtime", "prefix": "/", "modulePath": "../routes/ops-runtime.routes", "targetModules": ["lifecycle", "analytics", "governance"], "targetApiNamespaces": ["/api/v2/lifecycle", "/api/v2/analytics", "/api/v2/governance"] }
       ]
     },
@@ -188,28 +134,7 @@
       "defaultTargetModules": ["governance", "analytics"],
       "routes": [
         { "id": "page-aliases", "prefix": "/", "modulePath": "../routes/page-aliases", "migrationAction": "migrate-static-alias-to-next-router", "targetModules": ["governance"], "targetApiNamespaces": ["/api/v2/governance"] },
-        { "id": "qa", "prefix": "/api/qa", "modulePath": "../routes/qa.routes", "targetApiNamespaces": ["/api/v2/governance", "/api/v2/analytics"] },
-        { "id": "governance-runtime", "prefix": "/", "modulePath": "../routes/governance-runtime.routes", "targetApiNamespaces": ["/api/v2/governance", "/api/v2/analytics"] },
-        { "id": "promotions", "prefix": "/api/promotions", "modulePath": "../routes/promotion.routes", "targetModules": ["crm", "quote", "analytics"], "targetApiNamespaces": ["/api/v2/crm", "/api/v2/quote", "/api/v2/analytics"] },
-        { "id": "journey", "prefix": "/api/journey", "modulePath": "../routes/journey.routes", "targetModules": ["crm", "diagnosis", "delivery", "lifecycle"], "targetApiNamespaces": ["/api/v2/crm", "/api/v2/diagnosis", "/api/v2/delivery", "/api/v2/lifecycle"] }
-      ]
-    },
-    {
-      "groupId": "comfort-home-domain-runtime",
-      "currentDomain": "comfort-home-domain",
-      "currentStatus": "production-candidate",
-      "ownerAgent": "solution-design-rysnova-bim-director",
-      "defaultMigrationAction": "replace-with-target-module",
-      "defaultTargetModules": ["design", "product-catalog", "rysnova-bim", "analytics"],
-      "routes": [
-        { "id": "design-runtime", "prefix": "/", "modulePath": "../routes/design-runtime.routes", "targetModules": ["design", "quote", "product-catalog"], "targetApiNamespaces": ["/api/v2/design", "/api/v2/quote", "/api/v2/product-catalog"] },
-        { "id": "content-sales", "prefix": "/", "modulePath": "../routes/content-sales.routes", "targetModules": ["crm", "diagnosis", "notification"], "targetApiNamespaces": ["/api/v2/crm", "/api/v2/diagnosis", "/api/v2/notification"] },
-        { "id": "energy-carbon", "prefix": "/", "modulePath": "../routes/energy-carbon.routes", "targetModules": ["analytics", "design", "product-catalog"], "targetApiNamespaces": ["/api/v2/analytics", "/api/v2/design", "/api/v2/product-catalog"] },
-        { "id": "platform-runtime", "prefix": "/", "modulePath": "../routes/platform-runtime.routes", "targetModules": ["analytics", "governance", "workflow"], "targetApiNamespaces": ["/api/v2/analytics", "/api/v2/governance", "/api/v2/workflow"] },
-        { "id": "field-services", "prefix": "/", "modulePath": "../routes/field-services", "targetModules": ["lifecycle", "delivery", "notification"], "targetApiNamespaces": ["/api/v2/lifecycle", "/api/v2/delivery", "/api/v2/notification"] },
-        { "id": "doas-compliance", "prefix": "/", "modulePath": "../routes/doas-compliance", "targetModules": ["design", "rysnova-bim", "product-catalog"], "targetApiNamespaces": ["/api/v2/design", "/api/v2/rysnova-bim", "/api/v2/product-catalog"] },
-        { "id": "air-control", "prefix": "/", "modulePath": "../routes/air-control", "targetModules": ["design", "lifecycle", "product-catalog"], "targetApiNamespaces": ["/api/v2/design", "/api/v2/lifecycle", "/api/v2/product-catalog"] },
-        { "id": "ppt-export", "prefix": "/api/ppt-export", "modulePath": "./legacy-api/ppt-export.routes", "targetModules": ["file-artifact", "quote", "rysnova-bim"], "targetApiNamespaces": ["/api/v2/file-artifact", "/api/v2/quote", "/api/v2/rysnova-bim"] }
+        { "id": "promotions", "prefix": "/api/promotions", "modulePath": "../routes/promotion.routes", "targetModules": ["crm", "quote", "analytics"], "targetApiNamespaces": ["/api/v2/crm", "/api/v2/quote", "/api/v2/analytics"] }
       ]
     }
   ]

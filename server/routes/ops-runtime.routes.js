@@ -1,7 +1,7 @@
 const express = require('express');
 const { errorResponse } = require('../utils/sanitize-error');
 
-function createOpsRuntimeRouter({ db, engines, heartbeat, authenticateToken, checkRole }) {
+function createOpsRuntimeRouter({ engines, authenticateToken, checkRole }) {
   const router = express.Router();
   const auth = authenticateToken || ((req, res, next) => next());
   const role = checkRole || (() => (req, res, next) => next());
@@ -12,16 +12,10 @@ function createOpsRuntimeRouter({ db, engines, heartbeat, authenticateToken, che
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
-      heartbeat: heartbeat && typeof heartbeat.getStatusReport === 'function'
-        ? heartbeat.getStatusReport()
-        : null,
       engines: {
         loadCalc: 'active',
         deviceSelect: 'active',
         quotation: 'active',
-        layout3D: 'active',
-        drawing: 'active',
-        renderer3D: 'active',
         painDiagnosis: 'active',
         painMatching: 'active',
         quickLock: 'active',
@@ -32,48 +26,16 @@ function createOpsRuntimeRouter({ db, engines, heartbeat, authenticateToken, che
         deployment: engines.deployment ? 'active' : 'inactive',
         aiValidation: engines.aiValidation ? 'active' : 'inactive',
         templateLibrary: engines.templateLibrary ? 'active' : 'inactive',
-        cadRecognizer: engines.cadRecognizer ? 'active' : 'inactive',
-        cadImporter: engines.cadImporter ? 'active' : 'inactive',
-        floorPlanRecognition: engines.floorPlanRecognition ? 'active' : 'inactive',
-        mqttBroker: engines.mqttBroker ? 'active' : 'inactive',
-        ragKnowledgeBase: engines.ragKnowledgeBase ? 'active' : 'inactive',
-        collaborationSync: engines.collaborationSync ? 'active' : 'pending',
         templateLibraryEngine: engines.templateLibraryEngine ? 'active' : 'inactive',
-        dataBackupRestore: engines.dataBackupRestore ? 'active' : 'inactive',
         aiAccuracyValidator: engines.aiAccuracyValidator ? 'active' : 'inactive'
       },
       newFeatures: {
-        realTimeCollaboration: true,
-        cadImport: true,
-        floorPlanRecognition: true,
         econetIntegration: true,
-        aiEnhancement: true,
-        dataBackup: true,
         aiValidation: true,
         templateLibrary: true,
-        collaborationSync: !!engines.collaborationSync,
-        dataBackupRestore: !!engines.dataBackupRestore,
         aiAccuracyValidation: !!engines.aiAccuracyValidator
       }
     });
-  });
-
-  router.get('/api/monitor/status', auth, role(['store_admin', 'rheem_admin']), (req, res) => {
-    const status = heartbeat && typeof heartbeat.getStatusReport === 'function'
-      ? heartbeat.getStatusReport()
-      : { status: 'unavailable' };
-    res.json({ success: true, data: status });
-  });
-
-  router.get('/api/collaboration/rooms', auth, (req, res) => {
-    try {
-      if (!engines.collaborationSync || typeof engines.collaborationSync.getRoomStats !== 'function') {
-        return res.json({ success: true, data: { rooms: [], status: 'not_initialized' } });
-      }
-      res.json({ success: true, data: engines.collaborationSync.getRoomStats() });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
   });
 
   router.get('/api/templates/library', auth, (req, res) => {
@@ -109,47 +71,6 @@ function createOpsRuntimeRouter({ db, engines, heartbeat, authenticateToken, che
       const { roomProfile, options } = req.body || {};
       const recommendations = engines.templateLibraryEngine.recommendTemplates(roomProfile, options);
       res.json({ success: true, data: recommendations });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.get('/api/backup/list', auth, role(['store_admin', 'rheem_admin']), async (req, res) => {
-    try {
-      const backups = await engines.dataBackupRestore.getBackupList();
-      res.json({ success: true, data: backups });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.post('/api/backup/trigger', auth, role(['store_admin', 'rheem_admin']), async (req, res) => {
-    try {
-      const data = db || { timestamp: new Date().toISOString(), type: 'manual' };
-      const result = await engines.dataBackupRestore.createBackup(data, { type: 'manual' });
-      res.json({ success: true, data: result });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.post('/api/backup/restore', auth, role(['rheem_admin']), async (req, res) => {
-    try {
-      const { backupId } = req.body || {};
-      const restoreBackup = engines.dataBackupRestore.restoreBackup.bind(engines.dataBackupRestore);
-      const result = restoreBackup.length >= 2
-        ? await restoreBackup(backupId, db)
-        : await restoreBackup(backupId);
-      res.json({ success: true, data: result });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.get('/api/backup/stats', auth, role(['store_admin', 'rheem_admin']), async (req, res) => {
-    try {
-      const stats = await engines.dataBackupRestore.getStats();
-      res.json({ success: true, data: stats });
     } catch (error) {
       return errorResponse(res, error);
     }

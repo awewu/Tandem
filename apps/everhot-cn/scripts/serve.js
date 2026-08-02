@@ -14,6 +14,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { createMediaOrigin } = require('./media-origin');
 
 const args = process.argv.slice(2);
 function arg(name, fallback) {
@@ -24,6 +25,7 @@ const PORT = Number(process.env.PORT || arg('--port', '4011'));
 const BASE = normalizeBase(arg('--base', process.env.EVERHOT_BASE_PATH || ''));
 const PUBLIC = path.join(__dirname, '..', 'public');
 const API_TARGET = (process.env.EVERHOT_API_TARGET || process.env.NEXUS_API_ORIGIN || 'http://localhost:5500').replace(/\/+$/, '');
+const mediaOrigin = createMediaOrigin({ publicDir: PUBLIC });
 
 function normalizeBase(value) {
   const raw = String(value || '').trim();
@@ -98,6 +100,9 @@ const server = http.createServer((req, res) => {
     return send(res, 400, 'Bad Request');
   }
 
+  if (mediaOrigin.handleSync(req, res, send)) return;
+  if (mediaOrigin.tryServe(urlPath, req, res, send, TYPES)) return;
+
   if (urlPath.startsWith('/api/v2/')) {
     return proxyApi(req, res);
   }
@@ -137,4 +142,5 @@ server.listen(PORT, () => {
   const mountPath = BASE ? `${BASE}/` : '/';
   console.log(`恒热 Everhot 静态站 → http://localhost:${PORT}${mountPath}`);
   console.log(`(serving ${path.relative(process.cwd(), PUBLIC)} at base ${BASE || '/'})`);
+  console.log(`(runtime media ${mediaOrigin.mediaRoot})`);
 });

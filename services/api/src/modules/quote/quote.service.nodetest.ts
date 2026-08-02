@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AuditLogEntity } from '../governance/governance.entity';
 import { CustomerEntity, OpportunityEntity } from '../crm/crm.entity';
-import { LifecycleLinkEntity } from '../lifecycle/lifecycle.entity';
 import { InMemoryRepository, makeFakeDataSource } from '../common/testing/fake-datasource';
 import { QuotationEntity } from './quote.entity';
 import { QuoteService } from './quote.service';
@@ -11,10 +10,9 @@ const USER: any = {
   tenantId: 'tenant-a', dealerId: 'dealer-a', storeId: 'store-a', userId: 'seller-a', role: 'sales',
 };
 
-function fixture(options: { customer?: any; opportunity?: any; link?: any; quote?: any } = {}) {
+function fixture(options: { customer?: any; opportunity?: any; quote?: any } = {}) {
   const customers = new InMemoryRepository<any>();
   const opportunities = new InMemoryRepository<any>();
-  const links = new InMemoryRepository<any>();
   const quotations = new InMemoryRepository<any>();
   const audits = new InMemoryRepository<any>();
   if (options.customer !== null) customers.seed(options.customer || {
@@ -23,14 +21,10 @@ function fixture(options: { customer?: any; opportunity?: any; link?: any; quote
   if (options.opportunity !== null) opportunities.seed(options.opportunity || {
     id: 'opp-a', tenantId: 'tenant-a', dealerId: 'dealer-a', storeId: 'store-a', customerId: 'customer-a',
   });
-  if (options.link !== null) links.seed(options.link || {
-    id: 'project-a', tenantId: 'tenant-a', dealerId: 'dealer-a', storeId: 'store-a', customerId: 'customer-a',
-  });
   if (options.quote) quotations.seed(options.quote);
   const { ds, repoFor } = makeFakeDataSource([
     [CustomerEntity, customers],
     [OpportunityEntity, opportunities],
-    [LifecycleLinkEntity, links],
     [QuotationEntity, quotations],
     [AuditLogEntity, audits],
   ]);
@@ -43,7 +37,6 @@ function fixture(options: { customer?: any; opportunity?: any; link?: any; quote
     events,
     customers,
     opportunities,
-    links,
     quotations: repoFor<any>(QuotationEntity),
     audits: repoFor<any>(AuditLogEntity),
   };
@@ -60,7 +53,7 @@ test('persist scopes the complete parent graph, ignores ownership injection, and
   assert.equal(quote.dealerId, 'dealer-a');
   assert.equal(quote.storeId, 'store-a');
   assert.equal(quote.ownerUserId, 'seller-a');
-  assert.equal(quote.projectId, 'project-a');
+  assert.equal(quote.projectId, null);
   assert.equal(f.audits.rows.at(-1)?.action, 'quotation.create');
   assert.equal(f.events.at(-1)?.eventType, 'quotation.created');
 });
@@ -83,17 +76,6 @@ test('persist rejects cross-store customers and mismatched opportunities', async
     () => wrongOpportunity.service.persist(USER, { customerId: 'customer-a', opportunityId: 'opp-a', items: [] }),
     /商机不存在/,
   );
-});
-
-test('persist rejects a customer without a lifecycle project instead of writing a null project id', async () => {
-  const f = fixture({ link: null });
-  await assert.rejects(
-    () => f.service.persist(USER, { customerId: 'customer-a', items: [] }),
-    /项目主线不存在/,
-  );
-  assert.equal(f.quotations.rows.length, 0);
-  assert.equal(f.audits.rows.length, 0);
-  assert.equal(f.events.length, 0);
 });
 
 test('lock returns not found for an unowned quote and audits a successful price freeze', async () => {

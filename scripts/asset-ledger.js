@@ -22,7 +22,6 @@ const RULES = [
   [/(Cache|UnifiedDatabase|DatabasePersistence|Monitoring|Performance|Deployment|DataBackup)/, 'MIGRATE', 'platform/infra', '平台基础设施'],
   [/routes\/business-domain\.js$/, 'SPLIT', '', '上帝路由 50 端点,按领域拆分'],
   [/routes\/core-api\.js$/, 'SPLIT', '', '上帝路由 40 端点,按领域拆分'],
-  [/routes\/supreme-api\.js$/, 'SPLIT', '', '上帝路由 23 端点,按领域拆分'],
   [/(electron|preload|package-electron)/i, 'ARCHIVE', '', 'Electron 桌面壳,归档'],
 ];
 function ruleHit(file) {

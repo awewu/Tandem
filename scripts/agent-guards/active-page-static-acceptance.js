@@ -16,8 +16,6 @@ const pages = [
 
 const brandMarketingNavigationSmoke = {
   sources: [
-    'apps/dealer-workbench/src/app/hub/page.tsx',
-    'apps/dealer-workbench/src/app/hub-console/page.tsx',
     'apps/dealer-workbench/src/components/DealerNav.tsx'
   ],
   nexusConsoleBoardSource: 'apps/nexus-console/src/lib/boards.ts',

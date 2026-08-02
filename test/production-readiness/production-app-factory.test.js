@@ -7,7 +7,7 @@ describe('production app factory boundary', () => {
   test('server-production only starts runtime services inside startProductionServer', () => {
     const source = fs.readFileSync(path.join(ROOT, 'server-production.js'), 'utf8');
     const startIndex = source.indexOf('async function startProductionServer');
-    const preListenIndex = source.indexOf('startPreListenServices({ engines, db })', startIndex);
+    const preListenIndex = source.indexOf('startPreListenServices({ engines })', startIndex);
     const resolvedRuntimeIndex = source.indexOf('const runtimeProfile = resolveRuntimeProfile(options);', startIndex);
     const runtimeUseIndex = source.indexOf('getRuntime({ runtimeProfile })', startIndex);
     const listenPromiseIndex = source.indexOf('httpServer = await new Promise', startIndex);
@@ -21,7 +21,7 @@ describe('production app factory boundary', () => {
     expect(listenPromiseIndex).toBeGreaterThan(startIndex);
     expect(listenErrorIndex).toBeGreaterThan(listenPromiseIndex);
     expect(source).not.toContain("getRuntime({ runtimeProfile: 'full' })");
-    expect(source.slice(0, startIndex)).not.toContain('startPreListenServices({ engines, db })');
+    expect(source.slice(0, startIndex)).not.toContain('startPreListenServices({ engines })');
     expect(source.slice(0, startIndex)).not.toContain('createProductionApp()');
   });
 
@@ -86,16 +86,10 @@ describe('production app factory boundary', () => {
     const engines = createProductionEngines({ runtimeProfile: 'safe' });
 
     expect(engines.__lazyRuntime.getLazyEngineNames()).toEqual(expect.arrayContaining([
-      'rysnovaBimBIM',
-      'bimExport',
       'freshAirPro',
       'waterSystem',
       'standardsLibrary',
-      'agencyAgent',
-      'econetSystem',
-      'workflowOrchestrator',
-      'selfCheckOrchestrator',
-      'agentCoordinator'
+      'econetSystem'
     ]));
     expect(engines.__lazyRuntime.getLoadedEngineNames()).toEqual([]);
 
@@ -114,28 +108,19 @@ describe('production app factory boundary', () => {
     expect(engines.__lazyRuntime.getLoadedEngineNames()).toEqual(['waterSystem']);
   });
 
-  test('full production engine registry still defers background service implementations until service startup', () => {
+  test('full production engine registry excludes retired background service implementations', () => {
     const { createProductionEngines } = require('../../server/modules/engineRegistry');
     const engines = createProductionEngines({ runtimeProfile: 'full' });
 
     expect(engines.__lazyRuntime.getLazyEngineNames()).toEqual(expect.arrayContaining([
-      'monitoring',
-      'dataBackup',
-      'dataBackupRestore',
-      'yjsCollaboration',
-      'mqttBroker',
-      'ragKnowledgeBase',
-      'evolution',
-      'enterpriseLoop'
+      'monitoring'
     ]));
     expect(engines.__lazyRuntime.getLoadedEngineNames()).toEqual([]);
 
-    expect(engines.ragKnowledgeBase.healthCheck()).toEqual(expect.objectContaining({
-      status: 'lazy',
-      loaded: false,
-      name: 'ragKnowledgeBase',
-      runtimeProfile: 'full'
-    }));
+    expect(engines).not.toHaveProperty('dataBackup');
+    expect(engines).not.toHaveProperty('yjsCollaboration');
+    expect(engines).not.toHaveProperty('mqttBroker');
+    expect(engines).not.toHaveProperty('ragKnowledgeBase');
     expect(engines.__lazyRuntime.getLoadedEngineNames()).toEqual([]);
   });
 });

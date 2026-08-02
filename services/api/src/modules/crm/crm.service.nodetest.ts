@@ -47,7 +47,6 @@ function fixture() {
   const interactions = repository([], 'interaction');
   const audits = repository([], 'audit');
   const events: Row[] = [];
-  const lifecycleCalls: Row[] = [];
   const manager = {
     async query() { return undefined; },
     getRepository(entity: unknown) {
@@ -59,23 +58,16 @@ function fixture() {
     }
   };
   const dataSource = { async transaction(work: (em: any) => Promise<unknown>) { return work(manager); } };
-  const lifecycle = {
-    async advanceInTx(_em: unknown, input: Row) {
-      lifecycleCalls.push(input);
-      return { id: 'project-1', ...input };
-    }
-  };
   const eventBus = {
     async publishInTx(_em: unknown, event: Row) { events.push(event); return event; },
     async kickDispatch() { return undefined; }
   };
-  const bim = { async inheritFromQuotation() { return { project: { id: 'bim-1' } }; } };
-  const service = new CrmService(dataSource as any, bim as any, eventBus as any, lifecycle as any);
+  const service = new CrmService(dataSource as any, eventBus as any);
   const user = {
     userId: 'seller-a', tenantId: 'tenant-a', dealerId: 'dealer-a', storeId: 'store-a',
     customerId: null, role: 'sales', permissions: [], modules: []
   } as any;
-  return { service, user, customers, opportunities, interactions, audits, events, lifecycleCalls };
+  return { service, user, customers, opportunities, interactions, audits, events };
 }
 
 test('lead creation takes ownership from JWT, encrypts PII, and writes audit plus outbox', async () => {

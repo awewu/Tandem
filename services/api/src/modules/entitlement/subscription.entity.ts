@@ -17,12 +17,11 @@ export type SellableModuleId =
   | 'design'          // 板块二 · 设计
   | 'delivery'        // 板块二 · 交付/合同
   | 'lifecycle'       // 板块二 · 生命周期
-  | 'rysnova-bim'     // 板块二 · 专业技术平台
   | 'analytics';      // 横向 · 分析
 
 export const SELLABLE_MODULES: readonly SellableModuleId[] = [
   'site', 'product-catalog', 'growth',
-  'crm', 'diagnosis', 'quote', 'design', 'delivery', 'lifecycle', 'rysnova-bim',
+  'crm', 'diagnosis', 'quote', 'delivery', 'lifecycle',
   'analytics'
 ] as const;
 

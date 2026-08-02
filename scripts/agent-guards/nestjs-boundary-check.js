@@ -20,12 +20,11 @@ const FREEZE_TS = new Date('2026-06-07T14:00:00Z').getTime(); // 决策时间点
 // 允许在 server/modules/ 继续修改的文件（现有 v2 生产模块维护窗口）
 const ALLOWED_LEGACY_DIRS = new Set([
   'audit', 'contracts', 'crm', 'diagnosis', 'governance',
-  'health', 'lifecycle', 'rysnova-bim', 'system-packs', 'analytics',
+  'health', 'lifecycle', 'system-packs', 'analytics',
   'quotation', 'devices', 'projects',
   'react-candidate',         // 候选面过渡期
-  'design',                  // NestJS 迁移完成，server 侧保留遗留兼容
   'outbox', 'security',      // 共享基础设施
-  'productModules', 'observability', 'comfort-domain', 'solution-visuals',
+  'productModules', 'observability', 'comfort-domain',
   'legacy-api',              // 遗留兼容层
 ]);
 

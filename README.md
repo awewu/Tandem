@@ -93,7 +93,6 @@ Rhautt Comfort / 瑞合瑞德暖通科技集团是客户/集团实例定位，�
 - 生产完成执行路线图：[docs/EXECUTION-ROADMAP-2026-07.md](docs/EXECUTION-ROADMAP-2026-07.md)
 - 增长中枢（板块三 · AI 营销）蓝图：[docs/BOARD-3-NEXUS-GROWTH-BLUEPRINT.md](docs/BOARD-3-NEXUS-GROWTH-BLUEPRINT.md)
 - 架构 Harness：[audit/architecture-harness.js](audit/architecture-harness.js)
-- 系统完整性 Harness：[audit/system-integrity-harness.js](audit/system-integrity-harness.js)
 - 设计系统真相源：[DESIGN.md](DESIGN.md)
 
 ```bash

@@ -16,8 +16,6 @@ import { AuditLogInterceptor } from './audit-log/audit-log.interceptor';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CrmModule } from './crm/crm.module';
-import { DeliveryModule } from './delivery/delivery.module';
-import { DesignModule } from './design/design.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { EntitlementModule } from './entitlement/entitlement.module';
@@ -28,15 +26,12 @@ import { GovernanceModule } from './governance/governance.module';
 import { GrowthModule } from './growth/growth.module';
 import { IngressModule } from './ingress/ingress.module';
 import { HealthController } from './health.controller';
-import { LifecycleModule } from './lifecycle/lifecycle.module';
-import { RysnovaModule } from './rysnova-bim/rysnova-bim.module';
-import { AiDesignModule } from './ai-design/ai-design.module';
-import { AftersalesModule } from './aftersales/aftersales.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProductCatalogModule } from './product-catalog/product-catalog.module';
 import { QuoteModule } from './quote/quote.module';
 import { SiteMaterialsModule } from './site-materials/site-materials.module';
 import { TenantModule } from './tenant/tenant.module';
+import { WechatPublishingModule } from './wechat-publishing/wechat-publishing.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
 
@@ -78,23 +73,18 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     DiagnosisModule,
     ProductCatalogModule,
     QuoteModule,
-    DesignModule,
-    RysnovaModule,
-    AiDesignModule,
-    AftersalesModule,
     BrandModule,
     BrandProductCategoryModule,
     BrandRegistryModule,
     ComplianceModule,
     MdmModule,
-    DeliveryModule,
-    LifecycleModule,
     EventConsumersModule,
     AnalyticsModule,
     GovernanceModule,
     FileArtifactModule,
     SiteMaterialsModule,
     NotificationModule,
+    WechatPublishingModule,
     WorkflowModule,
     IngressModule,
     DispatchModule,

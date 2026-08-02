@@ -21,8 +21,10 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { PageHeader } from '@rhautt/ui';
 import { GrowthGeoWorkspace } from '../../../components/GrowthGeoWorkspace';
+import WechatPublishingWorkspace from '../../../components/WechatPublishingWorkspace';
 
 type GrowthSection = 'geo' | 'copywriter' | 'sentiment' | 'automation' | 'materials';
+type WechatSection = 'wechat-accounts' | 'wechat-review' | 'wechat-drafts';
 type StatusKind = 'running' | 'review' | 'risk' | 'config' | 'download' | 'success' | 'warning' | 'neutral';
 
 type SectionConfig = {
@@ -176,12 +178,23 @@ function sectionFromParams(section?: string[]): GrowthSection {
   return 'geo';
 }
 
+function wechatSectionFromParams(section?: string[]): WechatSection | null {
+  const key = section?.[0];
+  if (key === 'wechat-accounts' || key === 'wechat-review' || key === 'wechat-drafts') return key;
+  return null;
+}
+
 export default async function GrowthWorkspacePage({
   params,
 }: {
   params: Promise<{ section?: string[] }>;
 }) {
   const { section } = await params;
+  const wechatSection = wechatSectionFromParams(section);
+  if (wechatSection === 'wechat-accounts') return <WechatPublishingWorkspace mode="accounts" />;
+  if (wechatSection === 'wechat-review') return <WechatPublishingWorkspace mode="review" />;
+  if (wechatSection === 'wechat-drafts') return <WechatPublishingWorkspace mode="drafts" />;
+
   const activeKey = sectionFromParams(section);
   const active = SECTIONS[activeKey];
   const ActiveIcon = active.icon;

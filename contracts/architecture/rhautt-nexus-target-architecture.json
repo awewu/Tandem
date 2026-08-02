@@ -56,174 +56,20 @@
       {
         "id": "public-portal",
         "targetPath": "apps/public-portal",
-        "currentSurface": "public/index-ready.html",
-        "compatibilitySurface": "public/index.html",
+        "currentSurface": "apps/public-portal/src/app/page.tsx",
         "audience": "C-end consumers and partners",
         "style": "consumer-portal",
         "brandBoundary": "Rhautt / 瑞合瑞德 group portal; preserve group introduction and brand relationships",
-        "productionEntry": "/",
-        "embeddedProductModules": [
-          "consumer-diagnosis",
-          "rysnova-bim-workbench"
-        ]
-      },
-      {
-        "id": "consumer-diagnosis",
-        "targetPath": "apps/consumer-diagnosis",
-        "currentSurface": "public/pain-diagnosis.html",
-        "audience": "C-end homeowners",
-        "style": "consumer-consultation",
-        "brandBoundary": "瑞诺瓦 AI 问诊; portal-embedded and standalone-launchable; do not convert to enterprise dashboard",
-        "productionEntry": "/pain-diagnosis.html",
-        "productModuleId": "rysnova-consumer-system",
-        "moduleNamespace": "rysnova",
-        "dataNamespace": "rysnova",
-        "apiNamespace": "/api/v2/diagnosis",
-        "deploymentModel": {
-          "portalEmbedded": true,
-          "standaloneLaunchable": true,
-          "embeddedEntry": "/pain-diagnosis.html",
-          "standaloneAliases": [
-            "/rysnova",
-            "/rysnova-ai",
-            "/rysnova-diagnosis"
-          ],
-          "poweredBy": "Powered by Rhautt Comfort",
-          "externalDomainProofRequired": true,
-          "standaloneAppShellMode": "independent-product-app-shell",
-          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
-          "standaloneDomainTargets": [
-            "pending-dedicated-rysnova-domain-or-subdomain"
-          ]
-        },
-        "dataBoundary": {
-          "postgresRegistry": "rhautt_nexus.product_modules",
-          "deploymentRegistry": "rhautt_nexus.product_module_deployments",
-          "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
-          "objectStoragePrefix": "rysnova/",
-          "analyticsNamespace": "rysnova",
-          "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
-          "currentDataMode": "shared-foundation-product-domain-partitioned",
-          "futureDataMode": "standalone-database-extractable",
-          "ownedPostgresTables": [
-            "customers",
-            "opportunities",
-            "quotations"
-          ],
-          "ownedMongoNamespaces": [
-            "DiagnosisReport.moduleNamespace=rysnova"
-          ],
-          "standaloneDatabaseTarget": "rysnova-owned-postgres-schema-plus-mongodb-namespace",
-          "extractionProofRequired": true,
-          "futureStandaloneProductReady": true,
-          "independentDatabaseReady": true,
-          "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
-          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
-          "standaloneAppShellMode": "independent-product-app-shell",
-          "standalonePostgresSchema": "rysnova",
-          "standaloneMongoDatabase": "rysnova_documents",
-          "standaloneObjectStorageBucket": "rysnova-product-artifacts",
-          "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix"
-        },
-        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
-        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
-        "standaloneAppShellMode": "independent-product-app-shell",
-        "standalonePostgresSchema": "rysnova",
-        "standaloneMongoDatabase": "rysnova_documents",
-        "standaloneObjectStorageBucket": "rysnova-product-artifacts",
-        "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix"
-      },
-      {
-        "id": "customer-portal",
-        "targetPath": "apps/customer-portal",
-        "currentSurface": "public/customer-view.html",
-        "audience": "signed or in-progress customers",
-        "style": "customer-lifecycle",
-        "brandBoundary": "customer-visible project progress only; hide internal business fields",
-        "productionEntry": "/customer-view.html"
+        "productionEntry": "/"
       },
       {
         "id": "dealer-workbench",
         "targetPath": "apps/dealer-workbench",
-        "currentSurface": "public/business-console.html",
+        "currentSurface": "apps/dealer-workbench/src/app/page.tsx",
         "audience": "dealer, store, staff, headquarters users",
         "style": "enterprise-workbench",
         "brandBoundary": "multi-tenant business console and staff portal",
         "productionEntry": "/business-console.html"
-      },
-      {
-        "id": "designer-workbench",
-        "targetPath": "apps/designer-workbench",
-        "currentSurface": "public/designer.html",
-        "audience": "sales designers and dealer designers",
-        "style": "enterprise-design-tool",
-        "brandBoundary": "2D layout, device placement, BOM, quotation, customer share",
-        "productionEntry": "/designer.html"
-      },
-      {
-        "id": "rysnova-bim-workbench",
-        "targetPath": "apps/rysnova-bim-workbench",
-        "currentSurface": "public/rysnova-bim-designer.html",
-        "audience": "technical support and engineering deepening teams",
-        "style": "engineering-workbench",
-        "brandBoundary": "Rysnova BIM, drawing, schematic, standards, quantity takeoff, technical handoff; portal-embedded and standalone-launchable",
-        "productionEntry": "/rysnova-bim-designer.html",
-        "productModuleId": "rysnova-bim-engineering-support",
-        "moduleNamespace": "rysnova-bim",
-        "dataNamespace": "rysnova-bim",
-        "apiNamespace": "/api/v2/rysnova-bim",
-        "deploymentModel": {
-          "portalEmbedded": true,
-          "standaloneLaunchable": true,
-          "embeddedEntry": "/rysnova-bim-designer.html",
-          "standaloneAliases": [
-            "/rysnova-bim",
-            "/rysnova-bim-bim",
-            "/rysnova-bim-workbench"
-          ],
-          "poweredBy": "Powered by Rhautt Comfort",
-          "externalDomainProofRequired": true,
-          "standaloneAppShellMode": "independent-product-app-shell",
-          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
-          "standaloneDomainTargets": [
-            "pending-dedicated-rysnova-bim-domain-or-subdomain"
-          ]
-        },
-        "dataBoundary": {
-          "postgresRegistry": "rhautt_nexus.product_modules",
-          "deploymentRegistry": "rhautt_nexus.product_module_deployments",
-          "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
-          "objectStoragePrefix": "rysnova-bim/",
-          "analyticsNamespace": "rysnova-bim",
-          "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
-          "currentDataMode": "shared-foundation-product-domain-partitioned",
-          "futureDataMode": "standalone-database-extractable",
-          "ownedPostgresTables": [
-            "file_artifacts",
-            "quotations"
-          ],
-          "ownedMongoNamespaces": [
-            "RysnovaArtifact.moduleNamespace=rysnova-bim"
-          ],
-          "standaloneDatabaseTarget": "rysnova-bim-owned-postgres-schema-plus-mongodb-namespace",
-          "extractionProofRequired": true,
-          "futureStandaloneProductReady": true,
-          "independentDatabaseReady": true,
-          "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
-          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
-          "standaloneAppShellMode": "independent-product-app-shell",
-          "standalonePostgresSchema": "rysnova-bim",
-          "standaloneMongoDatabase": "rysnova-bim_documents",
-          "standaloneObjectStorageBucket": "rysnova-bim-product-artifacts",
-          "extractionPlan": "extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes"
-        },
-        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
-        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
-        "standaloneAppShellMode": "independent-product-app-shell",
-        "standalonePostgresSchema": "rysnova-bim",
-        "standaloneMongoDatabase": "rysnova-bim_documents",
-        "standaloneObjectStorageBucket": "rysnova-bim-product-artifacts",
-        "extractionPlan": "extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes"
       }
     ],
     "packages": [
@@ -298,8 +144,6 @@
       "diagnosis",
       "product-catalog",
       "quote",
-      "design",
-      "rysnova-bim",
       "delivery",
       "lifecycle",
       "analytics",
@@ -336,8 +180,8 @@
       "currentEvidence": "dependency only; production smoke still required"
     },
     "objectStorage": {
-      "role": "PDF, DWG, DXF, BIM, renderings, quotations, acceptance photos",
-      "currentEvidence": "evidence/object-storage/rysnova-bim-object-storage-smoke.json"
+      "role": "PDF, quotations, site media, and acceptance photos",
+      "currentEvidence": "services/api/src/modules/file-artifact"
     },
     "temporalOutbox": {
       "role": "durable workflows and reliable event delivery",

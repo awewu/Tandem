@@ -14,10 +14,9 @@ const { asyncRoute, errorResponse } = require('../utils/sanitize-error');
 /**
  * @param {Object} deps
  * @param {Object} deps.db - { users, projects, templates }
- * @param {Object} deps.engines - 包含 dataBackup 等
  * @param {Function} deps.maskSensitiveData - 敏感数据脱敏
  */
-module.exports = function createAdminRouter({ db, engines, maskSensitiveData }) {
+module.exports = function createAdminRouter({ db, maskSensitiveData }) {
   const router = express.Router();
 
   // ========== 用户管理 ==========
@@ -134,20 +133,6 @@ module.exports = function createAdminRouter({ db, engines, maskSensitiveData }) 
 
   router.post('/users/:id/reset-password', asyncRoute(async (req, res) => {
     res.json({ success: true, data: { id: req.params.id, newPassword: '123456' } });
-  }));
-
-  // ========== 数据备份 ==========
-  router.get('/backups', asyncRoute(async (req, res) => {
-    const backups = engines.dataBackup ? engines.dataBackup.getBackupList() : [];
-    res.json({ success: true, data: backups });
-  }));
-
-  router.post('/backups/restore', asyncRoute(async (req, res) => {
-    res.json({ success: true, data: { backupId: req.body.backupId } });
-  }));
-
-  router.post('/backups/strategy', asyncRoute(async (req, res) => {
-    res.json({ success: true, data: req.body });
   }));
 
   // ========== 日志管理 ==========

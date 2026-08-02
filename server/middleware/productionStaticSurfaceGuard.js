@@ -1,18 +1,8 @@
 const path = require('path');
 const fs = require('fs');
-const {
-  redirectLegacyDesignerToViewer
-} = require('../utils/legacyDesignerRedirect');
-
-const ACTIVE_HTML_PATHS = new Set([
-  '/index.html',
-  '/index-ready.html',
-  '/privacy.html',
-  '/consent.html'
-]);
-const LEGACY_COMPAT_HTML_REDIRECTS = new Set([
-  '/rysnova-bim-designer.html'
-]);
+// The production UI is served by the current applications. All legacy static
+// HTML has been archived and must pass through the legacy-surface classifier.
+const ACTIVE_HTML_PATHS = new Set();
 
 function normalizePath(reqPath = '') {
   const clean = reqPath.split('?')[0].split('#')[0] || '/';
@@ -56,7 +46,6 @@ function createProductionStaticSurfaceGuard(options = {}) {
 
     const reqPath = normalizePath(req.path || req.url || '');
     if (!reqPath.endsWith('.html')) return next();
-    if (LEGACY_COMPAT_HTML_REDIRECTS.has(reqPath)) return redirectLegacyDesignerToViewer(req, res);
     if (ACTIVE_HTML_PATHS.has(reqPath)) return next();
     const surface = classifySurface(reqPath);
     const redirectTarget = `${fallback}?archived=${encodeURIComponent(reqPath)}&surfaceBucket=${encodeURIComponent(surface.bucket)}`;
@@ -77,7 +66,6 @@ function createProductionStaticSurfaceGuard(options = {}) {
 
 module.exports = {
   ACTIVE_HTML_PATHS,
-  LEGACY_COMPAT_HTML_REDIRECTS,
   createLegacySurfaceClassifier,
   createProductionStaticSurfaceGuard
 };

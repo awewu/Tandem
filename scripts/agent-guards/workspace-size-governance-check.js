@@ -21,12 +21,10 @@ const OBSERVATION_THRESHOLDS = {
 };
 
 const REQUIRED_BULK_BUCKETS = [
-  'backup-excluded',
   'archive-excluded',
   'generated-evidence',
   'data-fixtures',
   'production-compatibility-runtime',
-  'legacy-html',
   'root-legacy-report'
 ];
 
@@ -45,7 +43,7 @@ const BULK_BUCKET_POLICIES = {
     retention: 'Keep isolated from production imports; split to archive package or external archive after replacement index exists.',
     migrationAction: 'external-archive',
     deletionGate: 'owner approval, archive manifest, replacement or historical reference note, and production trunk isolation pass',
-    targetEvidence: 'audit/legacy-fusion-report.json'
+    targetEvidence: 'archive/legacy-ui/public/legacy-surface-manifest.json'
   },
   'generated-evidence': {
     owner: 'test-harness-builder',
@@ -437,9 +435,8 @@ function main() {
     failures,
     requiredActions: [
       'Keep production runtime budgets failing on growth, while repository-size observations remain non-failing during migration.',
-      'Move backups and generated release snapshots to retained artifact storage after a verified release evidence index exists.',
+      'Retain generated release snapshots according to the verified release evidence index.',
       'Convert large data/database JSON fixtures into controlled seed scripts or external datasets with checksum evidence.',
-      'Migrate or retire legacy HTML assets by owner and replacement evidence; do not delete unguided.',
       'Replace compatibility engines through NestJS/Fastify module contracts and E2E coverage before removing legacy runtime files.',
       'Keep React candidate surfaces out of production navigation until OpenAPI contract and browser evidence pass.'
     ],

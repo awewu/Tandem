@@ -8,8 +8,7 @@
       "executor": "target-scaffold",
       "options": {
         "status": "scaffold-only",
-        "currentSurface": "public/index-ready.html",
-        "compatibilitySurface": "public/index.html",
+        "currentSurface": "apps/public-portal/src/app/page.tsx",
         "embeddedProductModules": []
       }
     }

@@ -93,12 +93,6 @@ class ExtendedTestSuite {
         expectError: true
       },
       {
-        name: '超大请求体 (50MB+)',
-        endpoint: '/api/cad/import',
-        body: { fileData: 'x'.repeat(1024 * 1024) },
-        expectError: true
-      },
-      {
         name: 'SQL注入尝试',
         endpoint: '/api/auth/login',
         body: { phone: "' OR '1'='1", password: '123456' },

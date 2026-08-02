@@ -137,7 +137,7 @@ describe('Auth M1 · Legacy auth 行为契约冻结', () => {
     expect(controller).toMatch(/@Put\('user'\)/);
     expect(service).toMatch(/async updateUser\(/);
     expect(service).toMatch(/payload\.name !== undefined/);
-    expect(service).toMatch(/return \{ user: this\.toPublic\(user\) \}/);
+    expect(service).toMatch(/return \{ user: this\.toPublic\(user, access\) \}/);
   });
 
   test('密码修改契约：必填旧密码、新密码至少8位', () => {
@@ -153,17 +153,19 @@ describe('Auth M1 · Legacy auth 行为契约冻结', () => {
   });
 
   test('JWT 载荷包含完整租户范围字段（与 legacy 签名一致）', () => {
-    const requiredFields = ['userId', 'tenantId', 'dealerId', 'storeId', 'customerId', 'role', 'permissions'];
+    const requiredFields = ['userId', 'tenantId', 'dealerId', 'storeId', 'customerId', 'role', 'roles', 'permissions'];
     for (const field of requiredFields) {
       expect(service).toMatch(new RegExp(`${field}:`));
     }
   });
 
   test('登录后返回 token + user 对象，且 toPublic 不含明文手机号（PIPL）', () => {
-    expect(service).toMatch(/return \{ token: this\.sign\(user, modules\), user: this\.toPublic\(user\) \}/);
+    expect(service).toMatch(/return \{ token: this\.sign\(user, modules, access\), user: this\.toPublic\(user, access\) \}/);
     const toPublicBlock = service.slice(service.indexOf('private toPublic'));
     expect(toPublicBlock).toMatch(/id:\s*u\.id/);
     expect(toPublicBlock).toMatch(/tenantId:\s*u\.tenantId/);
+    expect(toPublicBlock).toMatch(/roles:\s*resolved\.roles/);
+    expect(toPublicBlock).toMatch(/permissions:\s*resolved\.permissions/);
     expect(toPublicBlock).not.toMatch(/phone:\s*u\.phone/);
     // 实体层不存明文手机号
     expect(entity).toMatch(/phoneHash/);

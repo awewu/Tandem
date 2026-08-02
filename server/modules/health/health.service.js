@@ -1,22 +1,11 @@
 const mongoose = require('mongoose');
 const dbLayer = require('../../db');
 const ObservabilityService = require('../observability/observability.service');
-const { getRuntimeEngine } = require('../runtimeEngineAccess');
-
-function createDefaultHeartbeat() {
-  const heartbeat = getRuntimeEngine('heartbeatMonitor');
-  heartbeat.config = {
-    ...(heartbeat.config || {}),
-    autoRecover: false
-  };
-  return heartbeat;
-}
 
 class HealthService {
   constructor(options = {}) {
     this.dbLayer = options.dbLayer || dbLayer;
     this.mongoose = options.mongoose || mongoose;
-    this.heartbeat = options.heartbeat || createDefaultHeartbeat();
     this.observability = options.observability || new ObservabilityService(options.observabilityOptions || {});
     this.startedAt = options.startedAt || new Date();
     this.optionalDependencies = options.optionalDependencies || {
@@ -77,22 +66,6 @@ class HealthService {
         checks: {
           database: database.data
         },
-        timestamp: new Date().toISOString()
-      }
-    };
-  }
-
-  getHeartbeat() {
-    const report = this.heartbeat && typeof this.heartbeat.getStatusReport === 'function'
-      ? this.heartbeat.getStatusReport()
-      : { summary: { totalServices: 0, healthyServices: 0, totalAgents: 0, healthyAgents: 0 } };
-
-    return {
-      success: true,
-      data: {
-        service: 'rhautt-nexus',
-        boundary: 'operational-heartbeat',
-        report,
         timestamp: new Date().toISOString()
       }
     };

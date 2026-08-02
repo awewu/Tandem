@@ -644,10 +644,10 @@ class Hammer extends EventEmitter {
 
   async v_L1_S01_CoreEngines() {
     const requiredEngines = [
-      'AgencyAgentEngine.js', 'DOASComplianceEngine.js', 'SystemCoordinationEngine.js',
+      'DOASComplianceEngine.js', 'SystemCoordinationEngine.js',
       'ReheatModuleEngine.js', 'WaterSystemEngine.js', 'FreshAirProEngine.js',
       'FiveConstantEngine.js', 'PerformanceMonitorEngine.js', 'CacheEngine.js',
-      'DevicePositioningEngine.js', 'BIMExportEngine.js', 'LocationService.js',
+      'LocationService.js',
       'QuoteEngine.js', 'ReportEngine.js', 'EconetEngine.js', 'AIMatchingEngine.js'
     ];
     
@@ -1059,7 +1059,6 @@ class Hammer extends EventEmitter {
     const content = fs.readFileSync(serverFile, 'utf8');
     
     const engineChecks = [
-      { name: 'AgencyAgentEngine', patterns: ['new AgencyAgentEngine', "require('./server/core/AgencyAgentEngine')"] },
       { name: 'DOASComplianceEngine', patterns: ['new DOASComplianceEngine'] },
       { name: 'CacheEngine', patterns: ['new CacheEngine'] }
     ];

@@ -332,26 +332,6 @@ function inspect() {
       "'rysnova-owned-postgres-schema-plus-mongodb-namespace'",
       "'rysnova/'",
       "'consumer-diagnosis-product-owner'"
-    ],
-    'rysnova-bim-engineering-support': [
-      "'Rysnova'",
-      "'engineering-bim-technical-support'",
-      "'rysnova-bim'",
-      "'/api/v2/rysnova-bim'",
-      "'/rysnova-bim-designer.html'",
-      "'/rysnova-bim-workbench'",
-      "'namespace-extractable-shared-ledger'",
-      "'shared-foundation-product-domain-partitioned'",
-      "'standalone-database-extractable'",
-      "'portal-embedded-and-standalone-extractable'",
-      "'dedicated-domain-or-subdomain-required'",
-      "'independent-product-app-shell'",
-      "'rysnova-bim_documents'",
-      "'rysnova-bim-product-artifacts'",
-      "'extract-by-data_namespace-modulenamespace-objectstorageprefix-artifacthashes'",
-      "'rysnova-bim-owned-postgres-schema-plus-mongodb-namespace'",
-      "'rysnova-bim/'",
-      "'solution-design-rysnova-bim-director'"
     ]
   })) {
     check(`product-module-seed:${moduleId}`, normalized.includes(`'${moduleId}'`), `product_modules seed missing ${moduleId}`);

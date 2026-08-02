@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
 let updateReleaseEvidence = updateLocalReleaseEvidence;
 try {
@@ -28,9 +27,6 @@ const EXECUTION_MODE = REMOTE_CDP_MODE
 const REPORT_JSON = path.join(ROOT, 'audit', 'browser-visual-acceptance-report.json');
 const REPORT_MD = path.join(ROOT, 'audit', 'browser-visual-acceptance-report.md');
 const RELEASE_EVIDENCE_JSON = path.join(ROOT, 'evidence', 'release-evidence.json');
-const RYSNOVA_DELIVERABLE_ARTIFACT_CONTRACT = '/api/v2/rysnova-bim/projects/{projectId}/deliverable-artifacts';
-const RYSNOVA_SIGNOFF_PACKAGE_CONTRACT = '/api/v2/rysnova-bim/projects/{projectId}/signoff-package';
-const VIEWER_ACCEPTANCE_REPORT = path.join(ROOT, 'evidence', 'viewer-acceptance', 'viewer-acceptance-report.json');
 
 const pages = [
   { path: '/index.html', title: /Rhautt Comfort/, text: '舒适家居行业的售前' },
@@ -179,17 +175,6 @@ async function designerProbe(page) {
   });
 }
 
-async function rysnovaBimProbe(page) {
-  await page.waitForTimeout(1400);
-  return page.evaluate(() => {
-    const probe = window.__rysnovaBimRenderProbe || {};
-    return {
-      ok: Boolean(probe.hasRenderer && probe.hasScene && probe.objectCount > 0 && probe.canvasWidth > 50 && probe.canvasHeight > 50),
-      ...probe
-    };
-  });
-}
-
 async function inspectPage(context, spec) {
   const page = await context.newPage();
   const consoleErrors = [];
@@ -216,7 +201,6 @@ async function inspectPage(context, spec) {
       .filter(pattern => pattern.test(renderedText))
       .map(pattern => String(pattern));
     if (spec.canvasProbe === 'designer') canvas = await designerProbe(page);
-    if (spec.canvasProbe === 'rysnova-bim') canvas = await rysnovaBimProbe(page);
   } catch (error) {
     consoleErrors.push(error.message);
   }
@@ -434,92 +418,6 @@ function mockApiResponse(url, method) {
   if (pathname === '/api/pricing') {
     return ok({ baseDiscount: 0.96, categoryDiscounts: { hot_water: 0.95, air: 0.94, water: 0.96 }, lastUpdated: '2026-06-06' });
   }
-	  if (/^\/api\/v2\/rysnova-bim\/projects\/[^/]+\/deliverable-artifacts$/.test(pathname)) {
-    return ok({
-      projectId: pathname.split('/')[5],
-      artifactTypes: ['bom', 'quantity-takeoff', 'standards-check', 'customer-report'],
-      artifacts: [
-        { id: 'VIS-BOM', type: 'bom', objectKey: 'visual/project/bom/v1/bom.json' },
-        { id: 'VIS-QTO', type: 'quantity-takeoff', objectKey: 'visual/project/quantity-takeoff/v1/quantity-takeoff.json' },
-        { id: 'VIS-STD', type: 'standards-check', objectKey: 'visual/project/standards-check/v1/standards-check.json' },
-        { id: 'VIS-RPT', type: 'customer-report', objectKey: 'visual/project/customer-report/v1/customer-report.json' }
-      ],
-      count: 4,
-      generatedAt: new Date().toISOString(),
-      customerReportSummary: { sectionCount: 7, iotBoundary: 'lifecycle_handoff_only' },
-      bomSummary: { itemCount: 18 },
-      quantityTakeoffSummary: { pipeMeters: 126, valveCount: 24 },
-      standardsSummary: { counts: { passed: 18, warning: 1, failed: 0 } },
-      quoteCostSummary: {
-        quotationSummary: { customerTotal: 328000 },
-        marginGuard: { status: 'pass', quoteFloor: 286000 }
-      },
-	      contract: RYSNOVA_DELIVERABLE_ARTIFACT_CONTRACT
-	    });
-	  }
-	  if (/^\/api\/v2\/rysnova-bim\/projects\/[^/]+\/signoff-package$/.test(pathname)) {
-	    const artifacts = [
-	      { id: 'VIS-PRN', type: 'principle-diagram', objectKey: 'visual/project/principle-diagram/v1/principle-diagram.svg' },
-	      { id: 'VIS-CDR', type: 'construction-drawing', objectKey: 'visual/project/construction-drawing/v1/construction-drawing.svg' },
-	      { id: 'VIS-BIM', type: 'bim-model', objectKey: 'visual/project/bim-model/v1/bim-model.json' },
-	      { id: 'VIS-BOM', type: 'bom', objectKey: 'visual/project/bom/v1/bom.json' },
-	      { id: 'VIS-QTO', type: 'quantity-takeoff', objectKey: 'visual/project/quantity-takeoff/v1/quantity-takeoff.json' },
-	      { id: 'VIS-STD', type: 'standards-check', objectKey: 'visual/project/standards-check/v1/standards-check.json' },
-	      { id: 'VIS-RPT', type: 'customer-report', objectKey: 'visual/project/customer-report/v1/customer-report.json' }
-	    ];
-	    const storageEvidence = artifacts.map((artifact, index) => ({
-	      type: artifact.type,
-	      version: 1,
-	      provider: 'visual-object-storage',
-	      sizeBytes: 2048 + index * 512,
-	      contentHash: `sha256:visual-${artifact.type}-hash`
-	    }));
-	    return ok({
-	      projectId: pathname.split('/')[5],
-	      approvalMode: 'share-to-customer',
-	      status: 'signoff-ready',
-	      artifactTypes: artifacts.map(item => item.type),
-	      artifacts,
-	      visualArtifacts: artifacts.slice(0, 3),
-	      deliverableArtifacts: artifacts.slice(3),
-	      approvalResults: artifacts,
-	      count: 7,
-	      storageEvidence,
-	      customerPackageReady: true,
-	      handoffReady: true,
-	      customerPackage: {
-	        count: 7,
-	        missingTypes: [],
-	        artifacts: artifacts.map((artifact, index) => ({
-	          ...artifact,
-	          customerVisible: true,
-	          contentHash: storageEvidence[index].contentHash,
-	          storage: {
-	            provider: storageEvidence[index].provider,
-	            sizeBytes: storageEvidence[index].sizeBytes,
-	            integrityPassed: true
-	          }
-	        }))
-	      },
-	      deepeningPackage: {
-	        visualReadiness: { ready: true },
-	        commercialReadiness: { ready: true },
-	        customerSignoff: { ready: true }
-	      },
-	      evidenceGaps: [],
-	      nextActions: [],
-	      generatedAt: new Date().toISOString(),
-	      customerReportSummary: { sectionCount: 7, iotBoundary: 'lifecycle_handoff_only' },
-	      bomSummary: { itemCount: 18 },
-	      quantityTakeoffSummary: { pipeMeters: 126, valveCount: 24 },
-	      standardsSummary: { counts: { passed: 18, warning: 1, failed: 0 } },
-	      quoteCostSummary: {
-	        quotationSummary: { customerTotal: 328000 },
-	        marginGuard: { status: 'pass', quoteFloor: 286000 }
-	      },
-	      contract: RYSNOVA_SIGNOFF_PACKAGE_CONTRACT
-	    });
-	  }
   if (pathname === '/api/crm/customers') {
     return ok([
       { id: 'C001', name: '王女士', phone: '13400000000', city: '成都', houseType: '三室两厅', area: 138, createdAt: '2026-05-20T00:00:00.000Z' },
@@ -577,19 +475,6 @@ function renderMarkdown(report) {
   for (const result of report.results) {
     const forbidden = result.forbiddenText?.length ? result.forbiddenText.length : 0;
     lines.push(`| ${result.path} | ${result.status} | ${String(result.title).replace(/\|/g, '/')} | ${result.textMatched ? 'yes' : 'no'} | ${result.canvas ? (result.canvas.ok ? 'pass' : 'fail') : 'n/a'} | ${result.consoleErrors.length + forbidden} | ${result.passed ? 'pass' : 'fail'} |`);
-  }
-  if (report.viewerAcceptance) {
-    lines.push(
-      '',
-      '## Viewer Acceptance',
-      '',
-      `Result: ${report.viewerAcceptance.passed ? 'pass' : 'fail'}`,
-      '',
-      `Report: ${report.viewerAcceptance.reportPath}`,
-      '',
-      `Screenshots: ${(report.viewerAcceptance.screenshotPaths || []).join(', ') || 'none'}`,
-      ''
-    );
   }
   return lines.join('\n');
 }
@@ -716,48 +601,6 @@ function writePreflightFailureReport(error) {
   return report;
 }
 
-function runViewerAcceptance() {
-  const appDir = path.join(ROOT, 'apps', 'designer-workbench');
-  const appDirArg = process.platform === 'win32' ? 'apps/designer-workbench' : appDir;
-  const displayCommand = `pnpm.cmd --dir ${appDirArg} acceptance:viewer`;
-  const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'pnpm';
-  const args =
-    process.platform === 'win32'
-      ? ['/d', '/s', '/c', `pnpm.cmd --dir ${appDirArg} acceptance:viewer`]
-      : ['--dir', appDir, 'acceptance:viewer'];
-  const result = spawnSync(command, args, {
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      VIEWER_ACCEPTANCE_BASE_URL:
-        process.env.VIEWER_ACCEPTANCE_BASE_URL || process.env.DESIGNER_WORKBENCH_BASE_URL || 'http://127.0.0.1:5003',
-    },
-    encoding: 'utf8',
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  const report = fs.existsSync(VIEWER_ACCEPTANCE_REPORT)
-    ? JSON.parse(fs.readFileSync(VIEWER_ACCEPTANCE_REPORT, 'utf8'))
-    : null;
-  return {
-    command: process.platform === 'win32' ? displayCommand : `${command} ${args.join(' ')}`,
-    passed: !result.error && result.status === 0,
-    status: result.status,
-    signal: result.signal,
-    error: result.error
-      ? {
-          code: result.error.code,
-          message: result.error.message,
-          path: result.error.path,
-          spawnargs: result.error.spawnargs,
-        }
-      : null,
-    reportPath: path.relative(ROOT, VIEWER_ACCEPTANCE_REPORT).replace(/\\/g, '/'),
-    screenshotPaths: report?.summary?.screenshots ?? [],
-    stdout: String(result.stdout || '').slice(-4000),
-    stderr: String(result.stderr || '').slice(-4000),
-  };
-}
-
 async function main() {
   const session = await createBrowserSession();
   const { context } = session;
@@ -768,8 +611,6 @@ async function main() {
   } finally {
     await session.close();
   }
-  const viewerAcceptance = runViewerAcceptance();
-
   const report = {
     generatedAt: new Date().toISOString(),
     baseUrl: REPORT_BASE_URL,
@@ -777,10 +618,9 @@ async function main() {
     summary: {
       pages: results.length,
       passed: results.filter(result => result.passed).length,
-      failed: results.filter(result => !result.passed).length + (viewerAcceptance.passed ? 0 : 1)
+      failed: results.filter(result => !result.passed).length
     },
-    results,
-    viewerAcceptance
+    results
   };
   report.finalLaunchVisualProof = finalLaunchVisualProofFromReport(report);
 
@@ -796,7 +636,7 @@ async function main() {
     pages: report.summary.pages,
     pagesRequired: pages.length,
     missingPages: [],
-    failedPages: viewerAcceptance.passed ? [] : ['designer-workbench:/viewer'],
+    failedPages: [],
     staleSourcePaths: [],
     finalLaunchVisualProof: report.finalLaunchVisualProof,
     currentBlocker: null,
@@ -808,7 +648,7 @@ async function main() {
     path: 'evidence/guards/',
     currentBlocker: 'browserVisual passed current-run and guard:all:nonvisual can verify the non-visual suite, but final guard:all still needs a fresh full run in an environment where Playwright Chromium is not blocked by MachPort permissions.'
   });
-  console.log(`Browser visual acceptance: ${report.summary.passed}/${report.summary.pages} pages passed; viewer acceptance ${viewerAcceptance.passed ? 'passed' : 'failed'}`);
+  console.log(`Browser visual acceptance: ${report.summary.passed}/${report.summary.pages} pages passed`);
   if (report.summary.failed) process.exit(1);
 }
 

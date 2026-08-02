@@ -287,10 +287,10 @@ test('OIDC callback exchanges code, validates id_token, binds user, and issues N
     const result = await f.service.handleCallback({
       code: CODE,
       state: STATE,
-      cookieHeader: cookieHeader(STATE, '/hub?from=sso'),
+      cookieHeader: cookieHeader(STATE, '/brand?from=sso'),
     });
 
-    assert.equal(result.location, '/hub?from=sso');
+    assert.equal(result.location, '/brand?from=sso');
     assert.ok(result.cookies.some((entry) => entry.startsWith('nx_sso_state=;')));
     assert.ok(result.cookies.some((entry) => entry.startsWith('nx_sso_redirect=;')));
     const tokenCookie = result.cookies.find((entry) => entry.startsWith('nx_token='));

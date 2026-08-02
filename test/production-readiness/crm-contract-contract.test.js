@@ -99,11 +99,11 @@ describe('套间二 · NestJS 电子签合同面契约收口（additive，与 le
     expect(spec.paths['/api/v2/contracts'].get.operationId).toBe('listContracts');
   });
 
-  test('BUG 修复：契约锁 webhook 标注 @Public（否则全局 deny-by-default 恒 401）', () => {
-    const ctrl = read('services/api/src/modules/delivery/contract.controller.ts');
-    // @Public() 必须紧邻 webhook 路由
-    expect(ctrl).toMatch(/@Public\(\)\s*\n\s*@Post\('webhook\/qiyuesuo'\)/);
-    expect(ctrl).toContain("import { Public } from '../common/public.decorator'");
+  test('contract webhook remains a public future interface without a delivery runtime', () => {
+    const webhook = spec.paths['/api/v2/contract/webhook/qiyuesuo'].post;
+    expect(webhook.security).toBeUndefined();
+    expect(read('services/api/src/modules/module-boundary.ts')).toMatch(/plannedApiInterfaces[\s\S]*'delivery'/);
+    expect(fs.existsSync(path.join(ROOT, 'services/api/src/modules/delivery'))).toBe(false);
   });
 
   test('生成客户端暴露电子签合同关键方法', () => {

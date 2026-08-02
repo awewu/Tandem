@@ -76,9 +76,9 @@ function contractRoutes(contract) {
   })));
 }
 
-function moduleBoundaryNames() {
+function moduleNames(constantName) {
   const source = read(MODULE_BOUNDARY_PATH);
-  const match = source.match(/export const apiModuleBoundary = \[([\s\S]*?)\] as const;/);
+  const match = source.match(new RegExp(`export const ${constantName} = \\[([\\s\\S]*?)\\] as const;`));
   if (!match) return [];
   return [...match[1].matchAll(/'([^']+)'/g)].map(item => item[1]);
 }
@@ -158,7 +158,9 @@ function main() {
   const mapped = contractRoutes(contract);
   const catalogByKey = new Map(catalog.map(route => [route.key, route]));
   const mappedByKey = new Map(mapped.map(route => [route.key, route]));
-  const moduleNames = new Set(moduleBoundaryNames());
+  const activeModules = new Set(moduleNames('apiModuleBoundary'));
+  const plannedInterfaces = new Set(moduleNames('plannedApiInterfaces'));
+  const knownModules = new Set([...activeModules, ...plannedInterfaces]);
 
   if (contract.platform !== 'Rhautt Nexus / 瑞合数智枢纽') {
     fail('route target map platform must be Rhautt Nexus / 瑞合数智枢纽');
@@ -208,7 +210,7 @@ function main() {
       fail(`${route.key}: missing targetApiNamespaces`);
     }
     for (const moduleName of match.targetModules || []) {
-      if (!moduleNames.has(moduleName)) fail(`${route.key}: target module ${moduleName} is not in ${MODULE_BOUNDARY_PATH}`);
+      if (!knownModules.has(moduleName)) fail(`${route.key}: target module ${moduleName} is not active or planned in ${MODULE_BOUNDARY_PATH}`);
       const hasMatchingNamespace = (match.targetApiNamespaces || []).some(namespace => namespaceMatchesModule(namespace, moduleName));
       if (!hasMatchingNamespace) {
         fail(`${route.key}: target module ${moduleName} has no matching /api/v2 namespace`);

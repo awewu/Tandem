@@ -30,7 +30,7 @@ describe('production route to target module migration map', () => {
     expect(report.summary.catalogRoutes).toBe(catalogRouteCount);
     expect(report.summary.mappedRoutes).toBe(catalogRouteCount);
     expect(report.routes).toHaveLength(catalogRouteCount);
-    expect(report.summary.targetModulesReferenced).toBe(15);
+    expect(report.summary.targetModulesReferenced).toBe(13);
     expect(report.targetModulesReferenced).toEqual(expect.arrayContaining([
       'auth',
       'tenant',
@@ -38,8 +38,6 @@ describe('production route to target module migration map', () => {
       'diagnosis',
       'product-catalog',
       'quote',
-      'design',
-      'rysnova-bim',
       'delivery',
       'lifecycle',
       'analytics',
@@ -79,10 +77,8 @@ describe('production route to target module migration map', () => {
     expect(replacementGroups.map(group => group.groupId)).toEqual(expect.arrayContaining([
       'legacy-foundation',
       'quote-calculation',
-      'engineering-delivery',
       'ai-channel',
-      'pages-and-governance',
-      'comfort-home-domain-runtime'
+      'pages-and-governance'
     ]));
   });
 

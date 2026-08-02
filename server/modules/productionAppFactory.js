@@ -12,12 +12,6 @@ const {
 } = require('./productionMiddleware');
 const { registerProductionRoutes } = require('./productionRouteRegistrar');
 
-function createDefaultHeartbeat(options = { interval: 30000 }) {
-  const engines = createProductionEngines({ runtimeProfile: 'safe' });
-  engines.heartbeatMonitor.interval = options.interval;
-  return engines.heartbeatMonitor;
-}
-
 function createProductionApp(options = {}) {
   const env = options.env || process.env;
   const app = options.app || express();
@@ -25,7 +19,6 @@ function createProductionApp(options = {}) {
   const db = options.db || createProductionDemoDb(bcrypt);
   const runtimeProfile = options.runtimeProfile || options.engineProfile || 'safe';
   const engines = options.engines || createProductionEngines({ runtimeProfile });
-  const heartbeat = options.heartbeat || createDefaultHeartbeat({ interval: 30000 });
   const jwtSecret = options.jwtSecret || resolveJwtSecret(env);
   const authRuntime = options.authRuntime || createAuthRuntime({ jwtSecret });
   const logger = options.logger || console;
@@ -43,7 +36,6 @@ function createProductionApp(options = {}) {
   registerProductionRoutes(app, {
     db,
     engines,
-    heartbeat,
     jwtSecret,
     authenticateToken: authRuntime.authenticateToken,
     checkRole: authRuntime.checkRole,
@@ -58,7 +50,6 @@ function createProductionApp(options = {}) {
     app,
     db,
     engines,
-    heartbeat,
     jwtSecret,
     authenticateToken: authRuntime.authenticateToken,
     checkRole: authRuntime.checkRole,

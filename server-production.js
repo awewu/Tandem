@@ -2,7 +2,7 @@
  * 瑞诺瓦AI舒适家 production runtime entry.
  *
  * App composition lives in server/modules/productionAppFactory.js so importing
- * this file for tests does not start MQTT, Yjs, backup schedulers, or heartbeats.
+ * Importing this file for tests does not start runtime engines or schedulers.
  */
 
 require('dotenv').config();
@@ -58,14 +58,14 @@ async function startProductionServer(options = {}) {
   const port = resolveListenPort(options);
   const httpsPort = resolveHttpsPort(options);
   const host = resolveListenHost(options);
-  const { app, db, engines, heartbeat } = getRuntime({ runtimeProfile });
+  const { app, db, engines } = getRuntime({ runtimeProfile });
   await dbLayer.connect();
-  startPreListenServices({ engines, db });
+  startPreListenServices({ engines });
 
   const onListening = async () => {
     await initializePostListenEngines({ engines });
     printStartupBanner({ port, host, httpsPort, useHttps: USE_HTTPS, runtimeProfile });
-    startPostListenServices({ httpServer, engines, heartbeat, port });
+    startPostListenServices();
   };
 
   httpServer = await new Promise((resolve, reject) => {

@@ -192,89 +192,11 @@
       "compensation": [
         "mark-service-plan-review-required"
       ]
-    },
-    {
-      "id": "drawing-export-workflow",
-      "owner": "solution-design-rysnova-bim-director",
-      "trigger": "rysnova-bim.artifact.created",
-      "aggregateType": "rysnova-bim_artifact",
-      "aggregateIdField": "artifactId",
-      "idempotencyKey": "tenantId:projectId:artifactType:version:drawing-export",
-      "requiredOutboxEvents": [
-        "rysnova-bim.artifact.created",
-        "rysnova-bim.artifact.integrity.verified",
-        "rysnova-bim.artifact.approved",
-        "rysnova-bim.artifact.shared",
-        "rysnova-bim.customer_package.ready"
-      ],
-      "requiredAuditActions": [
-        "rysnova-bim.artifact.created",
-        "rysnova-bim.artifact.approved",
-        "rysnova-bim.artifact.shared",
-        "rysnova-bim.customer_package.ready"
-      ],
-      "steps": [
-        "generate-artifact",
-        "store-object",
-        "verify-content-hash",
-        "standards-check",
-        "approve-or-reject",
-        "release-customer-visibility",
-        "write-audit",
-        "emit-outbox"
-      ],
-      "retryPolicy": {
-        "maxAttempts": 5,
-        "backoff": "exponential",
-        "timeout": "P3D"
-      },
-      "compensation": [
-        "mark-artifact-superseded",
-        "revoke-customer-visibility"
-      ]
-    },
-    {
-      "id": "rysnova-bim-customer-signoff-workflow",
-      "owner": "solution-design-rysnova-bim-director",
-      "trigger": "rysnova-bim.signoff_package.ready",
-      "aggregateType": "rysnova-bim_customer_signoff",
-      "aggregateIdField": "projectId",
-      "idempotencyKey": "tenantId:projectId:customer-signoff:receipt",
-      "requiredOutboxEvents": [
-        "rysnova-bim.signoff_package.ready",
-        "rysnova-bim.customer_package.ready",
-        "rysnova-bim.customer_signoff.confirmed",
-        "rysnova-bim.lifecycle_handoff.ready"
-      ],
-      "requiredAuditActions": [
-        "rysnova-bim.signoff_package.ready",
-        "rysnova-bim.customer_signoff.confirmed",
-        "rysnova-bim.lifecycle_handoff.ready"
-      ],
-      "steps": [
-        "validate-signoff-package",
-        "verify-customer-visibility",
-        "capture-hash-only-receipt",
-        "confirm-customer-signoff",
-        "prepare-lifecycle-handoff",
-        "write-audit",
-        "emit-outbox"
-      ],
-      "retryPolicy": {
-        "maxAttempts": 5,
-        "backoff": "exponential",
-        "timeout": "P7D"
-      },
-      "compensation": [
-        "mark-signoff-review-required",
-        "revoke-lifecycle-handoff-ready"
-      ]
     }
   ],
   "sourceProbes": {
     "quotationService": "server/modules/quotation/quotation.service.js",
     "lifecycleService": "server/modules/lifecycle/lifecycle.service.js",
-    "rysnova-bimArtifactService": "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
     "auditService": "server/modules/audit/audit.service.js",
     "postgresMigration": "database/postgres/migrations/001_rhautt_nexus_core_ledger.sql",
     "openApi": "contracts/openapi/rhautt-nexus-v2.openapi.json"

@@ -3,9 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EventBusService } from '../mdm/event-bus.service';
 import { OutboxEventEntity } from '../mdm/outbox-event.entity';
-import { LifecycleService } from '../lifecycle/lifecycle.service';
 import { NotificationService } from '../notification/notification.service';
-import { DesignSyncService } from '../rysnova-bim/design-sync.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { withRlsTransaction } from '../common/rls';
 import { TARGET_API_BOOT_SMOKE } from '../boot-smoke';
@@ -37,20 +35,13 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly eventBus: EventBusService,
-    private readonly lifecycle: LifecycleService,
     private readonly notifications: NotificationService,
-    private readonly designSync: DesignSyncService,
     private readonly dispatch: DispatchService,
   ) {}
 
   onModuleInit(): void {
-    // 板块二（瑞诺瓦诊断）→ 板块一（经营脊柱）：
-    // 诊断完成且已绑定客户 → 自动让该客户进入 lifecycle（lead 起点）。
-    this.eventBus.subscribe('diagnosis.completed', (e) => this.onDiagnosisCompleted(e));
     // 签单 → 给商机负责人发站内通知（与签单写事务解耦，经 event_bus 投递）。
     this.eventBus.subscribe('opportunity.signed', (e) => this.onOpportunitySigned(e));
-    // M12 · design 放行（真相源新版本）→ 该 design 的 Rysnova 派生产物置 stale。
-    this.eventBus.subscribe('design.released', (e) => this.onDesignReleased(e));
     // 线索交接层 · 公域留资捕获（获客池）→ 系统态按 地域+品类+负载 智能派单给经销商。
     this.eventBus.subscribe('lead.captured', (e) => this.onLeadCaptured(e));
 
@@ -191,22 +182,6 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
     return { relayed, delivered: r.delivered, skipped: r.skipped, failed: r.failed };
   }
 
-  private async onDiagnosisCompleted(event: OutboxEventEntity): Promise<void> {
-    const tenantId = event.tenantId;
-    const payload = (event.payload || {}) as Record<string, unknown>;
-    const customerId = String(payload.customerId || '');
-    const opportunityId = (payload.opportunityId as string) || null;
-    // 公共匿名诊断（无客户绑定）不串联
-    if (!tenantId || !customerId) return;
-
-    await withRlsTransaction(
-      this.ds,
-      (em) => this.lifecycle.advanceInTx(em, { tenantId, customerId, stage: 'lead-created', opportunityId }),
-      { tenantId, actorId: EventConsumersService.SYSTEM_ACTOR },
-    );
-    this.logger.log(`diagnosis.completed → lifecycle(lead-created) customer=${customerId} tenant=${tenantId}`);
-  }
-
   private async onOpportunitySigned(event: OutboxEventEntity): Promise<void> {
     const tenantId = event.tenantId;
     const payload = (event.payload || {}) as Record<string, unknown>;
@@ -219,24 +194,12 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
       this.ds,
       (em) => this.notifications.createInTx(em, {
         tenantId, userId: ownerUserId, type: 'opportunity.signed',
-        title: '签单成功', body: '商机已签单，BIM 项目已自动承接。',
+        title: '签单成功', body: '商机已完成签单。',
         payload: { opportunityId, quotationId: (payload.quotationId as string) ?? null, customerId: (payload.customerId as string) ?? null },
       }),
       { tenantId, actorId: EventConsumersService.SYSTEM_ACTOR },
     );
     this.logger.log(`opportunity.signed → notification owner=${ownerUserId} tenant=${tenantId}`);
-  }
-
-  private async onDesignReleased(event: OutboxEventEntity): Promise<void> {
-    const tenantId = event.tenantId;
-    const payload = (event.payload || {}) as Record<string, unknown>;
-    const designId = String(payload.designId || event.aggregateId || '');
-    const version = String(payload.version || payload.releaseId || '');
-    if (!tenantId || !designId || !version) return;
-
-    // design-sync 自开 RLS 事务（system 上下文）；把该 design 的派生产物置 stale。
-    const res = await this.designSync.onDesignChanged(tenantId, designId, version);
-    this.logger.log(`design.released → sync.stale design=${designId} v=${version} staled=${(res as any)?.staled ?? 0} tenant=${tenantId}`);
   }
 
   private async onLeadCaptured(event: OutboxEventEntity): Promise<void> {

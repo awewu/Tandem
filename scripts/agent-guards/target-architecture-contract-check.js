@@ -11,11 +11,7 @@ const REPORT_MD = 'evidence/architecture/target-architecture-contract-report.md'
 
 const REQUIRED_FRONTEND_APPS = [
   'public-portal',
-  'consumer-diagnosis',
-  'customer-portal',
-  'dealer-workbench',
-  'designer-workbench',
-  'rysnova-bim-workbench'
+  'dealer-workbench'
 ];
 
 const REQUIRED_PACKAGES = ['ui', 'contracts', 'domain', 'visual-system'];
@@ -26,11 +22,6 @@ const REQUIRED_BACKEND_MODULES = [
   'crm',
   'diagnosis',
   'product-catalog',
-  'quote',
-  'design',
-  'rysnova-bim',
-  'delivery',
-  'lifecycle',
   'analytics',
   'governance',
   'file-artifact',
@@ -64,44 +55,7 @@ const REQUIRED_PRODUCT_TOKENS = [
   ['iotBoundary', 'lifecycle_handoff_only']
 ];
 
-const REQUIRED_STANDALONE_MODULE_APPS = {
-  'consumer-diagnosis': {
-    productModuleId: 'rysnova-consumer-system',
-    moduleNamespace: 'rysnova',
-    dataNamespace: 'rysnova',
-    apiNamespace: '/api/v2/diagnosis',
-    embeddedEntry: '/pain-diagnosis.html',
-    standaloneAliases: ['/rysnova', '/rysnova-ai', '/rysnova-diagnosis'],
-    objectStoragePrefix: 'rysnova/',
-    analyticsNamespace: 'rysnova',
-    ownedPostgresTables: ['customers', 'opportunities', 'quotations'],
-    ownedMongoNamespaces: ['DiagnosisReport.moduleNamespace=rysnova'],
-    standaloneDatabaseTarget: 'rysnova-owned-postgres-schema-plus-mongodb-namespace',
-    standalonePostgresSchema: 'rysnova',
-    standaloneMongoDatabase: 'rysnova_documents',
-    standaloneObjectStorageBucket: 'rysnova-product-artifacts',
-    extractionPlan: 'extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix',
-    standaloneDomainTargets: ['pending-dedicated-rysnova-domain-or-subdomain']
-  },
-  'rysnova-bim-workbench': {
-    productModuleId: 'rysnova-bim-engineering-support',
-    moduleNamespace: 'rysnova-bim',
-    dataNamespace: 'rysnova-bim',
-    apiNamespace: '/api/v2/rysnova-bim',
-    embeddedEntry: '/rysnova-bim-designer.html',
-    standaloneAliases: ['/rysnova-bim', '/rysnova-bim-bim', '/rysnova-bim-workbench'],
-    objectStoragePrefix: 'rysnova-bim/',
-    analyticsNamespace: 'rysnova-bim',
-    ownedPostgresTables: ['file_artifacts', 'quotations'],
-    ownedMongoNamespaces: ['RysnovaArtifact.moduleNamespace=rysnova-bim'],
-    standaloneDatabaseTarget: 'rysnova-bim-owned-postgres-schema-plus-mongodb-namespace',
-    standalonePostgresSchema: 'rysnova-bim',
-    standaloneMongoDatabase: 'rysnova-bim_documents',
-    standaloneObjectStorageBucket: 'rysnova-bim-product-artifacts',
-    extractionPlan: 'extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes',
-    standaloneDomainTargets: ['pending-dedicated-rysnova-bim-domain-or-subdomain']
-  }
-};
+const REQUIRED_STANDALONE_MODULE_APPS = {};
 
 const failures = [];
 const warnings = [];

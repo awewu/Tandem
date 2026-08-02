@@ -383,7 +383,7 @@ describe('product-catalog 遗憾补齐 · 调度器 / 双向关系 / i18n 覆盖
   test('B4 OpenAPI 无重复对象键（真正的 tokenizer 级去重校验）', () => {
     const raw = read('contracts/openapi/rhautt-nexus-v2.openapi.json');
     // JSON.parse 会静默丢弃重复键，无法检出。用最小 tokenizer 逐 object frame 追踪键，
-    // 精确检测「同一对象内重复键」（含此前 RysnovaArtifact.customerId 回归）。
+    // 精确检测同一对象内的重复键。
     const findDuplicateKeys = (text) => {
       const dups = [];
       const stack = [];
@@ -434,7 +434,6 @@ describe('Issue 07 - Everhot runtime product consumers and E2E readiness', () =>
     expect(catalog).toContain('window.EVERHOT_PRODUCTS_READY');
     expect(catalog).toContain('window.EVERHOT_LOAD_PRODUCTS');
     expect(catalog).toContain('window.EVERHOT_LOAD_PRODUCT');
-    expect(catalog).toContain('isLocalRuntime');
     expect(catalog).toContain('normalizeRuntimeProduct');
     expect(catalog).toContain('setRuntimeStatus');
     expect(catalog).toContain('loadingState');
@@ -479,8 +478,8 @@ describe('Issue 07 - Everhot runtime product consumers and E2E readiness', () =>
 describe('Issue 05 - Everhot specifications and highlights', () => {
   const service = read(`${MODULE_DIR}/product-catalog.service.ts`);
   const validation = read(`${MODULE_DIR}/product-catalog.validation.ts`);
-  const route = read('apps/brand-console/src/app/api/products/route.ts');
-  const consoleUi = read('apps/brand-console/src/components/Console.tsx');
+  const adapter = read('apps/dealer-workbench/src/lib/brand-product-adapter.ts');
+  const consoleUi = read('apps/dealer-workbench/src/app/comfort/[[...section]]/BrandSiteConsoleShell.tsx');
 
   test('product upsert validates the public structured list shapes', () => {
     for (const token of [
@@ -496,15 +495,15 @@ describe('Issue 05 - Everhot specifications and highlights', () => {
 
   test('brand console reads and writes specs, badges, features, and highlights without replacing other metadata', () => {
     for (const token of ['specs', 'badges', 'features', 'highlights']) {
-      expect(route).toContain(token);
+      expect(adapter).toContain(token);
       expect(consoleUi).toContain(token);
     }
-    expect(route).toContain('toObjectList');
-    expect(route).toContain('Array.isArray(prevEverhot.specs)');
-    expect(route).toContain('Array.isArray(prevEverhot.highlights)');
-    expect(consoleUi).toContain('ProductContentListsEditor');
-    expect(consoleUi).toContain('onSpecs');
-    expect(consoleUi).toContain('onHighlights');
+    expect(adapter).toContain('buildBrandStructuredContentUpdatePayload');
+    expect(adapter).toContain('mergeKeyValueShape(previousBrandMeta.specs');
+    expect(adapter).toContain('mergeKeyValueShape(previousBrandMeta.highlights');
+    expect(consoleUi).toContain('StructuredContentEditor');
+    expect(consoleUi).toContain('onChange={(specs) => update({ specs })}');
+    expect(consoleUi).toContain('onChange={(highlights) => update({ highlights })}');
   });
 
   test('public brand projection preserves the current website contract for specs, badges, features, and highlights', () => {
@@ -519,8 +518,8 @@ describe('Issue 05 - Everhot specifications and highlights', () => {
 describe('Issue 03 - Everhot product status and website order', () => {
   const service = read(`${MODULE_DIR}/product-catalog.service.ts`);
   const validation = read(`${MODULE_DIR}/product-catalog.validation.ts`);
-  const route = read('apps/brand-console/src/app/api/products/route.ts');
-  const consoleUi = read('apps/brand-console/src/components/Console.tsx');
+  const adapter = read('apps/dealer-workbench/src/lib/brand-product-adapter.ts');
+  const consoleUi = read('apps/dealer-workbench/src/app/comfort/[[...section]]/BrandSiteConsoleShell.tsx');
 
   test('product-catalog supports active/inactive/archived and keeps archived out of default management lists', () => {
     expect(validation).toContain("['active', 'inactive', 'archived']");
@@ -537,41 +536,36 @@ describe('Issue 03 - Everhot product status and website order', () => {
   });
 
   test('brand console edits non-negative display order, toggles inactive, and archives only on delete', () => {
-    expect(route).toContain('displayOrder');
-    expect(route).toContain('展示顺序必须是非负整数');
-    expect(route).toContain('a.displayOrder - b.displayOrder');
-    expect(consoleUi).toContain("const next = val(r, 'status') === 'active' ? 'inactive' : 'active'");
+    expect(adapter).toContain('displayOrder: normalized.sortOrder');
+    expect(adapter).toContain('return products.update(row.id, { status');
+    expect(adapter).toContain('return products.archive(row.id');
+    expect(consoleUi).toContain('updateBrandProductStatus');
     expect(consoleUi).toContain('type="number"');
-    expect(consoleUi).toContain('min={0}');
-    expect(consoleUi).toContain('DELETE');
   });
 });
 
 describe('Issue 01 · Everhot 基础产品 CRUD 闭环', () => {
   const service = read(`${MODULE_DIR}/product-catalog.service.ts`);
-  const route = read('apps/brand-console/src/app/api/products/route.ts');
-  const consoleUi = read('apps/brand-console/src/components/Console.tsx');
+  const adapter = read('apps/dealer-workbench/src/lib/brand-product-adapter.ts');
+  const consoleUi = read('apps/dealer-workbench/src/app/comfort/[[...section]]/BrandSiteConsoleShell.tsx');
   const catalog = read('apps/everhot-cn/public/js/catalog.js');
 
   test('后端以 product-catalog 为唯一产品事实源，并校验 Everhot 公开 slug 唯一', () => {
     expect(service).toContain('assertBrandSlugUnique');
     expect(service).toContain("COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug");
     expect(service).toContain('${brand} 产品 slug 已存在');
-    expect(route).toContain("nexus('/product-catalog/devices'");
-    expect(route).toContain('export async function DELETE');
-    expect(route).toContain("status: 'archived'");
-    expect(route).not.toContain('/brand-content/');
+    expect(adapter).toContain('products.list(query)');
+    expect(adapter).toContain('products.archive(row.id');
+    expect(adapter).not.toContain('/brand-content/');
   });
 
   test('管理端支持分页搜索和基础字段编辑：名称、型号、slug、分类、系统、系列、简介、标签', () => {
-    for (const token of ['q', 'page', 'pageSize', 'slug', 'model', 'category', 'sys', 'series', 'tagline', 'tags']) {
-      expect(route).toContain(token);
+    for (const token of ['q', 'page', 'pageSize', 'publicSlug', 'model', 'category', 'system', 'series', 'tagline']) {
+      expect(adapter).toContain(token);
       expect(consoleUi).toContain(token);
     }
-    expect(consoleUi).toContain('搜索名称 / slug / 系列');
-    expect(consoleUi).toContain('上一页');
-    expect(consoleUi).toContain('下一页');
-    expect(consoleUi).toContain('deleteProduct');
+    expect(consoleUi).toContain('archiveBrandProduct');
+    expect(consoleUi).toContain('saveBrandProductRow');
   });
 
   test('公开品牌接口按白名单投影，详情支持公开 slug，且不返回成本/管理字段', () => {
@@ -607,8 +601,8 @@ describe('Issue 04 · Everhot 产品主图与详情图片闭环', () => {
   const service = read(`${MODULE_DIR}/product-catalog.service.ts`);
   const pub = read(`${MODULE_DIR}/product-catalog.public.controller.ts`);
   const fileSvc = read('services/api/src/modules/file-artifact/file-artifact.service.ts');
-  const route = read('apps/brand-console/src/app/api/images/route.ts');
-  const consoleUi = read('apps/brand-console/src/components/Console.tsx');
+  const adapter = read('apps/dealer-workbench/src/lib/brand-product-adapter.ts');
+  const consoleUi = read('apps/dealer-workbench/src/app/comfort/[[...section]]/BrandSiteConsoleShell.tsx');
   const catalog = read('apps/everhot-cn/public/js/catalog.js');
 
   test('AssetRef 支持一张主图与多张有序详情图', () => {
@@ -616,7 +610,7 @@ describe('Issue 04 · Everhot 产品主图与详情图片闭环', () => {
     expect(taxonomy).toContain("{ code: 'detail'");
     expect(taxonomy).toContain('sortOrder?: number');
     expect(taxonomy).toContain("ref.role === 'detail'");
-    expect(taxonomy).toContain('sortedDetails');
+    expect(taxonomy).toContain('sortedMultiRefs');
   });
 
   test('公开图片读取是品牌产品窄路由，且只允许 active 产品关联图', () => {
@@ -624,28 +618,26 @@ describe('Issue 04 · Everhot 产品主图与详情图片闭环', () => {
     expect(pub).toContain('StreamableFile');
     expect(service).toContain('getPublicProductImage');
     expect(service).toContain("p.status = :status");
-    expect(service).toContain("['main', 'detail', 'card', 'icon'].includes(r.role)");
+    expect(service).toContain("['main', 'card', 'icon', 'detail'].includes(r.role)");
     expect(fileSvc).toContain('getPublicActiveArtifact');
     expect(fileSvc).toContain("status: 'active'");
   });
 
   test('管理端支持上传预览、替换主图、删除和详情图排序', () => {
-    for (const token of ['PendingUpload', 'confirmUpload', 'deleteImage', 'moveDetail', 'detailArtifactIds']) {
+    for (const token of ['uploadBrandProductMainImage', 'deleteBrandProductMainImage', 'uploadBrandProductDetailImage', 'reorderBrandProductDetailImages']) {
       expect(consoleUi).toContain(token);
     }
-    for (const token of ['dataBase64', 'detailArtifactIds', 'imageRefs', 'saveImageRefs']) {
-      expect(route).toContain(token);
+    for (const token of ['dataBase64', 'assetRefs', "role: 'main'", "role: 'detail'"]) {
+      expect(adapter).toContain(token);
     }
-    expect(route).toContain('nonImageRefs');
-    expect(route).toContain("role === 'main'");
-    expect(route).toContain("role === 'detail'");
-    expect(route).toContain('export async function PATCH');
-    expect(route).toContain('export async function DELETE');
+    expect(adapter).toContain("ref.role === 'main'");
+    expect(adapter).toContain("ref.role === 'detail'");
+    expect(adapter).toContain('fileArtifacts.remove');
   });
 
   test('官网优先消费公开主图与有序 gallery，并保留旧图片映射 fallback', () => {
-    expect(service).toContain('mainImage: imageRefs.main');
-    expect(service).toContain('const gallery = imageRefs.gallery.length');
+    expect(service).toContain('const mainImage = imageRefs.main');
+    expect(service).toContain('const gallery = imageRefs.gallery');
     expect(service).toContain('gallery,');
     expect(catalog).toContain('function imgSrc');
     expect(catalog).toContain('window.EVERHOT_PRODUCT_IMAGES');

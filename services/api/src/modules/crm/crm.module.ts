@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
-import { RysnovaModule } from '../rysnova-bim/rysnova-bim.module';
 import { MdmModule } from '../mdm/mdm.module';
-import { LifecycleModule } from '../lifecycle/lifecycle.module';
 import { CrmController } from './crm.controller';
 import { CustomerEntity, InteractionEntity, OpportunityEntity } from './crm.entity';
 import { CrmService } from './crm.service';
@@ -14,9 +12,7 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
   imports: [
     ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([CustomerEntity, OpportunityEntity, InteractionEntity, AuditLogEntity])]),
     AuthModule,
-    RysnovaModule,
     MdmModule,
-    LifecycleModule,
   ],
   controllers: [CrmController],
   providers: [

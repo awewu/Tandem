@@ -18,9 +18,7 @@ const REQUIRED_WORKFLOWS = [
   'contract-signing-workflow',
   'construction-delivery-workflow',
   'iot-handoff-workflow',
-  'service-plan-workflow',
-  'drawing-export-workflow',
-  'rysnova-bim-customer-signoff-workflow'
+  'service-plan-workflow'
 ];
 
 const failures = [];
@@ -115,8 +113,6 @@ function inspect() {
     'construction-delivery-workflow',
     'iot-handoff-workflow',
     'service-plan-workflow',
-    'drawing-export-workflow',
-    'rysnova-bim-customer-signoff-workflow',
     'target contract',
     'not production runtime'
   ]) {
@@ -142,9 +138,8 @@ function inspect() {
   for (const [sourceKey, tokens] of Object.entries({
     quotationService: ['persistFromBOM', 'marginGuard', 'lifecycleHandoff', 'quotationNo', 'publishOutbox', 'quotation.persisted'],
     lifecycleService: ['lifecycle.handover.upsert', 'lifecycle.acceptance.marked', 'lifecycle.project_state.update', 'lifecycle_handoff_only', 'publishOutbox', 'lifecycleOutboxEvent'],
-    rysnovaBimArtifactService: ['createArtifact', 'approveArtifact', 'verifyArtifactIntegrity', 'confirmCustomerSignoff', 'contentHash', 'publishOutbox', 'artifactOutboxEvent', 'rysnova-bim.artifact.integrity.verified', 'rysnova-bim.customer_package.ready', 'rysnova-bim.customer_signoff.confirmed'],
     auditService: ['tenantId is required for audit logging', 'audit action and resourceType are required', 'this.auditRepo.create'],
-    openApi: ['/api/v2/lifecycle/handover/{contractId}', '/api/v2/rysnova-bim/artifacts', 'lifecycle_handoff_only']
+    openApi: ['/api/v2/lifecycle/handover/{contractId}', 'lifecycle_handoff_only']
   })) {
     const sourcePath = probes[sourceKey];
     check(report, `source-exists:${sourceKey}`, exists(sourcePath), `missing source probe ${sourceKey}: ${sourcePath}`);
@@ -158,8 +153,7 @@ function inspect() {
     'server/modules/outbox/outbox.service.js': ['class OutboxService', 'tenantId is required for outbox events', 'idempotencyKey', 'dead_letter', 'this.outboxRepo.create'],
     'test/production-readiness/outbox-service.test.js': ['publishes tenant-scoped idempotent events', 'lists events only inside tenant scope', 'rejects events without tenant'],
     'test/production-readiness/quotation-v2-persistence.test.js': ['quotation.persisted', 'outboxService.publish'],
-    'test/production-readiness/lifecycle-service.test.js': ['lifecycle.handover.upsert', 'lifecycle.project_state.update', 'lifecycle.acceptance.marked', 'outboxService.publish'],
-    'test/production-readiness/rysnova-bim-artifact-service.test.js': ['rysnova-bim.artifact.created', 'rysnova-bim.artifact.approved', 'rysnova-bim.artifact.integrity.verified', 'rysnova-bim.customer_package.ready', 'rysnova-bim.customer_signoff.confirmed', 'outboxService.publish']
+    'test/production-readiness/lifecycle-service.test.js': ['lifecycle.handover.upsert', 'lifecycle.project_state.update', 'lifecycle.acceptance.marked', 'outboxService.publish']
   })) {
     check(report, `compat-source-exists:${sourcePath}`, exists(sourcePath), `missing compatibility outbox source: ${sourcePath}`);
     for (const token of tokens) {

@@ -28,15 +28,12 @@ const REQUIRED_FILES = [
   '.claude/agents/enterprise-ai-control-architect.md',
   '.claude/agents/frontend-contract-auditor.md',
   '.claude/agents/quote-cost-governor.md',
-  '.claude/agents/solution-design-rysnova-bim-director.md',
-  '.claude/agents/rysnova-bim-engineering-builder.md',
   '.claude/agents/customer-project-lifecycle-director.md',
   '.claude/agents/hvac-standards-auditor.md',
   '.claude/agents/iot-lifecycle-architect.md',
   '.claude/agents/test-harness-builder.md',
   '.claude/agents/ui-vi-director.md',
-  'governance/agent-runs.json',
-  'scripts/agent-guards/agent-run-ledger-check.js'
+  'governance/agent-runs.json'
 ];
 
 function read(relativePath) {
@@ -63,27 +60,35 @@ function checkRequiredFiles() {
 }
 
 function checkClaudeMemory() {
-  const content = read('CLAUDE.md');
-  const required = [
-    '瑞诺瓦AI舒适家',
-    'Rhautt Comfort / 瑞合瑞德暖通科技集团 is the group English/Chinese expression',
+  const claudeMemory = read('CLAUDE.md');
+  const agentRules = read('AGENTS.md');
+  const claudeRequired = [
+    'Use `AGENTS.md` as the source of truth',
+    'docs/AGENT-MEMORY.md'
+  ];
+  const agentRulesRequired = [
+    'Rhautt Nexus / 瑞合数智枢纽',
+    'Rhautt Comfort / 瑞合瑞德暖通科技集团',
     '/api/v2',
     'routeOwnership',
     'Lifecycle IoT',
     'China mandatory general codes',
     'harness:consolidation'
   ];
-  const missing = required.filter(token => !content.includes(token));
+  const missing = [
+    ...claudeRequired.filter(token => !claudeMemory.includes(token)).map(token => `CLAUDE.md: ${token}`),
+    ...agentRulesRequired.filter(token => !agentRules.includes(token)).map(token => `AGENTS.md: ${token}`)
+  ];
   return missing.length
-    ? fail('CLAUDE.md is missing current project memory tokens', missing)
-    : pass('CLAUDE.md captures current architecture memory');
+    ? fail('Project agent memory is missing current source-of-truth tokens', missing)
+    : pass('Claude memory delegates to the current project source of truth');
 }
 
 function checkAgents() {
   const agents = fs.readdirSync(path.join(ROOT, '.claude/agents')).filter(file => file.endsWith('.md'));
-  return agents.length >= 19
+  return agents.length >= 17
     ? pass('Specialized Claude cowork agents are configured', { agents: agents.length })
-    : fail('Expected at least 19 specialized agents', agents);
+    : fail('Expected at least 17 specialized agents', agents);
 }
 
 function checkSettingsCommands() {
@@ -110,9 +115,7 @@ function checkAgentRunLedger() {
     'frontend-contract-auditor',
     'enterprise-ai-control-architect',
     'quote-cost-governor',
-    'solution-design-rysnova-bim-director',
     'hvac-standards-auditor',
-    'rysnova-bim-engineering-builder',
     'customer-project-lifecycle-director',
     'iot-lifecycle-architect',
     'test-harness-builder',

@@ -6,11 +6,9 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 
 const SURFACES = [
-  { file: 'archive/legacy-ui/public/index-ready.html', type: 'consumer', required: ['瑞合瑞德', '瑞诺瓦', 'Rheem', 'Ruud', 'Everhot', '/pain-diagnosis.html'] },
+  { file: 'archive/legacy-ui/public/index-ready.html', type: 'consumer', required: ['瑞合瑞德', '瑞诺瓦', 'Rheem', 'Ruud', 'Everhot'] },
   { file: 'archive/legacy-ui/public/pain-diagnosis.html', type: 'consumer', required: ['瑞诺瓦 AI 问诊', '舒适家系统方案'] },
   { file: 'archive/legacy-ui/public/customer-view.html', type: 'customer-portal', required: ['客户服务门户'] },
-  { file: 'archive/legacy-ui/public/designer.html', type: 'enterprise', required: ['设计师工作台'] },
-  { file: 'archive/legacy-ui/public/rysnova-bim-designer.html', type: 'enterprise', required: ['Rysnova'] },
   { file: 'archive/legacy-ui/public/business-console.html', type: 'enterprise', required: ['业务工作台'] },
   { file: 'archive/legacy-ui/public/index.html', type: 'legacy-compat', required: ['登录系统', '/pain-diagnosis.html'] }
 ];
@@ -90,7 +88,7 @@ function ensureEnterpriseSurface(surface, html, visibleText) {
 
   const hasOperationalStyles = html.includes('/css/rhautt-operational-surfaces.css') ||
     html.includes('/css/rhautt-production-workbench.css');
-  if (!['archive/legacy-ui/public/rysnova-bim-designer.html'].includes(surface.file) && !hasOperationalStyles) {
+  if (!hasOperationalStyles) {
     failures.push(`${surface.file}: enterprise surface missing operational surface stylesheet`);
   }
   if (ENTERPRISE_BLOCK_PATTERN.test(visibleText)) {

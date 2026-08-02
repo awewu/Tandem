@@ -26,15 +26,8 @@ ENV NEXT_PUBLIC_APP_BRAND_URL=$NEXT_PUBLIC_APP_BRAND_URL \
     NEXT_PUBLIC_APP_DIAGNOSIS_URL=$NEXT_PUBLIC_APP_DIAGNOSIS_URL \
     NEXT_PUBLIC_DIAGNOSIS_URL=$NEXT_PUBLIC_DIAGNOSIS_URL
 
-RUN pnpm --filter brand-console build && \
-    pnpm --filter consumer-diagnosis build && \
-    pnpm --filter customer-portal build && \
-    pnpm --filter dealer-workbench build && \
-    pnpm --filter designer-workbench build && \
-    pnpm --filter nexus-console build && \
-    pnpm --filter product-catalog build && \
+RUN pnpm --filter dealer-workbench build && \
     pnpm --filter public-portal build && \
-    pnpm --filter rysnova-bim-workbench build && \
     pnpm exec tsc -p services/api/tsconfig.json
 
 FROM base AS runtime

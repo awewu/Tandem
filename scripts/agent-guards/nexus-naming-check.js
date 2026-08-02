@@ -37,8 +37,6 @@ const REQUIRED_FILES = [
   '.claude/agents/legacy-fusion-migrator.md',
   '.claude/agents/enterprise-ai-control-architect.md',
   '.claude/agents/quote-cost-governor.md',
-  '.claude/agents/solution-design-rysnova-bim-director.md',
-  '.claude/agents/rysnova-bim-engineering-builder.md',
   '.claude/agents/customer-project-lifecycle-director.md',
   '.claude/agents/test-harness-builder.md'
 ];
@@ -109,14 +107,8 @@ if (exists('package.json')) {
   if (!pkg.scripts?.['guard:nexus-naming']) {
     failures.push('package.json missing guard:nexus-naming script');
   }
-  if (!pkg.scripts?.['guard:delivery-goal']) {
-    failures.push('package.json missing guard:delivery-goal script');
-  }
   if (!pkg.scripts?.['guard:all']?.includes('guard:nexus-naming')) {
     failures.push('package.json guard:all must include guard:nexus-naming');
-  }
-  if (!pkg.scripts?.['guard:all']?.includes('guard:delivery-goal')) {
-    failures.push('package.json guard:all must include guard:delivery-goal');
   }
   if (pkg.build?.productName && pkg.build.productName !== 'Rhautt Nexus') {
     failures.push(`electron build productName must be Rhautt Nexus, found ${pkg.build.productName}`);
@@ -151,8 +143,6 @@ for (const required of [
   'data-platform-architect.md',
   'frontend-contract-auditor.md',
   'quote-cost-governor.md',
-  'solution-design-rysnova-bim-director.md',
-  'rysnova-bim-engineering-builder.md',
   'customer-project-lifecycle-director.md',
   'legacy-fusion-migrator.md',
   'enterprise-ai-control-architect.md',
@@ -183,7 +173,6 @@ if (exists('docs/_archive/RHAUTT-NEXUS-MULTI-AGENT-DEVELOPMENT-GROUP.md')) {
     '一个独立 UI/VI 负责人',
     'legacy-fusion-migrator',
     'enterprise-ai-control-architect',
-    'solution-design-rysnova-bim-director',
     'customer-project-lifecycle-director',
     'orchestrator-chief',
     'prd-charter-monitor',
@@ -230,45 +219,6 @@ if (exists('evidence/release-evidence.json')) {
 // ── P2-3 · §0.1 技术来源署名白名单 ──────────────────────────────────────────
 // 赋能线（问诊 + BIM 工作台）统一署名「Powered by Rysnova」——指向真实技术子公司，
 // 区别于设备品牌站的「Powered by Rhautt Comfort」，也区别于"无署名"。
-const APPROVED_ENABLEMENT_SIGNAGE = 'Powered by Rysnova';
-const EQUIPMENT_BRAND_SIGNAGE = 'Powered by Rhautt Comfort';
-
-const BRAND_SOURCE = 'apps/consumer-diagnosis/src/lib/brand.ts';
-if (exists(BRAND_SOURCE)) {
-  const brand = read(BRAND_SOURCE);
-  if (!brand.includes(`'${APPROVED_ENABLEMENT_SIGNAGE}'`) && !brand.includes(`"${APPROVED_ENABLEMENT_SIGNAGE}"`)) {
-    failures.push(`${BRAND_SOURCE}: enablement signage source must define ${APPROVED_ENABLEMENT_SIGNAGE} (poweredBy)`);
-  }
-}
-
-const FOOTER_SURFACE = 'apps/consumer-diagnosis/src/components/SiteFooter.tsx';
-if (exists(FOOTER_SURFACE)) {
-  const footer = read(FOOTER_SURFACE);
-  if (!footer.includes('LEGAL.poweredBy')) {
-    failures.push(`${FOOTER_SURFACE}: 问诊页脚必须渲染技术来源署名 LEGAL.poweredBy（${APPROVED_ENABLEMENT_SIGNAGE}）`);
-  }
-}
-
-const WORKBENCH_SURFACE = 'apps/consumer-diagnosis/public/rysnova-bim-designer.html';
-if (exists(WORKBENCH_SURFACE)) {
-  const wb = read(WORKBENCH_SURFACE);
-  if (!wb.includes(APPROVED_ENABLEMENT_SIGNAGE)) {
-    failures.push(`${WORKBENCH_SURFACE}: BIM 工作台必须放置赋能线署名「${APPROVED_ENABLEMENT_SIGNAGE}」`);
-  }
-  if (wb.includes(EQUIPMENT_BRAND_SIGNAGE)) {
-    failures.push(`${WORKBENCH_SURFACE}: 赋能线工作台不得使用设备品牌署名「${EQUIPMENT_BRAND_SIGNAGE}」（§0.1）`);
-  }
-}
-
-// 问诊落地页（next.config 将 / 重写至此静态页，是实际首要 问诊 界面）。
-const DIAGNOSIS_SURFACE = 'apps/consumer-diagnosis/public/index-ready.html';
-if (exists(DIAGNOSIS_SURFACE)) {
-  const dg = read(DIAGNOSIS_SURFACE);
-  if (!dg.includes(APPROVED_ENABLEMENT_SIGNAGE)) {
-    failures.push(`${DIAGNOSIS_SURFACE}: 问诊首页必须放置技术来源署名「${APPROVED_ENABLEMENT_SIGNAGE}」`);
-  }
-}
-
 console.log(`Nexus Naming Check: files = ${REQUIRED_FILES.length}, agents = ${agentFiles.length}, failures = ${failures.length}, warnings = ${warnings.length}`);
 
 if (failures.length) {

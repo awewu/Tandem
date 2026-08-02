@@ -2,7 +2,6 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { QuotationEntity } from './quote.entity';
-import { LifecycleLinkEntity } from '../lifecycle/lifecycle.entity';
 import { CustomerEntity, OpportunityEntity } from '../crm/crm.entity';
 import { AuditLogEntity } from '../governance/governance.entity';
 import { JwtPayload } from '../auth/auth.service';
@@ -140,14 +139,10 @@ export class QuoteService {
         } });
         if (!opportunity) throw new NotFoundException('商机不存在');
       }
-      // P3: 从 lifecycle_links 查 project_id（按 customerId 定位项目主线）
-      const link = await em.getRepository(LifecycleLinkEntity)
-        .findOne({ where: { tenantId, customerId, ...scoped } });
-      if (!link) throw new NotFoundException('项目主线不存在');
       const quote = await quotations.save(quotations.create({
         tenantId, dealerId: user.dealerId, storeId: user.storeId,
         customerId: dto.customerId as string, opportunityId: dto.opportunityId as string,
-        projectId: link.id,
+        projectId: null,
         ownerUserId: user.userId, quotationNo,
         status: (dto.status as string) ?? 'draft',
         project: (dto.project as any) ?? {},

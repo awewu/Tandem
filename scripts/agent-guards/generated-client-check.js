@@ -51,22 +51,12 @@ if (!failures.length) {
   if (spec.info?.title !== 'Rhautt Nexus / 瑞合数智枢纽 API') failures.push('OpenAPI title must identify Rhautt Nexus / 瑞合数智枢纽 API');
   if (!client.includes(`OPENAPI_SHA256 = '${hash}'`)) failures.push('generated client hash is stale; rerun npm run contracts:generate');
   if (!client.includes('class RhauttNexusClient')) failures.push('generated client must export RhauttNexusClient');
-  if (!client.includes('export type RysnovaTierComparison =')) failures.push('generated client must export RysnovaTierComparison schema type');
-  if (!client.includes('export type RysnovaTierComparisonItem =')) failures.push('generated client must export RysnovaTierComparisonItem schema type');
-  if (!client.includes('export type RysnovaVisualQualityEvidence =')) failures.push('generated client must export RysnovaVisualQualityEvidence schema type');
-  if (!client.includes('export type RysnovaQualityGate =')) failures.push('generated client must export RysnovaQualityGate schema type');
-  if (!client.includes('export type RysnovaArtifactDownload =')) failures.push('generated client must export RysnovaArtifactDownload schema type');
-  if (!client.includes('visualQualityEvidence: RysnovaVisualQualityEvidence | null;')) failures.push('generated client RysnovaArtifactDownload must carry visualQualityEvidence');
-  if (!client.includes('export type RysnovaTierDecisionEvidence =')) failures.push('generated client must export RysnovaTierDecisionEvidence schema type');
-  if (!client.includes('decisionEvidence: RysnovaTierDecisionEvidence;')) failures.push('generated client RysnovaTierComparisonItem must carry decisionEvidence');
-  if (!client.includes('selectedTierDecision: RysnovaTierDecisionEvidence | null;')) failures.push('generated client customer signoff contracts must carry selectedTierDecision');
-  if (!client.includes('private async requestBlob')) failures.push('generated client must support binary/content responses through requestBlob');
 
   const operationIds = new Set();
   for (const item of operations) {
     if (operationIds.has(item.operationId)) failures.push(`duplicate operationId: ${item.operationId}`);
     operationIds.add(item.operationId);
-    const binaryResponse = item.operation.responses?.['200']?.$ref === '#/components/responses/RysnovaArtifactContentSuccess';
+    const binaryResponse = false;
     if (binaryResponse) {
       if (!client.includes(`async ${item.operationId}(params: ClientParams = {}): Promise<Response>`)) {
         failures.push(`generated client binary method ${item.operationId} must return Response`);
@@ -79,7 +69,7 @@ if (!failures.length) {
     }
     if (!item.operation.tags || !item.operation.tags.length) failures.push(`${item.operationId} missing tags`);
     if (!item.operation.responses || !Object.keys(item.operation.responses).length) failures.push(`${item.operationId} missing responses`);
-    if (item.routePath.includes('/crm/') || item.routePath.includes('/lifecycle/') || item.routePath.includes('/rysnova-bim/') || item.routePath.includes('/analytics/') || item.routePath.includes('/audit/')) {
+    if (item.routePath.includes('/crm/') || item.routePath.includes('/lifecycle/') || item.routePath.includes('/analytics/') || item.routePath.includes('/audit/')) {
       if (!item.operation.security) failures.push(`${item.operationId} must require bearerAuth security`);
     }
   }
@@ -97,9 +87,6 @@ if (!failures.length) {
     'listLifecycleCustomerProjects',
     'getLifecycleCustomerProject',
     'updateLifecycleState',
-    'createRysnovaArtifact',
-    'confirmRysnovaCustomerSignoff',
-    'downloadRysnovaArtifactContent',
     'getReactCandidateStatus'
   ]) {
     if (!operationIds.has(required)) failures.push(`OpenAPI spec missing required operation ${required}`);

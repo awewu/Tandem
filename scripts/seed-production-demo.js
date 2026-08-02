@@ -37,8 +37,7 @@ async function main() {
         allowedBrands: ['Rheem', 'Ruud', 'Everhot', 'Rhautt Comfort'],
         featureFlags: new Map([
           ['crm', true],
-          ['quotation', true],
-          ['rysnova-bim', true]
+          ['quotation', true]
         ])
       }
     },

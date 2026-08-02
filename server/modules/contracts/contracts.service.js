@@ -426,7 +426,7 @@ class ContractsService {
       installedAssets: data.installedAssets || []
     };
     if (!this.lifecycleService || typeof this.lifecycleService.createOrUpdateHandover !== 'function') {
-      const err = new Error('lifecycle handover is owned by the NestJS API');
+      const err = new Error('lifecycle handover is unavailable; only the future API contract is retained');
       err.status = 503;
       throw err;
     }

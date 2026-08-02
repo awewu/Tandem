@@ -163,46 +163,6 @@ services:
     ports:
       - '${APP_BIND_IP:-127.0.0.1}:4000:4000'
 
-  consumer-diagnosis:
-    <<: *next
-    command: ['pnpm', '--filter', 'consumer-diagnosis', 'start']
-    environment:
-      <<: *runtime-environment
-      API_URL: http://api:3300
-      PORT: 4001
-    ports:
-      - '${APP_BIND_IP:-127.0.0.1}:4001:4001'
-
-  customer-portal:
-    <<: *next
-    command: ['pnpm', '--filter', 'customer-portal', 'start']
-    environment:
-      <<: *runtime-environment
-      API_URL: http://api:3300
-      PORT: 4002
-    ports:
-      - '${APP_BIND_IP:-127.0.0.1}:4002:4002'
-
-  designer-workbench:
-    <<: *next
-    command: ['pnpm', '--filter', 'designer-workbench', 'start']
-    environment:
-      <<: *runtime-environment
-      API_PROXY_TARGET: http://api:3300
-      PORT: 4003
-    ports:
-      - '${APP_BIND_IP:-127.0.0.1}:4003:4003'
-
-  rysnova-bim-workbench:
-    <<: *next
-    command: ['pnpm', '--filter', 'rysnova-bim-workbench', 'start']
-    environment:
-      <<: *runtime-environment
-      API_PROXY_TARGET: http://api:3300
-      PORT: 4004
-    ports:
-      - '${APP_BIND_IP:-127.0.0.1}:4004:4004'
-
   public-portal:
     <<: *next
     command: ['pnpm', '--filter', 'public-portal', 'start']
@@ -213,16 +173,6 @@ services:
     ports:
       - '${APP_BIND_IP:-127.0.0.1}:4005:4005'
 
-  nexus-console:
-    <<: *next
-    command: ['pnpm', '--filter', 'nexus-console', 'start']
-    environment:
-      <<: *runtime-environment
-      NEXUS_API_URL: http://api:3300
-      PORT: 4010
-    ports:
-      - '${APP_BIND_IP:-127.0.0.1}:4010:4010'
-
   everhot-cn:
     <<: *runtime
     command: ['node', 'apps/everhot-cn/scripts/serve.js', '--port', '4011']
@@ -232,21 +182,6 @@ services:
       NEXUS_API_ORIGIN: http://api:3300
     ports:
       - '${APP_BIND_IP:-127.0.0.1}:4011:4011'
-
-  brand-console:
-    <<: *next
-    command: ['pnpm', '--filter', 'brand-console', 'start']
-    environment:
-      <<: *runtime-environment
-      PORT: 4012
-      NEXUS_API_URL: http://api:3300
-      NEXUS_API_PREFIX: /api/v2
-      BRAND_CONSOLE_AUTH_MODE: dev
-      BRAND_CONSOLE_USER: ${BRAND_CONSOLE_USER:-admin}
-      BRAND_CONSOLE_PASSWORD: ${BRAND_CONSOLE_PASSWORD:?BRAND_CONSOLE_PASSWORD is required}
-      SSO_REDIRECT_URI: ${BRAND_CONSOLE_PUBLIC_URL:-https://manage.rhautt.com}/api/session/callback
-    ports:
-      - '${APP_BIND_IP:-127.0.0.1}:4012:4012'
 
   lithnova-cn:
     <<: *runtime

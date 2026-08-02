@@ -7,12 +7,14 @@ const {
 const createPageAliasesRouter = require('../../server/routes/page-aliases');
 
 describe('production static surface guard', () => {
-  test('allows active production HTML pages', async () => {
+  test('redirects former production HTML pages after archival', async () => {
     const app = express();
     app.use(createProductionStaticSurfaceGuard());
     app.get('/index-ready.html', (req, res) => res.status(200).send('portal'));
 
-    await request(app).get('/index-ready.html').expect(200);
+    const res = await request(app).get('/index-ready.html').expect(302);
+    expect(res.headers.location).toContain('archived=%2Findex-ready.html');
+    expect(res.headers.location).toContain('surfaceBucket=archive');
   });
 
   test('redirects legacy HTML pages out of the default production surface', async () => {
@@ -24,20 +26,6 @@ describe('production static surface guard', () => {
     expect(res.headers.location).toContain('/index.html');
     expect(res.headers.location).toContain('archived=%2Fanalytics.html');
     expect(res.headers.location).toContain('surfaceBucket=');
-  });
-
-  test('redirects legacy Rysnova BIM designer HTML to the unified 4003 viewer', async () => {
-    const app = express();
-    app.use(createProductionStaticSurfaceGuard());
-    app.get('/rysnova-bim-designer.html', (req, res) => res.status(200).send('legacy designer'));
-
-    const res = await request(app)
-      .get('/rysnova-bim-designer.html?projectId=p-1&contractId=c-1&opportunityId=o-1&artifactId=a-1&debug=true')
-      .expect(302);
-
-    expect(res.headers.location).toBe(
-      'http://localhost:4003/viewer?projectId=p-1&contractId=c-1&opportunityId=o-1&artifactId=a-1'
-    );
   });
 
   test('returns classified JSON for blocked legacy HTML when html is not accepted', async () => {
@@ -60,7 +48,7 @@ describe('production static surface guard', () => {
   test('classifies legacy surfaces from manifest by basename', () => {
     const classifySurface = createLegacySurfaceClassifier();
 
-    expect(classifySurface('/index-ready.html')).toEqual({ active: true, bucket: 'active' });
+    expect(classifySurface('/index-ready.html')).toEqual({ active: false, bucket: 'archive' });
     expect(classifySurface('/admin-dashboard.html')).toEqual({ active: false, bucket: 'archive' });
     expect(classifySurface('/quotation-pro.html')).toEqual({ active: false, bucket: 'migration-candidate' });
   });
@@ -94,14 +82,5 @@ describe('production static surface guard', () => {
       .expect(302)
       .expect('Location', '/index-ready.html#contact');
 
-    await request(app)
-      .get('/rysnova-bim?projectId=p-1&artifactId=a-1')
-      .expect(302)
-      .expect('Location', '/index-ready.html#capabilities');
-
-    await request(app)
-      .get('/rysnova-bim-bim?contractId=c-1&opportunityId=o-1')
-      .expect(302)
-      .expect('Location', '/index-ready.html#capabilities');
   });
 });

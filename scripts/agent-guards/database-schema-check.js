@@ -11,8 +11,6 @@ const Opportunity = require('../../server/models/Opportunity');
 const Interaction = require('../../server/models/Interaction');
 const AuditLog = require('../../server/models/AuditLog');
 const LifecycleLink = require('../../server/models/LifecycleLink');
-const RysnovaArtifact = require('../../server/models/RysnovaArtifact');
-const DesignWorkspaceState = require('../../server/models/DesignWorkspaceState');
 const DiagnosisReport = require('../../server/models/DiagnosisReport');
 const OutboxEvent = require('../../server/models/OutboxEvent');
 const Quotation = require('../../server/models/Quotation');
@@ -35,8 +33,6 @@ const TENANT_SCOPED_MODELS = [
   { model: AuditLog, name: 'AuditLog', required: ['tenantId', 'action', 'resourceType'], indexes: ['tenantId_1_resourceType_1_resourceId_1_createdAt_-1', 'tenantId_1_actorUserId_1_createdAt_-1'] },
   { model: LifecycleLink, name: 'LifecycleLink', required: ['tenantId', 'customerId', 'contractId'], indexes: ['tenantId_1_contractId_1', 'tenantId_1_customerId_1_lifecycleStage_1_updatedAt_-1', 'tenantId_1_installedAssets.assetId_1', 'tenantId_1_handoverStatus_1_updatedAt_-1'] },
   { model: DiagnosisReport, name: 'DiagnosisReport', required: ['tenantId', 'reportId', 'shareTokenHash'], indexes: ['tenantId_1_reportId_1', 'tenantId_1_shareTokenHash_1', 'tenantId_1_moduleId_1_moduleDeploymentMode_1_updatedAt_-1', 'tenantId_1_dataNamespace_1_moduleDeploymentMode_1_updatedAt_-1', 'tenantId_1_customerId_1_updatedAt_-1', 'tenantId_1_status_1_updatedAt_-1'] },
-  { model: DesignWorkspaceState, name: 'DesignWorkspaceState', required: ['tenantId', 'projectId', 'contentHash'], indexes: ['tenantId_1_projectId_1', 'tenantId_1_dealerId_1_updatedAt_-1', 'tenantId_1_moduleNamespace_1_dataNamespace_1_updatedAt_-1'] },
-  { model: RysnovaArtifact, name: 'RysnovaArtifact', required: ['tenantId', 'projectId', 'source', 'type', 'objectKey', 'contentHash', 'inputsHash'], indexes: ['tenantId_1_projectId_1_type_1_version_-1', 'tenantId_1_moduleId_1_moduleDeploymentMode_1_updatedAt_-1', 'tenantId_1_dataNamespace_1_moduleDeploymentMode_1_updatedAt_-1', 'tenantId_1_customerId_1_type_1_updatedAt_-1', 'tenantId_1_customerId_1_projectId_1_status_1_permissions.customerVisible_1_updatedAt_-1', 'tenantId_1_dataNamespace_1_metadata.storage.integrityPassed_1_updatedAt_-1', 'tenantId_1_objectKey_1'] },
   { model: OutboxEvent, name: 'OutboxEvent', required: ['tenantId', 'aggregateType', 'aggregateId', 'eventType', 'payload', 'idempotencyKey'], indexes: ['tenantId_1_idempotencyKey_1', 'status_1_availableAt_1_attempts_1', 'tenantId_1_aggregateType_1_aggregateId_1_createdAt_-1'] },
   { model: Quotation, name: 'Quotation', required: ['tenantId', 'quotationNo'], indexes: ['tenantId_1_quotationNo_1', 'tenantId_1_dealerId_1_status_1_createdAt_-1', 'tenantId_1_storeId_1_status_1_createdAt_-1'] },
   { model: QuotationV2, name: 'QuotationV2', required: ['tenantId', 'customerId', 'quotationNo'], indexes: ['tenantId_1_quotationNo_1', 'tenantId_1_customerId_1_status_1_updatedAt_-1', 'tenantId_1_dealerId_1_status_1_createdAt_-1', 'tenantId_1_storeId_1_status_1_createdAt_-1', 'tenantId_1_productModuleId_1_productDeploymentMode_1_updatedAt_-1', 'tenantId_1_productDataNamespace_1_productDeploymentMode_1_updatedAt_-1'] }
@@ -153,19 +149,9 @@ function assertProductionDatabaseFailFast() {
 }
 
 function assertAuditTrailContract() {
-  const lifecycleSource = read('services/api/src/modules/lifecycle/lifecycle.service.ts');
   const auditServiceSource = read('server/modules/audit/audit.service.js');
   const v2RouterSource = read('server/modules/v2.router.js');
 
-  for (const token of [
-    'lifecycle.handover.upsert',
-    'lifecycle.project_state.update',
-    'lifecycle.acceptance.marked',
-    'lifecycleOutboxPayload',
-    'eventBus.publishInTx'
-  ]) {
-    if (!lifecycleSource.includes(token)) failures.push(`LifecycleService audit trail missing token: ${token}`);
-  }
   for (const token of [
     'class AuditService',
     'tenantId is required for audit logging',
@@ -213,7 +199,7 @@ function main() {
     if (!model.schema.path('productNamespace')) failures.push(`${modelName}: missing productNamespace for standalone product module separation`);
     if (!model.schema.path('productDataNamespace')) failures.push(`${modelName}: missing productDataNamespace for future product-domain database extraction`);
   }
-  for (const [model, modelName] of [[DiagnosisReport, 'DiagnosisReport'], [RysnovaArtifact, 'RysnovaArtifact'], [DesignWorkspaceState, 'DesignWorkspaceState']]) {
+  for (const [model, modelName] of [[DiagnosisReport, 'DiagnosisReport']]) {
     if (!model.schema.path('moduleNamespace')) failures.push(`${modelName}: missing moduleNamespace for standalone product module separation`);
     if (!model.schema.path('dataNamespace')) failures.push(`${modelName}: missing dataNamespace for future product-domain database extraction`);
   }

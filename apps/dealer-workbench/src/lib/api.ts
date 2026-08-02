@@ -177,6 +177,62 @@ export const brand = {
   sync: () => apiFetch('/api/v2/brand/sync', { method: 'POST' }),
 };
 
+export const wechatPublishing = {
+  accounts: () => apiFetch('/api/v2/marketing/wechat/accounts'),
+  createAccount: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/marketing/wechat/accounts', { method: 'POST', body: JSON.stringify(data) }),
+  updateAccount: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/marketing/wechat/accounts/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  updateSecret: (id: string, appSecret: string) =>
+    apiFetch(`/api/v2/marketing/wechat/accounts/${encodeURIComponent(id)}/secret`, {
+      method: 'PATCH',
+      body: JSON.stringify({ appSecret }),
+    }),
+  updateStatus: (id: string, status: 'enabled' | 'disabled') =>
+    apiFetch(`/api/v2/marketing/wechat/accounts/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+  testConnection: (id: string) =>
+    apiFetch(`/api/v2/marketing/wechat/accounts/${encodeURIComponent(id)}/test-connection`, { method: 'POST' }),
+  availableAccounts: (brandId: string) =>
+    apiFetch(`/api/v2/marketing/wechat/accounts/available?brandId=${encodeURIComponent(brandId)}`),
+  createReviewVersion: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/marketing/content-review-versions', { method: 'POST', body: JSON.stringify(data) }),
+  pendingReviews: (query?: Record<string, string>) =>
+    apiFetch('/api/v2/marketing/content-review-versions/pending?' + new URLSearchParams(query || {}).toString()),
+  reviewDetail: (id: string) =>
+    apiFetch(`/api/v2/marketing/content-review-versions/${encodeURIComponent(id)}`),
+  approveReview: (id: string, comment?: string) =>
+    apiFetch(`/api/v2/marketing/content-review-versions/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
+  requestChanges: (id: string, reason: string) =>
+    apiFetch(`/api/v2/marketing/content-review-versions/${encodeURIComponent(id)}/request-changes`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  voidReview: (id: string, reason: string) =>
+    apiFetch(`/api/v2/marketing/content-review-versions/${encodeURIComponent(id)}/void`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  tasks: () => apiFetch('/api/v2/marketing/wechat/draft-sync-tasks'),
+  taskDetail: (id: string) =>
+    apiFetch(`/api/v2/marketing/wechat/draft-sync-tasks/${encodeURIComponent(id)}`),
+  addTaskNote: (id: string, note: string) =>
+    apiFetch(`/api/v2/marketing/wechat/draft-sync-tasks/${encodeURIComponent(id)}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+  processQueuedTasks: () =>
+    apiFetch('/api/v2/marketing/wechat/draft-sync-tasks/process', { method: 'POST' }),
+};
+
 export const brandSites = {
   list: (query?: { includeDeleted?: boolean }) => {
     const q = new URLSearchParams();

@@ -92,17 +92,6 @@ if (!failures.length) {
     for (const check of report.checks || []) {
       if (check.passed !== true) fail(`PostgreSQL staging smoke failed check: ${check.name}`);
     }
-    const checksByName = new Map((report.checks || []).map(check => [check.name, check]));
-    for (const checkName of [
-      'rysnovaBimCustomerPackageReadyOutbox',
-      'rysnovaBimCustomerSignoffConfirmedOutbox',
-      'rysnovaBimCustomerSignoffWorkflow',
-      'rysnovaBimCustomerSignoffSanitizedReceipt'
-    ]) {
-      if (checksByName.get(checkName)?.passed !== true) {
-        fail(`passed PostgreSQL staging smoke must prove ${checkName}`);
-      }
-    }
   }
 
   if (report.status === 'missing-staging-run') {
@@ -137,10 +126,6 @@ if (!failures.length) {
     'SET LOCAL app.tenant_id',
     'cross-tenant write was not rejected',
     'lifecycle_handoff_only',
-    'rysnova-bim.customer_package.ready',
-    'rysnova-bim.customer_signoff.confirmed',
-    'rysnova-bim-customer-signoff-workflow',
-    'rawSensitiveEvidenceOmitted',
     'FORCE RLS',
     'finalLaunchDatabaseProof'
   ]) {

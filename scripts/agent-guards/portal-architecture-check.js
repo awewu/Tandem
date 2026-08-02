@@ -30,9 +30,7 @@ const REQUIRED_FILES = [
   'archive/legacy-ui/public/index.html',
   'archive/legacy-ui/public/pain-diagnosis.html',
   'archive/legacy-ui/public/customer-view.html',
-  'archive/legacy-ui/public/staff-portal.html',
   'archive/legacy-ui/public/business-console.html',
-  'archive/legacy-ui/public/rysnova-bim-designer.html',
   'server-production.js',
   'server/modules/productionMiddleware.js'
 ];
@@ -129,7 +127,7 @@ if (exists('archive/legacy-ui/public/index-ready.html')) {
     if (!text.includes(token)) failures.push(`archive/legacy-ui/public/index-ready.html: homepage missing brand hierarchy token: ${token}`);
   }
 
-  for (const href of ['/pain-diagnosis.html', '/customer-view.html', '/login.html', '/rysnova-bim-designer.html']) {
+  for (const href of ['/login.html']) {
     if (!html.includes(`href="${href}"`)) failures.push(`archive/legacy-ui/public/index-ready.html: homepage missing separated entry link ${href}`);
   }
 

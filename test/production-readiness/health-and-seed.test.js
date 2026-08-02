@@ -115,36 +115,6 @@ describe('production health and seed guardrails', () => {
     expect(res.body.data.required.database).toBe(false);
   });
 
-  test('v2 heartbeat exposes operational heartbeat report', () => {
-    const service = new HealthService({
-      dbLayer,
-      heartbeat: {
-        getStatusReport: () => ({
-          summary: {
-            totalServices: 2,
-            healthyServices: 2,
-            totalAgents: 3,
-            healthyAgents: 3
-          }
-        })
-      }
-    });
-
-    const heartbeat = service.getHeartbeat();
-
-    expect(heartbeat).toEqual(expect.objectContaining({ success: true }));
-    expect(heartbeat.data).toEqual(expect.objectContaining({
-      service: 'rhautt-nexus',
-      boundary: 'operational-heartbeat',
-      report: expect.objectContaining({
-        summary: expect.objectContaining({
-          totalServices: 2,
-          healthyAgents: 3
-        })
-      })
-    }));
-  });
-
   test('request context emits request and trace identifiers and observability snapshot exposes SLO metrics', async () => {
     dbLayer.getMode.mockReturnValue('memory');
     dbLayer.isConnected.mockReturnValue(false);
@@ -228,7 +198,7 @@ describe('production health and seed guardrails', () => {
     expect(res.body.data.productionDatabaseRequired).toBe(true);
   });
 
-  test('production app composition mounts legacy and v2 health probes', async () => {
+  test('production app composition mounts the legacy health probe', async () => {
     dbLayer.getMode.mockReturnValue('memory');
     dbLayer.isConnected.mockReturnValue(false);
     dbLayer.isProductionDatabaseRequired.mockReturnValue(false);
@@ -258,24 +228,6 @@ describe('production health and seed guardrails', () => {
       templateLibraryEngine: expect.any(String)
     }));
 
-    const live = await request(runtime.app)
-      .get('/api/v2/health/live')
-      .expect(200);
-
-    expect(live.body.data).toEqual(expect.objectContaining({
-      service: 'rhautt-nexus',
-      status: 'live'
-    }));
-
-    const ready = await request(runtime.app)
-      .get('/api/v2/health/ready')
-      .expect(200);
-
-    expect(ready.body.data).toEqual(expect.objectContaining({
-      service: 'rhautt-nexus',
-      status: 'ready',
-      required: { database: true }
-    }));
   });
 
   test('production demo seed refuses to run without explicit demo mode', () => {

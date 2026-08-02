@@ -19,7 +19,6 @@ const { errorResponse } = require('../utils/sanitize-error');
 const { getRuntimeEngine } = require('../modules/runtimeEngineAccess');
 
 const reportGen = getRuntimeEngine('reportGenerator');
-const drawingGen = getRuntimeEngine('drawingSvgRenderer');
 const threeTier = getRuntimeEngine('threeTier');
 
 // 若请求未带 result，但带了 ThreeTier 入参（area/city/...），则现场生成

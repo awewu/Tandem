@@ -11,12 +11,10 @@
  *   - 引擎健康 /api/engines/health
  *   - 3D可视化 /api/visualization/*
  *   - BIM导出 /api/export/bim
- *   - Rysnova BIM /api/rysnova-bim-bim/*
  *   - 负荷计算 /api/load-calculation
  *   - 设备选型 /api/device-selection
  *   - 报价 /api/quotation/*, /api/quick-lock, /api/value-quotation
  *   - 健康检查 /health, /api/status
- *   - Agent /api/agent/health
  *   - 语音 /api/voice-interaction
  *
  * 使用方式（server-production.js）：
@@ -25,17 +23,12 @@
  */
 
 const express = require('express');
-const SolutionVisualPackageService = require('../modules/solution-visuals/solution-visual-package.service');
 const { errorResponse } = require('../utils/sanitize-error');
 
 module.exports = function createCoreApiRouter(db, engines, { JWT_SECRET, authenticateToken, checkRole }) {
   const router = express.Router();
   const painDiagnosisEngine = engines.painDiagnosis || engines.painPointDiagnosis;
   const painMatchingEngine = engines.painMatching || engines.painPointMatching;
-  const solutionVisualPackages = engines.solutionVisualPackages || new SolutionVisualPackageService({
-    drawingRenderer: engines.drawingSvgRenderer,
-    renderer3D: engines.renderer3D
-  });
 
   // ── 健康检查 ──────────────────────────────────────────────────────────────
   router.get('/health', (req, res) => {
@@ -98,7 +91,6 @@ module.exports = function createCoreApiRouter(db, engines, { JWT_SECRET, authent
   router.post('/api/ai-consultant/recommend', (req, res) => {
     try {
       const result = engines.aiConsultant.generateConsultation(req.body);
-      result.visualPackages = solutionVisualPackages.generate(result);
       res.json({ success: true, data: result });
     } catch (e) { return errorResponse(res, e); }
   });
@@ -163,97 +155,11 @@ module.exports = function createCoreApiRouter(db, engines, { JWT_SECRET, authent
     res.json({ success: true, data: { status: 'all_ok', engines: Object.keys(engines).length, timestamp: new Date().toISOString() } });
   });
 
-  router.get('/api/agent/health', (req, res) => {
-    try { res.json(engines.agencyAgent ? engines.agencyAgent.healthCheck() : { success: true, status: 'ok' }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
   // ── 3D可视化 ──────────────────────────────────────────────────────────────
-  router.post('/api/visualization/3d', (req, res) => {
-    try { res.json({ success: true, data: engines.hvac3DVisualization.generate3DVisualization(req.body) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/visualization/preview', (req, res) => {
-    try { res.json({ success: true, data: engines.hvac3DVisualization.generatePreviewData(req.body) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
 
   // ── BIM导出 ───────────────────────────────────────────────────────────────
-  router.post('/api/export/bim', (req, res) => {
-    try {
-      const { designData, format } = req.body;
-      res.json({ success: true, data: engines.bimExport.exportDesign(designData, format || 'dxf') });
-    } catch (e) { return errorResponse(res, e); }
-  });
 
   // ── Rysnova BIM ──────────────────────────────────────────────────────────
-  router.post('/api/rysnova-bim-bim/process', async (req, res) => {
-    try { res.json({ success: true, data: await engines.rysnovaBimBIM.processFullBIM(req.body.designData || {}, req.body.options || {}) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/clash-detection', (req, res) => {
-    try { res.json({ success: true, data: engines.rysnovaBimBIM.detectClashesBVH(req.body.layout || { devices: [], pipes: [] }) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/ifc-geometry', (req, res) => {
-    try { res.json({ success: true, data: engines.rysnovaBimBIM.generateIFCGeometry(req.body.layout || {}, req.body.designData || {}) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/boq', (req, res) => {
-    try { res.json({ success: true, data: engines.rysnovaBimBIM.generateBillOfQuantities(req.body.layout || {}, req.body.designData || {}) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/export-ifc', (req, res) => {
-    try {
-      const { layout, designData } = req.body;
-      const normalizedLayout = layout || { devices: [], pipes: [] };
-      const normalizedDesign = designData || {};
-      const ifcGeometry = engines.rysnovaBimBIM.generateIFCGeometry(normalizedLayout, normalizedDesign);
-      res.json({
-        success: true,
-        data: engines.rysnovaBimBIM.exportToRevitIFC(normalizedLayout, ifcGeometry, normalizedDesign),
-        revitVersion: '2024'
-      });
-    } catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/drawings', (req, res) => {
-    try { res.json({ success: true, data: engines.rysnovaBimBIM.generateConstructionDrawings(req.body.layout || {}, req.body.designData || {}) }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.get('/api/rysnova-bim-bim/projects', (req, res) => {
-    try { res.json(engines.revitSync ? engines.revitSync.listProjects() : { success: true, data: [] }); }
-    catch (e) { return errorResponse(res, e); }
-  });
-
-  router.get('/api/rysnova-bim-bim/projects/:projectId', (req, res) => {
-    try {
-      const project = engines.revitSync && engines.revitSync.getProject(req.params.projectId);
-      if (!project) return res.status(404).json({ success: false, error: '项目不存在' });
-      res.json({ success: true, data: project });
-    } catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/projects/upload', (req, res) => {
-    try {
-      if (!engines.revitSync) return res.status(503).json({ success: false, error: 'Revit同步服务不可用' });
-      res.json({ success: true, data: engines.revitSync.uploadProject(req.body) });
-    } catch (e) { return errorResponse(res, e); }
-  });
-
-  router.post('/api/rysnova-bim-bim/projects/:projectId/sync', (req, res) => {
-    try {
-      if (!engines.revitSync) return res.status(503).json({ success: false, error: 'Revit同步服务不可用' });
-      const result = engines.revitSync.applySync(req.params.projectId, req.body);
-      res.json({ success: result.success, data: result });
-    } catch (e) { return errorResponse(res, e); }
-  });
 
   // ── 语音交互 ──────────────────────────────────────────────────────────────
   router.get('/api/voice-interaction', (req, res) => {

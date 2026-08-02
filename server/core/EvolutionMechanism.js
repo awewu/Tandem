@@ -105,7 +105,6 @@ class EvolutionMechanism {
         errorHandling: this.checkErrorHandling(),
         uiViCompliance: this.checkUIVICompliance(),
         multiTerminal: this.checkMultiTerminal(),
-        threeDVisualization: this.check3DVisualization(),
         frontendManagement: this.checkFrontendManagement(),
         adminBackend: this.checkAdminBackend(),
         logManagement: this.checkLogManagement()
@@ -197,18 +196,13 @@ class EvolutionMechanism {
       { name: 'loadCalculation', file: 'LoadCalculationEngine.js' },
       { name: 'deviceSelection', file: 'DeviceSelectionEngine.js' },
       { name: 'quotation', file: 'QuotationEngine.js' },
-      { name: 'drawingSync', file: 'DrawingSyncEngine.js' },
       { name: 'templateLibrary', file: 'TemplateLibrary.js' },
       { name: 'aiValidation', file: 'AIValidationSuite.js' },
       { name: 'multiRole', file: 'MultiRoleEngine.js' },
-      { name: 'dataBackup', file: 'DataBackupScheduler.js' },
-      { name: 'heartbeat', file: 'HeartbeatMonitor.js' },
       { name: 'econet', file: 'EconetPricingEngine.js' },
       { name: 'voiceInteraction', file: 'VoiceInteractionEngine.js' },
       { name: 'agentCoordinator', file: 'AgentCoordinator.js' },
-      { name: 'selfCheckOrchestrator', file: 'SelfCheckOrchestrator.js' },
-      { name: 'databasePersistence', file: 'DatabasePersistenceEngine.js' },
-      { name: 'visualization3D', file: 'Visualization3DEngine.js' }
+      { name: 'databasePersistence', file: 'DatabasePersistenceEngine.js' }
     ];
     
     const missingFeatures = [];
@@ -245,13 +239,10 @@ class EvolutionMechanism {
       '/api/load-calculation',
       '/api/device-selection',
       '/api/quotation',
-      '/api/drawing-sync',
       '/api/template-library',
       '/api/ai-validation',
       '/api/auth/login',
       '/api/workflow/complete',
-      '/api/backup',
-      '/api/heartbeat',
       '/api/econet',
       '/api/voice-interaction',
       '/api/admin/products',
@@ -296,7 +287,6 @@ class EvolutionMechanism {
       'index.html',
       'solution-summary.html',
       'quality-dashboard.html',
-      'drawing-sync.html',
       'template-library.html',
       'ai-accuracy-test.html',
       'voice-interaction.html',
@@ -440,27 +430,6 @@ class EvolutionMechanism {
     return {
       passed: true,
       description: '多终端适配检查通过'
-    };
-  }
-
-  /**
-   * 3D可视化检查
-   */
-  check3DVisualization() {
-    const enginePath = path.join(__dirname, 'Visualization3DEngine.js');
-    
-    if (!fs.existsSync(enginePath)) {
-      return {
-        passed: false,
-        severity: 'high',
-        description: '3D可视化引擎不存在',
-        recommendations: ['创建Visualization3DEngine.js']
-      };
-    }
-    
-    return {
-      passed: true,
-      description: '3D可视化检查通过'
     };
   }
 
@@ -709,8 +678,6 @@ class EvolutionMechanism {
         return this.checkPersistence();
       case 'uiViCompliance':
         return this.checkUIVICompliance();
-      case 'threeDVisualization':
-        return this.check3DVisualization();
       case 'adminBackend':
         return this.checkAdminBackend();
       case 'logManagement':
@@ -1024,16 +991,6 @@ app.post('/api/device-selection', (req, res) => {
     res.json({ success: false, error: error.message });
   }
 });`,
-      '/api/drawing-sync': `// 改图同步API
-app.post('/api/drawing-sync', (req, res) => {
-  try {
-    const { drawingData } = req.body;
-    // 实现改图同步逻辑
-    res.json({ success: true, message: '改图同步成功' });
-  } catch (error) {
-    res.json({ success: false, error: error.message });
-  }
-});`,
       '/api/template-library': `// 模板库API
 app.get('/api/template-library', (req, res) => {
   try {
@@ -1041,16 +998,6 @@ app.get('/api/template-library', (req, res) => {
     const engine = new TemplateLibraryEngine();
     const templates = engine.getAllTemplates();
     res.json({ success: true, data: templates });
-  } catch (error) {
-    res.json({ success: false, error: error.message });
-  }
-});`,
-      '/api/heartbeat': `// 心跳监控API
-app.get('/api/heartbeat', (req, res) => {
-  try {
-    const HeartbeatMonitor = require('./server/core/HeartbeatMonitor');
-    const status = HeartbeatMonitor.getStatus();
-    res.json({ success: true, data: status });
   } catch (error) {
     res.json({ success: false, error: error.message });
   }

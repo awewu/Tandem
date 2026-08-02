@@ -8,12 +8,8 @@ const router = express.Router();
 const { getRuntimeEngine } = require('../runtimeEngineAccess');
 
 const painDiagnosisV3 = getRuntimeEngine('painDiagnosis');
-const drawingSync = getRuntimeEngine('drawingSync');
 const templateEngine = getRuntimeEngine('solutionTemplate');
-const backupEngine = getRuntimeEngine('dataBackupEngine');
 const econetEngine = getRuntimeEngine('econetSystem');
-const CADImporter = getRuntimeEngine('legacyCadImporter');
-const ImageRecognition = getRuntimeEngine('imageRecognition');
 
 const initializedEngines = new WeakSet();
 
@@ -24,47 +20,6 @@ async function ensureEngineInitialized(engine) {
   return engine;
 }
 
-// ==================== 改图联动同步 API ====================
-router.post('/drawing-sync/session', async (req, res) => {
-  try {
-    await ensureEngineInitialized(drawingSync);
-    console.log('[API] 创建会话, body:', req.body);
-    const { designerId, clientId } = req.body || {};
-    if (!designerId || !clientId) {
-      return res.status(400).json({ success: false, error: '缺少designerId或clientId' });
-    }
-    const session = drawingSync.createSession(Date.now().toString(), designerId, clientId);
-    console.log('[API] 会话创建成功:', session.id);
-    res.json({ success: true, session });
-  } catch (error) {
-    console.error('[API] 创建会话失败:', error);
-    res.status(500).json({ success: false, error: error.message, stack: error.stack });
-  }
-});
-
-router.post('/drawing-sync/push', async (req, res) => {
-  try {
-    await ensureEngineInitialized(drawingSync);
-    const { sessionId, designerId, changes } = req.body;
-    const result = await drawingSync.pushChanges(sessionId, designerId, changes);
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.get('/drawing-sync/drawing/:sessionId', async (req, res) => {
-  try {
-    await ensureEngineInitialized(drawingSync);
-    const { sessionId } = req.params;
-    const { clientId } = req.query;
-    const drawing = await drawingSync.getDrawing(sessionId, clientId);
-    res.json({ success: true, drawing });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // ==================== 方案模板复用 API ====================
 // /api/templates GET/POST/popular are owned by front-office-runtime.routes.
 // Keep only the legacy apply endpoint here until it is migrated behind the same facade.
@@ -74,27 +29,6 @@ router.post('/templates/apply', async (req, res) => {
     const { templateId, customerData } = req.body;
     const solution = await templateEngine.applyTemplate(templateId, customerData);
     res.json({ success: true, solution });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ==================== 数据备份恢复 API ====================
-router.post('/backup', async (req, res) => {
-  try {
-    await ensureEngineInitialized(backupEngine);
-    const result = await backupEngine.performBackup('manual');
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.get('/backups', async (req, res) => {
-  try {
-    await ensureEngineInitialized(backupEngine);
-    const backups = backupEngine.getBackupList();
-    res.json({ success: true, backups });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -124,36 +58,8 @@ router.post('/econet/quote', async (req, res) => {
 });
 
 // ==================== CAD图纸导入 API ====================
-// /api/cad/import is owned by front-office-runtime.routes.
-router.post('/cad/validate', async (req, res) => {
-  try {
-    const { cadData } = req.body;
-    const validation = CADImporter.validateCADData(cadData);
-    res.json({ success: true, validation });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // ==================== 图片识别 API ====================
-router.post('/image/recognize', async (req, res) => {
-  try {
-    const { imagePath, options = {} } = req.body;
-    const result = await ImageRecognition.recognizeFloorPlan(imagePath, options);
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.get('/image/formats', async (req, res) => {
-  try {
-    const formats = ImageRecognition.getSupportedFormats();
-    res.json({ success: true, formats });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // ==================== 痛点诊断v3 API (48项痛点 + 3种方案) ====================
 

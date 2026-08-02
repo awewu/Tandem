@@ -23,5 +23,14 @@
       "cache": true
     }
   },
+  "projects": {
+    "public-portal": "apps/public-portal",
+    "dealer-workbench": "apps/dealer-workbench",
+    "ui": "packages/ui",
+    "contracts": "packages/contracts",
+    "domain": "packages/domain",
+    "visual-system": "packages/visual-system",
+    "api": "services/api"
+  },
   "defaultBase": "main"
 }

@@ -80,7 +80,6 @@ if (!failures.length) {
     'tlsAclSecretConfigurationObserved',
     'redisUnavailableDegradationDrillRequired',
     'notBusinessTruthSource',
-    'rysnovaBimCustomerSignoffNotRedisTruth',
     'lifecycle_handoff_only'
   ]) {
     check(releaseRecord?.capabilities?.includes(capability), `redisRuntimeSmoke missing capability: ${capability}`);
@@ -130,8 +129,6 @@ if (!failures.length) {
       'ttl-proof',
       'lifecycle-handoff-only-boundary',
       'no-business-truth-source-key-written',
-      'rysnova-bim-task-status-payload-no-business-truth',
-      'rysnova-bim-signoff-business-truth-detected-before-write',
       'tls-observed',
       'acl-secret-observed',
       'redis-unavailable-degradation-drill-proof'
@@ -145,9 +142,7 @@ if (!failures.length) {
       'cross-tenant-cache-miss',
       'ttl-proof',
       'lifecycle-handoff-only-boundary',
-      'no-business-truth-source-key-written',
-      'rysnova-bim-task-status-payload-no-business-truth',
-      'rysnova-bim-signoff-business-truth-detected-before-write'
+      'no-business-truth-source-key-written'
     ]) {
       check(checkMap.get(requiredBehaviorCheck)?.passed === true, `Redis runtime behavior check must pass: ${requiredBehaviorCheck}`);
     }

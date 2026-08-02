@@ -22,8 +22,8 @@ describe('legacy surface ownership evidence', () => {
     expect(report.summary.publicHtml).toBe(report.summary.manifestRows);
     expect(report.summary.ownerCoverage).toBe(report.summary.manifestRows);
     expect(report.summary.evidenceCoverage).toBe(report.summary.manifestRows);
-    expect(report.summary.activeSurfaces).toBe(4);
-    expect(report.summary.nonActiveGovernedAssets).toBe(report.summary.publicHtml - 4);
+    expect(report.summary.activeSurfaces).toBe(0);
+    expect(report.summary.nonActiveGovernedAssets).toBe(report.summary.publicHtml);
     expect(report.summary.failures).toBe(0);
     expect(report.summary.warnings).toBe(0);
     expect(report.failures).toEqual([]);
@@ -42,19 +42,17 @@ describe('legacy surface ownership evidence', () => {
     }
   });
 
-  test('keeps active pages and retained legacy assets under different actions', () => {
+  test('keeps every archived legacy asset under a non-active action', () => {
     const report = readJson('audit/legacy-surface-ownership-report.json');
     const active = report.surfaces.filter(surface => surface.manifestBucket === 'active');
     const nonActive = report.surfaces.filter(surface => surface.manifestBucket !== 'active');
 
-    expect(active).toHaveLength(4);
-    expect(active.every(surface => surface.action === 'active')).toBe(true);
+    expect(active).toHaveLength(0);
     expect(nonActive).toHaveLength(report.summary.nonActiveGovernedAssets);
     expect(nonActive.every(surface => surface.action !== 'active')).toBe(true);
     expect(nonActive.map(surface => surface.migrationStatus)).toEqual(expect.arrayContaining([
       'migrate-owner-assigned',
-      'archived-reference-guarded',
-      'static-inventory-retained-guarded'
+      'archived-reference-guarded'
     ]));
   });
 

@@ -168,75 +168,6 @@ class ExportEngine {
   }
 
   /**
-   * 2. 设计方案导出
-   * 支持：BIM/施工图/效果图/清单
-   */
-  exportDesign(designData, format = 'full') {
-    const { projectId, houseType, devices, pipes, systems, loadCalculation } = designData;
-    
-    console.log(`[ExportEngine] 导出设计方案 ${projectId}`);
-    
-    const exports = {};
-    
-    if (format === 'full' || format === 'bim') {
-      exports.bim = this.exportToIFC(designData);
-    }
-    if (format === 'full' || format === 'cad') {
-      exports.cad = this.exportToDXF(designData);
-    }
-    if (format === 'full' || format === 'pdf') {
-      exports.constructionPDF = this.generateConstructionPDF(designData);
-    }
-    if (format === 'full' || format === 'materials') {
-      exports.materialList = this.exportMaterialList(designData);
-    }
-    
-    return {
-      format: 'design-package',
-      exports,
-      downloadUrl: `/exports/${projectId}_设计方案包.zip`,
-      contents: {
-        bim: 'IFC 4.0格式，可导入Revit',
-        cad: 'DXF格式，AutoCAD兼容',
-        pdf: '施工图纸PDF',
-        materials: '材料清单Excel'
-      }
-    };
-  }
-
-  exportToIFC(designData) {
-    // 调用BIM导出引擎
-    const BIMExportEngine = require('./BIMExportEngine');
-    const bim = new BIMExportEngine();
-    return bim.exportToIFC(designData);
-  }
-
-  exportToDXF(designData) {
-    const BIMExportEngine = require('./BIMExportEngine');
-    const bim = new BIMExportEngine();
-    return bim.exportToDXF(designData);
-  }
-
-  generateConstructionPDF(designData) {
-    // 生成施工图纸描述
-    const { projectId, houseType, area, devices, pipes } = designData;
-    
-    return {
-      format: 'PDF',
-      filename: `${projectId}_施工图纸.pdf`,
-      pages: [
-        { name: '设计说明', desc: '项目概况、设计依据、系统说明' },
-        { name: '设备布置图', desc: `${devices?.length || 0}台设备位置标注` },
-        { name: '管路平面图', desc: `${pipes?.length || 0}条管路走向` },
-        { name: '系统原理图', desc: '冷热源系统、水系统流程' },
-        { name: '节点详图', desc: '安装大样、接口详图' }
-      ],
-      note: '施工图需由专业设计师审核签章',
-      generateTime: new Date().toISOString()
-    };
-  }
-
-  /**
    * 3. 问诊方案导出
    * 故障诊断报告
    */
@@ -442,13 +373,6 @@ class ExportEngine {
     csv += `\n合计,,,,,,,,,${totalAmount},\n`;
     
     return this.saveExport('materials', `${designData.projectId}_材料清单`, 'csv', csv);
-  }
-
-  /**
-   * 6. 施工图纸导出
-   */
-  exportConstructionDrawings(designData, format = 'pdf') {
-    return this.generateConstructionPDF(designData);
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * 全业务导出API - Exports API
- * 支持：报价/设计方案/问诊/锁客/材料/图纸/销售方案书/分析报表
+ * 支持：报价/问诊/锁客/材料/销售方案书/分析报表
  */
 
 const { errorResponse } = require('../utils/sanitize-error');
@@ -26,28 +26,6 @@ router.post('/quotation', async (req, res) => {
     res.json({
       success: true,
       message: '报价单导出成功',
-      data: result
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-});
-
-/**
- * POST /api/exports/design
- * 导出设计方案包
- */
-router.post('/design', async (req, res) => {
-  try {
-    const { data, format = 'full' } = req.body;
-    
-    console.log('[Exports API] 导出设计方案:', format);
-    
-    const result = exportEngine.exportDesign(data, format);
-    
-    res.json({
-      success: true,
-      message: '设计方案导出成功',
       data: result
     });
   } catch (error) {
@@ -114,28 +92,6 @@ router.post('/materials', async (req, res) => {
     res.json({
       success: true,
       message: '材料清单导出成功',
-      data: result
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-});
-
-/**
- * POST /api/exports/drawings
- * 导出施工图纸
- */
-router.post('/drawings', async (req, res) => {
-  try {
-    const { data, format = 'pdf' } = req.body;
-    
-    console.log('[Exports API] 导出施工图纸');
-    
-    const result = exportEngine.exportConstructionDrawings(data, format);
-    
-    res.json({
-      success: true,
-      message: '施工图纸导出成功',
       data: result
     });
   } catch (error) {
@@ -357,11 +313,9 @@ router.get('/formats', async (req, res) => {
     success: true,
     data: {
       quotation: ['excel', 'pdf', 'json'],
-      design: ['bim', 'cad', 'pdf', 'materials', 'full-package'],
       diagnosis: ['pdf', 'html', 'json'],
       contract: ['pdf', 'docx', 'full-package'],
       materials: ['excel', 'csv', 'json'],
-      drawings: ['pdf', 'dwg', 'dxf'],
       proposal: ['pptx', 'html', 'pdf'],
       analytics: ['excel', 'pdf', 'json', 'html']
     }

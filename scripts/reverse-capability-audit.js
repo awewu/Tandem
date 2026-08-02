@@ -18,8 +18,8 @@ const OUT_MD = path.join(OUT_DIR, 'reverse-capability-audit-report.md');
 
 // 宪章/契约里声明的后端领域模块 (PROJECT-CHARTER.md 第 5.2 节)
 const CHARTER_MODULES = [
-  'auth', 'tenant', 'crm', 'diagnosis', 'product-catalog', 'quote', 'design',
-  'rysnova-bim', 'delivery', 'lifecycle', 'analytics', 'governance',
+  'auth', 'tenant', 'crm', 'diagnosis', 'product-catalog', 'quote',
+  'delivery', 'lifecycle', 'analytics', 'governance',
   'file-artifact', 'notification', 'workflow',
 ];
 
@@ -31,8 +31,6 @@ const DOMAIN_KEYWORDS = {
   diagnosis: ['diagnosis', 'painpoint', 'pain', 'consultant', 'llm', 'rag', 'aimatching', 'matching', 'smartbrain', 'voice'],
   'product-catalog': ['product', 'material', 'device', 'selection', 'housetype', 'library', 'standards', 'climate', 'cities'],
   quote: ['quote', 'quotation', 'price', 'pricing', 'tax', 'currency', 'promotion', 'value', 'package', 'commercial'],
-  design: ['design', 'drawing', 'render', 'layout', 'cad', 'dxf', 'floorplan', 'visualization', 'visual', '3d', 'scene', 'hydraulic', 'load', 'calculation', 'doas', 'freshair', 'hotwater', 'heating', 'watersystem', 'airconditioning', 'fiveconstant', 'reheat', 'cfd', 'oneclick', 'threetier', 'positioning', 'multidiscipline', 'hourly', 'reheat', 'trienergy', 'unitconverter'],
-  rysnovaBim: ['rysnova-bim', 'bim', 'revit', 'collaboration', 'yjs', 'versioncontrol', 'drawingsync', 'cadimporter', 'technicaldelivery', 'multidiscipline'],
   delivery: ['construction', 'workorder', 'fieldservice', 'delivery', 'site', 'task'],
   lifecycle: ['lifecycle', 'iot', 'econet', 'digitaltwin', 'mqtt', 'device', 'monitoring', 'heartbeat', 'predictive'],
   analytics: ['analytics', 'report', 'industryplatform', 'performance', 'energy', 'carbon'],

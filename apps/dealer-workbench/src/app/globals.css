@@ -703,6 +703,16 @@ button { cursor:pointer; }
 .table th:last-child { text-align:center !important; }
 .table-row-actions,
 .row-edit-actions { display:flex; align-items:center; justify-content:center !important; gap:6px; flex-wrap:wrap; }
+.wechat-review-table { table-layout:fixed !important; min-width:1080px; }
+.wechat-review-table th,
+.wechat-review-table td { overflow-wrap:normal; }
+.wechat-review-table th:not(:first-child),
+.wechat-review-table td:not(:first-child) { white-space:nowrap; }
+.wechat-review-table__content { min-width:0; display:grid; gap:4px; }
+.wechat-review-table__ellipsis,
+.wechat-review-table__digest { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wechat-review-table__digest { color:var(--t-secondary); font-size:12px; }
+.wechat-review-table__actions { min-width:225px; flex-wrap:nowrap; white-space:nowrap; }
 .product-catalog-table th,
 .product-catalog-table td { overflow-wrap:normal; }
 .product-catalog-table th:nth-child(1),

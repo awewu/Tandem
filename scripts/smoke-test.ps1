@@ -49,7 +49,7 @@ Write-Host "[2/6] Key pages" -ForegroundColor Yellow
 $keyPages = @(
     '/index-ready.html','/login.html','/staff-portal.html','/admin.html',
     '/hq-admin.html','/store-admin.html','/sales.html','/designer.html',
-    '/technical-support.html','/customer-view.html','/pain-diagnosis.html','/rysnova-bim-designer.html'
+    '/technical-support.html','/customer-view.html','/pain-diagnosis.html'
 )
 foreach($p in $keyPages){
     $r = Hit $p
@@ -109,7 +109,6 @@ $apis = @(
     @{ p='/api/design/heating-system'; m='POST'; auth=$false; body='{"houseType":"3BR","area":120,"city":"shanghai"}' }
     @{ p='/api/design/air-conditioning'; m='POST'; auth=$false; body='{"houseType":"3BR","area":120,"city":"shanghai"}' }
     @{ p='/api/design/five-constant'; m='POST'; auth=$false; body='{"houseType":"3BR","area":120,"city":"shanghai"}' }
-    @{ p='/api/visualization/preview'; m='POST'; auth=$false; body='{"area":120}' }
     @{ p='/api/search/customer?phone=13900000000'; m='GET'; auth=$true; body=$null }
 )
 foreach($a in $apis){

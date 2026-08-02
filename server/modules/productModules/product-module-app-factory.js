@@ -5,11 +5,7 @@ const {
   MODULES,
   getModuleById
 } = require('./product-module-registry');
-const {
-  redirectLegacyDesignerToViewer
-} = require('../../utils/legacyDesignerRedirect');
-
-const STANDALONE_MODULE_KEYS = ['rysnova', 'rysnovaBim'];
+const STANDALONE_MODULE_KEYS = ['rysnova'];
 
 function resolveStandaloneModule(value) {
   const byKey = MODULES[value];
@@ -24,7 +20,6 @@ function resolveStandaloneModule(value) {
 function sendModuleEntry(publicDir, module) {
   const entryFile = module.embeddedEntry.replace(/^\//, '');
   return (req, res) => {
-    if (module.namespace === 'rysnova-bim') return redirectLegacyDesignerToViewer(req, res);
     res.sendFile(path.join(publicDir, entryFile));
   };
 }

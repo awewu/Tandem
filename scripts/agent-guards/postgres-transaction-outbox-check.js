@@ -18,7 +18,6 @@ const failures = [];
 function fullPath(relativePath) {
   return path.join(ROOT, relativePath);
 }
-
 function exists(relativePath) {
   return fs.existsSync(fullPath(relativePath));
 }
@@ -226,210 +225,6 @@ function lifecycleHandoffWrite(tx, scope, aggregateId) {
   return lifecycle;
 }
 
-const RYSNOVA_CUSTOMER_SIGNOFF_TYPES = [
-  'principle-diagram',
-  'construction-drawing',
-  'bim-model',
-  'bom',
-  'quantity-takeoff',
-  'standards-check',
-  'customer-report'
-];
-
-function rysnovaBimCustomerPackageReadyWrite(tx, scope, projectId) {
-  const artifacts = RYSNOVA_CUSTOMER_SIGNOFF_TYPES.map((artifactType, index) => tx.insert('file_artifacts', {
-    id: `rysnova-bim-artifact-${index + 1}`,
-    project_id: projectId,
-    customer_id: 'customer-1',
-    module_id: 'rysnova-bim-engineering-support',
-    module_deployment_mode: 'rhautt-portal-embedded',
-    module_namespace: 'rysnova-bim',
-    data_namespace: 'rysnova-bim',
-    artifact_type: artifactType,
-    artifact_status: 'shared',
-    object_key: `rysnova-bim/${scope.tenantId}/${projectId}/${artifactType}/v1/${artifactType}.json`,
-    content_hash: `sha256:${artifactType}`,
-    inputs_hash: `sha256:inputs-${artifactType}`,
-    version: 1,
-    visibility: 'customer',
-    customer_visible: true,
-    storage_provider: 's3-compatible-object-storage',
-    storage_integrity_passed: true,
-    storage_integrity_checked_at: '2026-06-06T00:00:00.000Z',
-    metadata: { customerSignoffRequired: true }
-  }));
-  tx.insert('audit_logs', {
-    id: 'audit-rysnova-bim-package-ready-1',
-    actor_user_id: scope.actorId,
-    action: 'rysnova-bim.customer_package.ready',
-    resource_type: 'rysnova-bim_customer_package',
-    resource_id: projectId,
-    after_state: {
-      artifactTypes: RYSNOVA_CUSTOMER_SIGNOFF_TYPES,
-      count: artifacts.length,
-      customerSignoffReady: true
-    },
-    request_id: scope.requestId,
-    trace_id: scope.traceId
-  });
-  tx.outbox({
-    id: 'outbox-rysnova-bim-package-ready-1',
-    aggregate_type: 'rysnova-bim_customer_package',
-    aggregate_id: projectId,
-    event_type: 'rysnova-bim.customer_package.ready',
-    idempotency_key: `${scope.tenantId}:rysnova-bim_customer_package:${projectId}:ready:v${RYSNOVA_CUSTOMER_SIGNOFF_TYPES.join('.')}`,
-    payload: {
-      projectId,
-      requiredTypes: RYSNOVA_CUSTOMER_SIGNOFF_TYPES,
-      missingTypes: [],
-      count: artifacts.length,
-      customerVisible: true,
-      customerSignoffReady: true
-    }
-  });
-  return artifacts;
-}
-
-function rysnovaBimCustomerPackageReady(ledger, scope, projectId) {
-  const rows = ledger.file_artifacts.filter(row => (
-    row.tenant_id === scope.tenantId &&
-    row.data_namespace === 'rysnova-bim' &&
-    row.project_id === projectId &&
-    row.customer_visible === true &&
-    ['approved', 'shared'].includes(row.artifact_status) &&
-    row.storage_integrity_passed === true
-  ));
-  const types = new Set(rows.map(row => row.artifact_type));
-  return RYSNOVA_CUSTOMER_SIGNOFF_TYPES.every(type => types.has(type));
-}
-
-function rysnovaBimCustomerSignoffConfirmedWrite(tx, scope, projectId) {
-  const confirmedAt = '2026-06-06T00:00:00.000Z';
-  const receiptNo = 'LITH-SIGNOFF-POSTGRES-TARGET-001';
-  const receipt = {
-    receiptNo,
-    packageType: 'rysnova-bim-customer-signoff-receipt',
-    status: 'customer-signed',
-    artifactCount: RYSNOVA_CUSTOMER_SIGNOFF_TYPES.length,
-    artifactTypes: RYSNOVA_CUSTOMER_SIGNOFF_TYPES,
-    requiredTypes: RYSNOVA_CUSTOMER_SIGNOFF_TYPES,
-    acknowledgements: [
-      'solution-scope-reviewed',
-      'quotation-summary-reviewed',
-      'engineering-deliverables-received',
-      'standards-precheck-reviewed',
-      'lifecycle-handoff-boundary-reviewed'
-    ],
-    signerMobileHash: hashValue('13800000000'),
-    evidenceHash: hashValue('raw-signature-evidence'),
-    rawSensitiveEvidenceOmitted: true,
-    lifecycleHandoff: {
-      handoffBoundary: 'lifecycle_handoff_only',
-      realtimeControl: false
-    },
-    boundary: {
-      customerSafe: true,
-      handoffBoundary: 'lifecycle_handoff_only',
-      realtimeControl: false,
-      noRealtimeControlGranted: true
-    },
-    confirmedAt
-  };
-  tx.insert('audit_logs', {
-    id: 'audit-rysnova-bim-customer-signoff-1',
-    actor_user_id: scope.actorId,
-    action: 'rysnova-bim.customer_signoff.confirmed',
-    resource_type: 'rysnova-bim_customer_signoff',
-    resource_id: projectId,
-    after_state: {
-      projectId,
-      receiptNo,
-      receipt,
-      customerSignoffConfirmed: true
-    },
-    request_id: scope.requestId,
-    trace_id: scope.traceId
-  });
-  tx.insert('workflow_instances', {
-    id: 'workflow-rysnova-bim-customer-signoff-1',
-    workflow_type: 'rysnova-bim-customer-signoff-workflow',
-    temporal_workflow_id: `local:${scope.tenantId}:rysnova-bim-customer-signoff:${projectId}`,
-    aggregate_type: 'rysnova-bim_customer_signoff',
-    aggregate_id: projectId,
-    status: 'running',
-    input: { projectId, receiptNo },
-    state: {
-      step: 'emit-customer-signoff-outbox',
-      lifecycleHandoffBoundary: 'lifecycle_handoff_only'
-    },
-    started_at: confirmedAt
-  });
-  tx.insert('workflow_steps', {
-    id: 'workflow-step-rysnova-bim-customer-signoff-1',
-    workflow_instance_id: 'workflow-rysnova-bim-customer-signoff-1',
-    step_type: 'emit-customer-signoff-outbox',
-    status: 'completed',
-    attempt: 1,
-    input: { projectId },
-    output: { eventType: 'rysnova-bim.customer_signoff.confirmed', receiptNo },
-    completed_at: confirmedAt
-  });
-  const outbox = tx.outbox({
-    id: 'outbox-rysnova-bim-customer-signoff-1',
-    aggregate_type: 'rysnova-bim_customer_signoff',
-    aggregate_id: projectId,
-    event_type: 'rysnova-bim.customer_signoff.confirmed',
-    idempotency_key: `${scope.tenantId}:rysnova-bim_customer_signoff:${projectId}:${receiptNo}`,
-    payload: {
-      projectId,
-      receipt,
-      customerSignoffConfirmed: true,
-      handoffBoundary: 'lifecycle_handoff_only',
-      realtimeControl: false
-    }
-  });
-  return { receipt, outbox };
-}
-
-function rysnovaBimCustomerSignoffConfirmed(ledger, scope, projectId) {
-  const audit = ledger.audit_logs.find(row => (
-    row.tenant_id === scope.tenantId &&
-    row.action === 'rysnova-bim.customer_signoff.confirmed' &&
-    row.resource_id === projectId
-  ));
-  const outbox = ledger.outbox_events.find(row => (
-    row.tenant_id === scope.tenantId &&
-    row.aggregate_type === 'rysnova-bim_customer_signoff' &&
-    row.event_type === 'rysnova-bim.customer_signoff.confirmed' &&
-    row.aggregate_id === projectId
-  ));
-  const workflow = ledger.workflow_instances.find(row => (
-    row.tenant_id === scope.tenantId &&
-    row.workflow_type === 'rysnova-bim-customer-signoff-workflow' &&
-    row.aggregate_id === projectId
-  ));
-  const serialized = JSON.stringify({ audit, outbox, workflow });
-  const receipt = outbox?.payload?.receipt || {};
-  return Boolean(
-    audit &&
-      outbox &&
-      workflow &&
-      /^LITH-SIGNOFF-/.test(String(receipt.receiptNo || '')) &&
-      receipt.packageType === 'rysnova-bim-customer-signoff-receipt' &&
-      receipt.status === 'customer-signed' &&
-      receipt.artifactCount === RYSNOVA_CUSTOMER_SIGNOFF_TYPES.length &&
-      receipt.rawSensitiveEvidenceOmitted === true &&
-      /^sha256:/.test(String(receipt.signerMobileHash || '')) &&
-      /^sha256:/.test(String(receipt.evidenceHash || '')) &&
-      receipt.lifecycleHandoff?.handoffBoundary === 'lifecycle_handoff_only' &&
-      receipt.lifecycleHandoff?.realtimeControl === false &&
-      receipt.boundary?.noRealtimeControlGranted === true &&
-      !serialized.includes('13800000000') &&
-      !serialized.includes('raw-signature-evidence') &&
-      !outbox.payload?.controlCommand
-  );
-}
-
 function inspect() {
   for (const file of [MIGRATION_PATH, RELEASE_EVIDENCE]) {
     if (!exists(file)) failures.push(`missing database transaction evidence file: ${file}`);
@@ -525,22 +320,6 @@ function inspect() {
   check(report, 'lifecycle-handoff-boundary', ledger.project_lifecycle.every(row => row.iot?.boundary === 'lifecycle_handoff_only' && row.iot?.realtimeControl === false), 'lifecycle rows must remain lifecycle_handoff_only');
   check(report, 'outbox-handoff-boundary', ledger.outbox_events.every(row => !row.payload?.controlCommand), 'outbox payloads must not include real-time IoT control commands');
 
-  const rysnovaBimPackage = runTransaction(ledger, scopeA, tx => rysnovaBimCustomerPackageReadyWrite(tx, scopeA, '00000000-0000-0000-0000-00000000f001'));
-  if (rysnovaBimPackage.committed) report.summary.committedTransactions += 1;
-  check(report, 'rysnova-bim-customer-package-transaction-commits', rysnovaBimPackage.committed, 'Rysnova customer package ready transaction must commit');
-  check(report, 'rysnova-bim-customer-package-seven-artifacts', ledger.file_artifacts.length === 7, 'Rysnova customer package must write 7 file_artifacts rows');
-  check(report, 'rysnova-bim-customer-package-required-types', rysnovaBimCustomerPackageReady(ledger, scopeA, '00000000-0000-0000-0000-00000000f001'), 'Rysnova customer package must include all 7 required customer-visible integrity-passed artifact types');
-  check(report, 'rysnova-bim-customer-package-ready-outbox', ledger.outbox_events.some(row => row.event_type === 'rysnova-bim.customer_package.ready'), 'Rysnova customer package transaction must write customer_package.ready outbox event');
-  check(report, 'rysnova-bim-customer-package-ready-audit', ledger.audit_logs.some(row => row.action === 'rysnova-bim.customer_package.ready'), 'Rysnova customer package transaction must write audit log');
-
-  const rysnovaBimSignoff = runTransaction(ledger, scopeA, tx => rysnovaBimCustomerSignoffConfirmedWrite(tx, scopeA, '00000000-0000-0000-0000-00000000f001'));
-  if (rysnovaBimSignoff.committed) report.summary.committedTransactions += 1;
-  check(report, 'rysnova-bim-customer-signoff-transaction-commits', rysnovaBimSignoff.committed, 'Rysnova customer signoff confirmation transaction must commit');
-  check(report, 'rysnova-bim-customer-signoff-confirmed-outbox', ledger.outbox_events.some(row => row.event_type === 'rysnova-bim.customer_signoff.confirmed'), 'Rysnova customer signoff transaction must write customer_signoff.confirmed outbox event');
-  check(report, 'rysnova-bim-customer-signoff-confirmed-audit', ledger.audit_logs.some(row => row.action === 'rysnova-bim.customer_signoff.confirmed'), 'Rysnova customer signoff transaction must write audit log');
-  check(report, 'rysnova-bim-customer-signoff-workflow', ledger.workflow_instances.some(row => row.workflow_type === 'rysnova-bim-customer-signoff-workflow'), 'Rysnova customer signoff transaction must write workflow instance');
-  check(report, 'rysnova-bim-customer-signoff-sanitized-receipt', rysnovaBimCustomerSignoffConfirmed(ledger, scopeA, '00000000-0000-0000-0000-00000000f001'), 'Rysnova customer signoff receipt must be hash-only, lifecycle_handoff_only, and free of raw mobile/signature evidence');
-
   const releaseRecord = release.requiredEvidence?.postgresTransactionOutbox;
   check(report, 'release-evidence-key', Boolean(releaseRecord), 'release evidence missing postgresTransactionOutbox');
   if (releaseRecord) {
@@ -597,12 +376,10 @@ if (report) {
       'tenantScopedIdempotencyKey',
       'crossTenantWithCheckRejects',
       'auditAndWorkflowRowsInTransaction',
-      'lifecycleHandoffOnlyBoundary',
-      'rysnovaBimCustomerSignoffConfirmedOutbox',
-      'rysnovaBimCustomerSignoffSanitizedReceipt'
+      'lifecycleHandoffOnlyBoundary'
     ],
     finalLaunchDatabaseProof: false,
-    note: 'Local deterministic simulation for target PostgreSQL transaction + outbox atomicity, including Rysnova customer signoff confirmation. This is not staging-applied PostgreSQL transaction proof.'
+    note: 'Local deterministic simulation for target PostgreSQL transaction and outbox atomicity. This is not staging-applied PostgreSQL transaction proof.'
   });
 }
 

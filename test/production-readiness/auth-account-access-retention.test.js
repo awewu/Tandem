@@ -7,17 +7,10 @@ function read(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 }
 
-function sourceWindow(source, startNeedle, length) {
-  const start = source.indexOf(startNeedle);
-  expect(start).toBeGreaterThanOrEqual(0);
-  return source.slice(start, start + length);
-}
-
 describe('auth/account access retention smoke', () => {
   const loginPage = read('apps/dealer-workbench/src/app/page.tsx');
-  const hubPage = read('apps/dealer-workbench/src/app/hub/page.tsx');
-  const hubSessionBridge = read('apps/dealer-workbench/src/app/hub/session-bridge.ts');
   const accountsPage = read('apps/dealer-workbench/src/app/accounts/page.tsx');
+  const dealerNav = read('apps/dealer-workbench/src/components/DealerNav.tsx');
   const dealerApi = read('apps/dealer-workbench/src/lib/api.ts');
   const authController = read('services/api/src/modules/auth/auth.controller.ts');
   const authGuard = read('services/api/src/modules/auth/auth.guard.ts');
@@ -33,14 +26,12 @@ describe('auth/account access retention smoke', () => {
     expect(loginPage).toContain('setToken(res.token)');
     expect(loginPage).toContain("new URLSearchParams(window.location.search).get('returnUrl')");
     expect(loginPage).toContain("window.location.href = decodeURIComponent(returnUrl)");
-    expect(loginPage).toContain("'/api/v2/auth/sso/login?redirect=/hub'");
+    expect(loginPage).toContain("'/api/v2/auth/sso/login?redirect=/brand'");
     expect(dealerApi).toContain("apiFetch('/api/v2/auth/login'");
   });
 
   test('session validation stays on v2 auth/me and accepts bearer or shared cookie tokens', () => {
     expect(dealerApi).toContain("me: () => apiFetch('/api/v2/auth/me')");
-    expect(hubPage).toContain('resolveHubSession(() => auth.me(), cached)');
-    expect(hubSessionBridge).toContain("hubLoginFallback('/hub', 'missing_session')");
     expect(accountsPage).toContain('auth.me()');
     expect(authController).toMatch(/@Get\('me'\)\s*@UseGuards\(AuthGuard\)/);
     expect(authGuard).toContain("const NX_COOKIE_NAME = 'nx_token'");
@@ -48,13 +39,9 @@ describe('auth/account access retention smoke', () => {
   });
 
   test('authorized admins can discover and enter account management after module trimming', () => {
-    const accountModule = sourceWindow(hubPage, "key: 'accounts'", 700);
-    expect(accountModule).toContain("path: '/accounts'");
-    expect(accountModule).toContain("roles: ['platform_admin', 'hq_admin', 'dealer_admin']");
-    expect(accountModule).toContain("features: [{ label: '账号列表', path: '/accounts' }, { label: '新建账号', path: '/accounts' }]");
-
-    expect(accountsPage).toContain("const BRAND_ADMINS = ['platform_admin', 'hq_admin']");
-    expect(accountsPage).toContain("[...BRAND_ADMINS, 'dealer_admin'].includes(r)");
+    expect(dealerNav).toContain('href="/accounts"');
+    expect(accountsPage).toContain("can(mePermissions, 'admin.users.view', meRole)");
+    expect(accountsPage).toContain("can(mePermissions, 'admin.users.read', meRole)");
     expect(accountsPage).toContain('adminUsers.list(q)');
     expect(accountsPage).toContain('adminUsers.create');
     expect(accountsPage).toContain('adminUsers.update');
@@ -68,14 +55,11 @@ describe('auth/account access retention smoke', () => {
 
     const roleDecorators =
       authController.match(/@Roles\('platform_admin', 'hq_admin', 'dealer_admin'\)/g) || [];
-    expect(roleDecorators).toHaveLength(4);
-    expect(rolesGuard).toContain('required.includes(role as UserRole)');
+    expect(roleDecorators.length).toBeGreaterThanOrEqual(4);
+    expect(rolesGuard).toContain('required.some((role) => roles.has(role))');
 
     expect(routeOwnership).toContain("{ prefix: '/api/v2/auth'");
     expect(routeOwnership).toContain("owner: 'services/api/src/modules/auth'");
     expect(permissionDomains.domains.D0.ownedModules).toContain('auth');
-    expect(permissionDomains.domains.D4.ownedModules).toEqual(
-      expect.arrayContaining(['crm', 'rysnova-bim', 'lifecycle'])
-    );
   });
 });

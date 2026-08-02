@@ -31,18 +31,14 @@ describe('workspace size governance evidence', () => {
     );
     expect(report.observations.length).toBeGreaterThan(0);
     expect(report.requiredActions).toEqual(expect.arrayContaining([
-      expect.stringContaining('Move backups'),
-      expect.stringContaining('Migrate or retire legacy HTML assets'),
       expect.stringContaining('Replace compatibility engines')
     ]));
     expect(report.bulkAssetGovernance).toEqual(expect.any(Array));
     expect(report.bulkAssetGovernance.map(item => item.bucket)).toEqual(expect.arrayContaining([
-      'backup-excluded',
       'archive-excluded',
       'generated-evidence',
       'data-fixtures',
       'production-compatibility-runtime',
-      'legacy-html',
       'root-legacy-report'
     ]));
   });
@@ -72,13 +68,5 @@ describe('workspace size governance evidence', () => {
       expect(item.lines).toBeGreaterThan(0);
       expect(item.topFiles).toEqual(expect.any(Array));
     }
-    expect(report.bulkAssetGovernance.find(item => item.bucket === 'backup-excluded')).toMatchObject({
-      owner: 'sre-guardian',
-      migrationAction: 'externalize'
-    });
-    expect(report.bulkAssetGovernance.find(item => item.bucket === 'legacy-html')).toMatchObject({
-      owner: 'legacy-fusion-migrator',
-      migrationAction: 'migrate-wrap-archive-retire'
-    });
   });
 });

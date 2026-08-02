@@ -66,36 +66,6 @@ function createFrontOfficeRuntimeRouter({ db, engines, authenticateToken, checkR
     }
   });
 
-  router.post('/api/design/3d-layout', auth, role(['designer', 'store_admin']), (req, res) => {
-    const { buildingParams, deviceSelection } = req.body || {};
-    try {
-      const result = engines.layout3D.generateLayout(buildingParams, deviceSelection);
-      res.json({ success: true, data: result });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.post('/api/design/drawings', auth, role(['designer', 'store_admin']), (req, res) => {
-    const { project, deviceSelection } = req.body || {};
-    try {
-      const result = engines.drawing.generateDrawingSet(project, deviceSelection.systems);
-      res.json({ success: true, data: result });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.post('/api/design/3d-render', auth, role(['designer', 'store_admin']), (req, res) => {
-    const { buildingParams, layout3D, mode = 'preview' } = req.body || {};
-    try {
-      const result = engines.renderer3D.render(mode, buildingParams, layout3D);
-      res.json({ success: true, data: result });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
   router.post('/api/quotation/generate', auth, (req, res) => {
     const { solution, diagnosis, roomProfile } = req.body || {};
     try {
@@ -200,53 +170,6 @@ function createFrontOfficeRuntimeRouter({ db, engines, authenticateToken, checkR
     } catch (error) {
       return errorResponse(res, error);
     }
-  });
-
-  router.post('/api/cad/import', auth, role(['designer', 'store_admin']), (req, res) => {
-    const { fileData, fileType } = req.body || {};
-    try {
-      if (fileType !== 'dxf') {
-        return res.status(400).json({ success: false, error: '不支持的文件格式，目前仅支持DXF' });
-      }
-      const result = engines.cadImporter.parseDXF(Buffer.from(fileData || '', 'base64'));
-      res.json({ success: true, data: result });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.post('/api/floorplan/recognize', auth, (req, res) => {
-    const { imageData } = req.body || {};
-    try {
-      const result = engines.floorPlanRecognition.recognizeFloorPlan(Buffer.from(imageData || '', 'base64'));
-      res.json(result);
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.post('/api/ai/enhanced-diagnosis', auth, async (req, res) => {
-    const { roomProfile, basicDiagnosis } = req.body || {};
-    try {
-      const enhanced = await engines.ragKnowledgeBase.generateEnhancedDiagnosis(roomProfile, basicDiagnosis);
-      res.json({ success: true, data: enhanced });
-    } catch (error) {
-      return errorResponse(res, error);
-    }
-  });
-
-  router.get('/api/knowledge-base/stats', auth, (req, res) => {
-    res.json({ success: true, data: engines.ragKnowledgeBase.getStats() });
-  });
-
-  router.get('/api/collaboration/sessions', auth, (req, res) => {
-    res.json({
-      success: true,
-      data: {
-        activeSessions: engines.yjsCollaboration.getActiveSessions(),
-        stats: engines.yjsCollaboration.getStats()
-      }
-    });
   });
 
   router.post('/api/ai-validation/test', async (req, res) => {

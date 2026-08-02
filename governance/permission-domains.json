@@ -16,7 +16,7 @@
     "D1": {
       "name": "品牌管理",
       "board": "板块一",
-      "ownedModules": ["brand", "file-artifact"],
+      "ownedModules": ["brand", "file-artifact", "site-materials"],
       "dataPlane": ["品牌运营库"],
       "rlsKey": "tenant=hq + brand_scope",
       "roles": ["brand_ops", "hq_marketing"],
@@ -72,7 +72,7 @@
     "file-artifact": ["D2", "D4"],
     "product-catalog": ["D3", "D4"]
   },
-  "plannedModules": ["brand", "ingress"],
+  "plannedModules": ["brand", "ingress", "design", "rysnova-bim", "ai-design", "delivery", "lifecycle", "aftersales"],
   "domainToDomainMigrations": [
     { "from": "D3", "to": "D4", "trigger": ["lead.assigned", "lead.converted"], "note": "留资成交单向迁入，保留获客归因，PIPL 二次同意" }
   ]

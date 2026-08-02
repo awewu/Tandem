@@ -23,9 +23,6 @@ function makeHarness() {
       generateValueQuote: jest.fn().mockReturnValue({ total: 100000 }),
       exportPDF: jest.fn().mockReturnValue({ url: '/exports/quote.pdf' })
     },
-    layout3D: { generateLayout: jest.fn().mockReturnValue({ devices: [] }) },
-    drawing: { generateDrawingSet: jest.fn().mockReturnValue({ drawings: ['plan'] }) },
-    renderer3D: { render: jest.fn().mockReturnValue({ image: '/render.png' }) },
     templateEngine: {
       getCategories: jest.fn().mockReturnValue(['villa']),
       getPopularTemplates: jest.fn().mockReturnValue([{ id: 'popular-1' }]),
@@ -38,16 +35,6 @@ function makeHarness() {
       aiRecognizeHiddenPainPoints: jest.fn().mockReturnValue({ tags: ['hot-water-wait'] })
     },
     aiValidation: { validateSolution: jest.fn().mockReturnValue({ valid: true }) },
-    cadImporter: { parseDXF: jest.fn().mockReturnValue({ rooms: 2 }) },
-    floorPlanRecognition: { recognizeFloorPlan: jest.fn().mockReturnValue({ success: true, rooms: [] }) },
-    ragKnowledgeBase: {
-      generateEnhancedDiagnosis: jest.fn().mockResolvedValue({ enhanced: true }),
-      getStats: jest.fn().mockReturnValue({ documents: 8 })
-    },
-    yjsCollaboration: {
-      getActiveSessions: jest.fn().mockReturnValue(['doc-1']),
-      getStats: jest.fn().mockReturnValue({ sessions: 1 })
-    },
     aiValidationEngineNew: {
       runValidationTest: jest.fn().mockResolvedValue({ passRate: 0.95 }),
       generateReport: jest.fn().mockResolvedValue({ id: 'report-1' }),
@@ -67,7 +54,7 @@ function makeHarness() {
 }
 
 describe('front-office runtime route module', () => {
-  test('preserves quick-session, design, quotation, and visual contracts', async () => {
+  test('preserves quick-session, quotation, and visual contracts', async () => {
     const { app, engines } = makeHarness();
 
     const session = await request(app)
@@ -90,12 +77,6 @@ describe('front-office runtime route module', () => {
       .send({ solution: {}, diagnosis: {}, roomProfile: {} })
       .expect(200);
     expect(quote.body.data.total).toBe(100000);
-
-    const layout = await request(app)
-      .post('/api/design/3d-layout')
-      .send({ buildingParams: {}, deviceSelection: {} })
-      .expect(200);
-    expect(layout.body.data.devices).toEqual([]);
 
     const visuals = await request(app)
       .post('/api/visuals/principle-diagrams')
@@ -137,7 +118,7 @@ describe('front-office runtime route module', () => {
     expect(loaded.body.data.id).toBe('tpl-1');
   });
 
-  test('preserves AI, CAD, RAG, collaboration, validation, and feedback contracts', async () => {
+  test('preserves AI, validation, and feedback contracts', async () => {
     const { app } = makeHarness();
 
     const fieldState = await request(app)
@@ -151,28 +132,6 @@ describe('front-office runtime route module', () => {
       .send({ roomProfile: {}, selectedTags: [] })
       .expect(200);
     expect(hidden.body.data.tags).toContain('hot-water-wait');
-
-    const cad = await request(app)
-      .post('/api/cad/import')
-      .send({ fileType: 'dxf', fileData: Buffer.from('dxf').toString('base64') })
-      .expect(200);
-    expect(cad.body.data.rooms).toBe(2);
-
-    const enhanced = await request(app)
-      .post('/api/ai/enhanced-diagnosis')
-      .send({ roomProfile: {}, basicDiagnosis: {} })
-      .expect(200);
-    expect(enhanced.body.data.enhanced).toBe(true);
-
-    const stats = await request(app)
-      .get('/api/knowledge-base/stats')
-      .expect(200);
-    expect(stats.body.data.documents).toBe(8);
-
-    const sessions = await request(app)
-      .get('/api/collaboration/sessions')
-      .expect(200);
-    expect(sessions.body.data.activeSessions).toEqual(['doc-1']);
 
     const validation = await request(app)
       .post('/api/ai-validation/test')

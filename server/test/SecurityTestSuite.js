@@ -57,7 +57,6 @@ class SecurityTestSuite {
       { id: 'A07', name: 'Auth Failures', test: () => this.testAuthFailures() },
       { id: 'A08', name: 'Data Integrity Failures', test: () => this.testDataIntegrity() },
       { id: 'A09', name: 'Logging Failures', test: () => this.testLoggingFailures() },
-      { id: 'A10', name: 'Server-Side Request Forgery', test: () => this.testSSRF() }
     ];
     
     for (const test of tests) {
@@ -297,34 +296,6 @@ class SecurityTestSuite {
     }
     
     return { passed, severity: passed ? 'none' : 'medium' };
-  }
-
-  async testSSRF() {
-    // 测试SSRF
-    const payloads = [
-      'http://localhost:22',
-      'http://169.254.169.254/latest/meta-data/',
-      'file:///etc/passwd'
-    ];
-    
-    let passed = true;
-    for (const payload of payloads) {
-      const result = await this.simulateRequest('/api/cad/import', {
-        fileUrl: payload
-      });
-      
-      if (result.success) {
-        passed = false;
-        this.vulnerabilities.push({
-          type: 'SSRF',
-          severity: 'high',
-          payload,
-          description: '可能存在SSRF漏洞'
-        });
-      }
-    }
-    
-    return { passed, severity: passed ? 'none' : 'high' };
   }
 
   // 辅助测试方法

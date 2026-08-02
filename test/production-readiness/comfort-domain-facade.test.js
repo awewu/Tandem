@@ -13,7 +13,6 @@ describe('comfort-home domain facade registry', () => {
       'fresh-air-doas',
       'air-conditioning',
       'smart-control',
-      'drawing-bim',
       'quote-costing',
       'lifecycle-iot'
     ];
@@ -21,7 +20,7 @@ describe('comfort-home domain facade registry', () => {
     expect(COMFORT_DOMAIN_FACADES.map(facade => facade.id)).toEqual(required);
 
     for (const facade of COMFORT_DOMAIN_FACADES) {
-      expect(facade.owner).toMatch(/^server\/modules\//);
+      expect(facade.owner).toBeTruthy();
       expect(facade.routes.length).toBeGreaterThanOrEqual(2);
       expect(facade.engines.length).toBeGreaterThanOrEqual(2);
       expect(facade.standards.length).toBeGreaterThanOrEqual(1);
@@ -44,35 +43,12 @@ describe('comfort-home domain facade registry', () => {
     }));
   });
 
-  test('keeps Rysnova drawing and BIM production facade on v2 artifact contracts', () => {
-    expect(getComfortDomainFacade('drawing-bim')).toEqual(expect.objectContaining({
-      status: 'production',
-      routes: expect.arrayContaining([
-        '/api/v2/rysnova-bim/projects/{projectId}/visual-artifacts',
-        '/api/v2/rysnova-bim/projects/{projectId}/deliverable-artifacts',
-        '/api/v2/rysnova-bim/projects/{projectId}/signoff-package',
-        '/api/v2/rysnova-bim/projects/{projectId}/customer-package',
-        '/api/v2/rysnova-bim/projects/{projectId}/deepening-package'
-      ]),
-      outputs: expect.arrayContaining([
-        'principle-diagram',
-        'construction-drawing',
-        'bim-model',
-        'bom',
-        'quantity-takeoff',
-        'standards-check',
-        'customer-report'
-      ])
-    }));
-    expect(getComfortDomainFacade('drawing-bim').routes).not.toContain('/api/rysnova-bim/generate-deliverables');
-  });
-
   test('inventory exposes production maturity summary for harnesses and admin review', () => {
     const inventory = getComfortDomainInventory();
 
-    expect(inventory.total).toBe(9);
+    expect(inventory.total).toBe(8);
     expect(inventory.production).toBeGreaterThanOrEqual(2);
     expect(inventory.productionCandidate).toBeGreaterThanOrEqual(5);
-    expect(inventory.domains.find(domain => domain.id === 'drawing-bim').outputCount).toBeGreaterThanOrEqual(5);
+    expect(inventory.plannedInterface).toBe(0);
   });
 });

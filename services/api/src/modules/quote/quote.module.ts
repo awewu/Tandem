@@ -7,14 +7,13 @@ import { QuotationEntity } from './quote.entity';
 import { QuoteService } from './quote.service';
 import { PriceGuardrailService } from './price-guardrail.service';
 import { CustomerEntity, OpportunityEntity } from '../crm/crm.entity';
-import { LifecycleLinkEntity } from '../lifecycle/lifecycle.entity';
 import { AuditLogEntity } from '../governance/governance.entity';
 import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smoke';
 
 @Module({
   imports: [
     ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([
-      QuotationEntity, CustomerEntity, OpportunityEntity, LifecycleLinkEntity, AuditLogEntity,
+      QuotationEntity, CustomerEntity, OpportunityEntity, AuditLogEntity,
     ])]),
     AuthModule,
     MdmModule
@@ -27,7 +26,6 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
       bootSmokeRepositoryProvider(QuotationEntity),
       bootSmokeRepositoryProvider(CustomerEntity),
       bootSmokeRepositoryProvider(OpportunityEntity),
-      bootSmokeRepositoryProvider(LifecycleLinkEntity),
       bootSmokeRepositoryProvider(AuditLogEntity),
     ] : [])
   ],

@@ -94,6 +94,6 @@ done
 log "===== 启动完成 ====="
 echo ""
 echo "常用入口："
-echo "  统一门户/登录: http://localhost:5000/hub"
+echo "  统一门户/登录: http://localhost:5000/"
 echo ""
 echo "停止所有服务: ./scripts/dev-stop-all.sh"

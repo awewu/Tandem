@@ -113,7 +113,6 @@ const lifecycleLinkSchema = new mongoose.Schema({
   progressPercent: { type: Number, min: 0, max: 100, default: 0 },
   currentMilestone: String,
   designPackageId: String,
-  rysnovaBimPackageId: String,
   systems: [{ type: String }],
   lifecycleStage: {
     type: String,

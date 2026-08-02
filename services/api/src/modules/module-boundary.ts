@@ -5,11 +5,6 @@ export const apiModuleBoundary = [
   'diagnosis',
   'product-catalog',
   'quote',
-  'design',
-  'rysnova-bim',
-  'ai-design',
-  'delivery',
-  'lifecycle',
   'analytics',
   'governance',
   'file-artifact',
@@ -19,7 +14,12 @@ export const apiModuleBoundary = [
   'compliance',
   'mdm',
   'growth',
-  'entitlement',
+  'entitlement'
+] as const;
+
+export const plannedApiInterfaces = [
+  'delivery',
+  'lifecycle',
   'aftersales'
 ] as const;
 
@@ -56,17 +56,6 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     apiNamespace: '/api/v2/entitlement',
     owner: 'backend-platform-builder',
     productSurface: 'commercial module subscription and per-tenant entitlement',
-    dataStores: ['postgresql'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: false
-  },
-  aftersales: {
-    name: 'aftersales',
-    apiNamespace: '/api/v2/aftersales',
-    owner: 'customer-project-lifecycle-director',
-    productSurface: 'dealer service tickets, dispatch, and warranty ledger (after-sales)',
     dataStores: ['postgresql'],
     requiresTenantScope: true,
     requiresAuditLog: true,
@@ -110,7 +99,7 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
   'product-catalog': {
     name: 'product-catalog',
     apiNamespace: '/api/v2/product-catalog',
-    owner: 'solution-design-rysnova-bim-director',
+    owner: 'product-domain-critic',
     productSurface: 'Rheem, Ruud, Everhot product catalog, SKUs, price books, and system packs',
     dataStores: ['postgresql', 'redis'],
     requiresTenantScope: true,
@@ -129,62 +118,6 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     requiresOpenApiContract: true,
     writeApisRequireOutbox: true
   },
-  design: {
-    name: 'design',
-    apiNamespace: '/api/v2/design',
-    owner: 'solution-design-rysnova-bim-director',
-    productSurface: 'designer workbench, 2D layout, equipment placement, and customer sharing',
-    dataStores: ['postgresql', 'mongodb', 'object-storage'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: true
-  },
-  'rysnova-bim': {
-    name: 'rysnova-bim',
-    apiNamespace: '/api/v2/rysnova-bim',
-    owner: 'solution-design-rysnova-bim-director',
-    productSurface: 'Rysnova BIM, drawings, schematics, standards checks, and engineering artifacts',
-    dataStores: ['postgresql', 'mongodb', 'object-storage'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: true
-  },
-  'ai-design': {
-    name: 'ai-design',
-    apiNamespace: '/api/v2/ai-design',
-    owner: 'solution-design-rysnova-bim-director',
-    productSurface: 'AI design engine, rule automation, LLM orchestration, and trust-state proposals',
-    dataStores: ['postgresql', 'object-storage'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: true
-  },
-  delivery: {
-    name: 'delivery',
-    apiNamespace: '/api/v2/delivery',
-    owner: 'customer-project-lifecycle-director',
-    productSurface: 'construction milestones, material movement, acceptance, and settlement',
-    dataStores: ['postgresql', 'mongodb', 'object-storage'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: true
-  },
-  lifecycle: {
-    name: 'lifecycle',
-    apiNamespace: '/api/v2/lifecycle',
-    owner: 'iot-lifecycle-architect',
-    productSurface: 'installed assets, warranties, service tickets, and IoT lifecycle handoff',
-    dataStores: ['postgresql', 'mongodb', 'temporal-outbox'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: true,
-    iotBoundary: 'lifecycle_handoff_only'
-  },
   analytics: {
     name: 'analytics',
     apiNamespace: '/api/v2/analytics',
@@ -200,7 +133,7 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     name: 'governance',
     apiNamespace: '/api/v2/governance',
     owner: 'orchestrator-chief',
-    productSurface: 'release evidence, quality findings, agent progress, and control-plane governance',
+    productSurface: 'audit-log persistence and control-plane governance boundaries',
     dataStores: ['postgresql', 'mongodb', 'object-storage'],
     requiresTenantScope: true,
     requiresAuditLog: true,
@@ -210,8 +143,8 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
   'file-artifact': {
     name: 'file-artifact',
     apiNamespace: '/api/v2/file-artifact',
-    owner: 'rysnova-bim-engineering-builder',
-    productSurface: 'object storage metadata, PDFs, drawings, BIM assets, renderings, and acceptance photos',
+    owner: 'backend-platform-builder',
+    productSurface: 'object storage metadata, PDFs, quotations, site media, and acceptance photos',
     dataStores: ['postgresql', 'object-storage'],
     requiresTenantScope: true,
     requiresAuditLog: true,

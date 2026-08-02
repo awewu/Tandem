@@ -197,7 +197,7 @@ class AcceptanceTestSuite {
       'services/api/src/modules/auth/auth.controller.ts',
       'server/routes/projects.js',
       'server/routes/devices.js',
-      'server/routes/design.js',
+      'services/api/src/modules/module-boundary.ts',
       'src/App.jsx',
       'src/main.jsx',
       'src/pages/Dashboard.jsx',

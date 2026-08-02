@@ -9,29 +9,19 @@ const path = require('path')
 // 导入路由
 const projectRoutes = require('./routes/projects')
 const deviceRoutes = require('./routes/devices')
-const designRoutes = require('./routes/design')
-const constructionRoutes = require('./routes/construction')
 const workorderRoutes = require('./routes/workorders')
-const workflowRoutes = require('./routes/workflows')
 const materialRoutes = require('./routes/materials')
 const quotationRoutes = require('./routes/quotations')
 const quotationV2Routes = require('./routes/quotation-v2')
 const productRoutes = require('./routes/products')
-const hotwaterRoutes = require('./routes/hotwater')
 const marketingRoutes = require('./routes/marketing')
-const aiAssistantRoutes = require('./routes/ai-assistant')
-const bimExportRoutes = require('./routes/bim-export')
-const revitIntegrationRoutes = require('./routes/revit-integration')
 const exportsRoutes = require('./routes/exports')
-const supremeRoutes = require('./routes/supreme-api')
-const rysnovaBimRoutes = require('./routes/rysnova-bim')
 const calculationRoutes = require('./routes/calculation-api')
 const oneClickRoutes = require('./routes/oneclick-api')
 const threeTierRoutes = require('./routes/threeTier')
 const packagePurchaseRoutes = require('./routes/packagePurchase')
 const crmRoutes = require('./routes/crm')
 const customQuotationRoutes = require('./routes/customQuotation')
-const deliveryRoutes = require('./routes/delivery')
 const reportsRoutes = require('./routes/reports')
 const drawingsRoutes = require('./routes/drawings')
 const contractsRoutes = require('./routes/contracts')
@@ -64,7 +54,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   // 默认代理全部 v2；仅当显式回退 legacy 时缩回到身份域（其余交给本地 router）。
   pathFilter: LEGACY_V2_INPROCESS
-    ? ['/api/v2/auth/**', '/api/v2/tenants/**', '/api/v2/dealers/**', '/api/v2/stores/**', '/api/v2/diagnosis/**', '/api/v2/lifecycle/**']
+    ? ['/api/v2/auth/**', '/api/v2/tenants/**', '/api/v2/dealers/**', '/api/v2/stores/**', '/api/v2/diagnosis/**']
     : ['/api/v2/**'],
 }))
 
@@ -123,27 +113,17 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/rheem-pla
 // API路由
 app.use('/api/projects', projectRoutes)
 app.use('/api/devices', deviceRoutes)
-app.use('/api/design', designRoutes)
-app.use('/api/construction', constructionRoutes)
 app.use('/api/workorders', workorderRoutes)
-app.use('/api/workflows', workflowRoutes)
 app.use('/api/materials', materialRoutes)
 app.use('/api/quotations', quotationRoutes)
 app.use('/api/quotation-v2', quotationV2Routes)
 app.use('/api/products', productRoutes)
-app.use('/api/hotwater', hotwaterRoutes)
 app.use('/api/marketing', marketingRoutes)
-app.use('/api/ai', aiAssistantRoutes)
-app.use('/api/bim', bimExportRoutes)
-app.use('/api/revit', revitIntegrationRoutes)
 app.use('/api/exports', exportsRoutes)
-app.use('/api/supreme', supremeRoutes)
-app.use('/api/rysnova-bim', rysnovaBimRoutes)
 app.use('/api/calc', calculationRoutes)
 app.use('/api/oneclick', oneClickRoutes)
 app.use('/api/three-tier', threeTierRoutes)
 app.use('/api/quotation', customQuotationRoutes)
-app.use('/api/delivery', deliveryRoutes)
 app.use('/api/reports', reportsRoutes)
 app.use('/api/drawings', drawingsRoutes)
 app.use('/api/package', packagePurchaseRoutes)
@@ -161,8 +141,6 @@ const channelRoutes = require('./api/channel-api')
 app.use('/api/channel', channelRoutes)
 
 // 【PPT导出】专业方案PPT导出API
-const pptExportRoutes = require('./api/ppt-export-api')
-app.use('/api/ppt-export', pptExportRoutes)
 
 // 直接挂载前端调用的API端点 (用于解决路径不匹配问题)
 // 负荷计算
@@ -258,36 +236,6 @@ app.post('/api/products/price', async (req, res) => {
   } catch (error) {
     console.error('价格查询错误:', error)
     res.status(500).json({ success: false, message: '价格查询失败' })
-  }
-})
-
-// 3D可视化
-app.post('/api/visualization/3d', async (req, res) => {
-  try {
-    const { houseType, area, residents, city, selectedSystems } = req.body
-    
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const renderings = [
-      `/api/renderings/${Date.now()}_floorplan.jpg`,
-      `/api/renderings/${Date.now()}_3dview.jpg`,
-      `/api/renderings/${Date.now()}_system.jpg`
-    ]
-    
-    res.json({
-      success: true,
-      message: '3D效果图生成成功',
-      data: {
-        renderings,
-        previewUrl: renderings[0],
-        generationTime: '3.2秒',
-        quality: '4K超清',
-        systems: selectedSystems || []
-      }
-    })
-  } catch (error) {
-    console.error('3D可视化错误:', error)
-    res.status(500).json({ success: false, message: '3D效果图生成失败' })
   }
 })
 

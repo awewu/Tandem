@@ -49,7 +49,7 @@ const COMFORT_DOMAIN_FACADES = [
     owner: 'server/modules/comfort-domain/air-conditioning',
     status: 'production-candidate',
     routes: ['/api/design/air-conditioning', '/api/load-calculation', '/api/air-control'],
-    engines: ['airConditioning', 'loadCalculationV3', 'renderer3D'],
+    engines: ['airConditioning', 'loadCalculationV3'],
     standards: ['GB 55015-2021', 'ASHRAE 55-2023', 'ASHRAE 90.1-2022'],
     outputs: ['cooling-load', 'indoor-unit-match', 'airflow-balance', 'energy-summary'],
     iotBridge: ['thermostat-id', 'cooling-mode', 'runtime-hours', 'fault-code']
@@ -64,25 +64,6 @@ const COMFORT_DOMAIN_FACADES = [
     standards: ['Matter 1.5', 'OpenTelemetry signals'],
     outputs: ['device-registry', 'control-capability-map', 'service-alert-policy'],
     iotBridge: ['home-id', 'device-id', 'capability', 'telemetry-stream']
-  },
-  {
-    id: 'drawing-bim',
-    name: 'Renderings, Principle Diagrams And BIM',
-    owner: 'server/modules/rysnova-bim',
-    status: 'production',
-    routes: [
-      '/api/v2/rysnova-bim/artifacts',
-      '/api/v2/rysnova-bim/projects/{projectId}/visual-artifacts',
-      '/api/v2/rysnova-bim/projects/{projectId}/deliverable-artifacts',
-      '/api/v2/rysnova-bim/projects/{projectId}/signoff-package',
-      '/api/v2/rysnova-bim/projects/{projectId}/customer-package',
-      '/api/v2/rysnova-bim/projects/{projectId}/deepening-package',
-      '/api/rysnova-bim-bim'
-    ],
-    engines: ['rysnovaBimArtifact', 'renderer3D', 'visuals', 'drawing', 'rysnovaBimBIM', 'bimExport'],
-    standards: ['GB 55015-2021', 'GB 55020-2021', 'IFC deliverable contract', 'BIM LOD 350'],
-    outputs: ['concept-effect-view', 'principle-diagram', 'construction-drawing', 'bim-model', 'bom', 'quantity-takeoff', 'standards-check', 'customer-report'],
-    iotBridge: ['installed-asset-layout', 'device-position', 'commissioning-record', 'artifact-version']
   },
   {
     id: 'quote-costing',
@@ -117,6 +98,7 @@ function getComfortDomainInventory() {
     total: COMFORT_DOMAIN_FACADES.length,
     production: COMFORT_DOMAIN_FACADES.filter(facade => facade.status === 'production').length,
     productionCandidate: COMFORT_DOMAIN_FACADES.filter(facade => facade.status === 'production-candidate').length,
+    plannedInterface: COMFORT_DOMAIN_FACADES.filter(facade => facade.status === 'planned-interface').length,
     domains: COMFORT_DOMAIN_FACADES.map(facade => ({
       id: facade.id,
       owner: facade.owner,

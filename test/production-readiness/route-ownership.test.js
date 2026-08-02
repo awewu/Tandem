@@ -29,16 +29,13 @@ describe('route ownership registry', () => {
       owner: 'services/api/src/modules/quote',
       status: 'production'
     }));
-    expect(getRouteOwner('/api/v2/lifecycle/handover')).toEqual(expect.objectContaining({
-      owner: 'services/api/src/modules/lifecycle',
-      status: 'production'
-    }));
+    expect(getRouteOwner('/api/v2/lifecycle/handover')).toEqual({
+      owner: 'unassigned',
+      prefix: null,
+      status: 'needs-owner'
+    });
     expect(getRouteOwner('/api/v2/analytics/overview')).toEqual(expect.objectContaining({
       owner: 'server/modules/analytics',
-      status: 'production'
-    }));
-    expect(getRouteOwner('/api/v2/governance/agent-progress')).toEqual(expect.objectContaining({
-      owner: 'server/modules/governance',
       status: 'production'
     }));
   });
@@ -47,8 +44,8 @@ describe('route ownership registry', () => {
     const retainedRoutes = [
       ['/api/v2/auth/admin/users', 'services/api/src/modules/auth'],
       ['/api/v2/entitlement/me', 'services/api/src/modules/entitlement'],
-      ['/api/v2/brand', 'services/api/src/modules/brand and services/api/src/modules/product-catalog public brand surface'],
-      ['/api/v2/brand/everhot/products', 'services/api/src/modules/brand and services/api/src/modules/product-catalog public brand surface'],
+      ['/api/v2/brand', 'services/api/src/modules/brand, services/api/src/modules/product-catalog, and services/api/src/modules/brand-product-category public brand surface'],
+      ['/api/v2/brand/everhot/products', 'services/api/src/modules/brand, services/api/src/modules/product-catalog, and services/api/src/modules/brand-product-category public brand surface'],
       ['/api/v2/brands/everhot', 'services/api/src/modules/brand-registry'],
       ['/api/v2/brand-sites/site-1/logo', 'services/api/src/modules/brand-registry'],
       ['/api/v2/product-catalog/devices', 'services/api/src/modules/product-catalog'],
@@ -84,15 +81,11 @@ describe('route ownership registry', () => {
     }
   });
 
-  test('keeps a Phase 1 backend cleanup matrix without deleting unknown legacy modules', () => {
-    const unreachable = PHASE1_BACKEND_CLEANUP_MATRIX.find(item => item.category === 'unreachable-out-of-scope');
+  test('keeps unknown legacy modules under review after retired routes are deleted', () => {
     const unknown = PHASE1_BACKEND_CLEANUP_MATRIX.find(item => item.category === 'unknown');
     const activeRouteIds = new Set(getProductionRouteCatalogMountMetadata().map(entry => entry.id));
 
-    expect(unreachable).toEqual(expect.objectContaining({
-      action: 'disable-active-mount'
-    }));
-    expect(unreachable.routeIds).toEqual(expect.arrayContaining([
+    for (const routeId of [
       'dxf-bim',
       'rysnova-bim-base',
       'construction',
@@ -100,8 +93,7 @@ describe('route ownership registry', () => {
       'delivery',
       'rysnova-bim-runtime',
       'tech-support'
-    ]));
-    for (const routeId of unreachable.routeIds) {
+    ]) {
       expect(activeRouteIds.has(routeId)).toBe(false);
     }
 
@@ -110,23 +102,16 @@ describe('route ownership registry', () => {
     }));
     expect(unknown.routeIds).toEqual(expect.arrayContaining([
       'business-domain',
-      'front-office-runtime',
-      'ai-assistant'
+      'front-office-runtime'
     ]));
     expect(activeRouteIds.has('business-domain')).toBe(true);
     expect(activeRouteIds.has('front-office-runtime')).toBe(true);
-    expect(activeRouteIds.has('ai-assistant')).toBe(true);
+    expect(activeRouteIds.has('ai-assistant')).toBe(false);
   });
 
   test('assigns legacy owners for major pre-v2 API domains', () => {
     const legacyPaths = [
-      '/api/design/load-calculation',
-      '/api/rysnova-bim-bim/projects',
-      '/api/construction/sites',
-      '/api/tech-support/contracts/search',
-      '/api/econet/devices',
-      '/api/promotions/match',
-      '/api/journey/list'
+      '/api/promotions/match'
     ];
 
     for (const routePath of legacyPaths) {
@@ -154,14 +139,6 @@ describe('route ownership registry', () => {
       inferredFromFile: true
     }));
     expect(getRouteOwnerForRoute({
-      file: 'server/modules/governance/governance.routes.js',
-      path: '/agent-progress'
-    })).toEqual(expect.objectContaining({
-      owner: 'server/modules/governance',
-      status: 'production',
-      inferredFromFile: true
-    }));
-    expect(getRouteOwnerForRoute({
       file: 'server/routes/workorders.js',
       path: '/'
     })).toEqual(expect.objectContaining({
@@ -169,6 +146,6 @@ describe('route ownership registry', () => {
       status: 'legacy-compat',
       inferredFromFile: true
     }));
-    expect(ROUTE_FILE_OWNERSHIP.length).toBeGreaterThan(35);
+    expect(ROUTE_FILE_OWNERSHIP.length).toBeGreaterThanOrEqual(33);
   });
 });

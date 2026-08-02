@@ -76,15 +76,6 @@ function createBoundaryCache({ redisAvailable = true } = {}) {
     'quotations',
     'contracts',
     'lifecycle',
-    'rysnova-bim_artifacts',
-    'rysnova-bim_customer_packages',
-    'rysnova-bim_customer_package_ready',
-    'rysnova-bim_customer_signoff',
-    'rysnova-bim_customer_signoff_receipts',
-    'rysnova-bim_customer_signoff_confirmed',
-    'rysnova-bim_artifact_lists',
-    'rysnova-bim_artifact_hashes',
-    'rysnova-bim_customer_visibility',
     'audit_logs',
     'outbox_events',
     'workflow_instances',
@@ -92,39 +83,6 @@ function createBoundaryCache({ redisAvailable = true } = {}) {
     'tenant_memberships',
     'permissions'
   ]);
-  const rysnovaBimForbiddenBusinessTruthFields = new Set([
-    'artifactList',
-    'artifacts',
-    'artifactTypes',
-    'contentHash',
-    'objectKey',
-    'customerVisible',
-    'customerPackageReady',
-    'customerPackageCount',
-    'missingTypes',
-    'outboxEvent',
-    'workflowState',
-    'artifactStatus',
-    'customerSignoffReady',
-    'customerSignoffConfirmed',
-    'customerSignoffReceipt',
-    'customerSignoffManifest',
-    'signoffEvidence',
-    'receiptNo',
-    'signerMobileHash',
-    'evidenceHash',
-    'acknowledgements',
-    'deepeningHandoffReady'
-  ]);
-
-  function containsRysnovaBusinessTruth(value) {
-    if (!value || typeof value !== 'object') return false;
-    if (Array.isArray(value)) return value.some(item => containsRysnovaBusinessTruth(item));
-    return Object.entries(value).some(([key, nested]) => (
-      rysnovaBimForbiddenBusinessTruthFields.has(key) || containsRysnovaBusinessTruth(nested)
-    ));
-  }
-
   function keyFor({ tenantId, role, key }) {
     if (!tenantId) throw new Error('tenantId is required for Redis cache key');
     if (!allowedRoles.has(role)) throw new Error(`Redis role is not allowed: ${role}`);
@@ -137,9 +95,6 @@ function createBoundaryCache({ redisAvailable = true } = {}) {
     }
     if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
       throw new Error(`TTL is required for Redis role ${role}`);
-    }
-    if (role === 'task-status' && String(key || '').includes('rysnova-bim') && containsRysnovaBusinessTruth(value)) {
-      throw new Error('Redis task-status cannot store Rysnova customer package or artifact business truth');
     }
     if (!redisAvailable) return { stored: false, degraded: true };
     const fullKey = keyFor({ tenantId, role, key });
@@ -226,15 +181,6 @@ if (!failures.length) {
     'quotations',
     'contracts',
     'lifecycle',
-    'rysnova-bim_artifacts',
-    'rysnova-bim_customer_packages',
-    'rysnova-bim_customer_package_ready',
-    'rysnova-bim_customer_signoff',
-    'rysnova-bim_customer_signoff_receipts',
-    'rysnova-bim_customer_signoff_confirmed',
-    'rysnova-bim_artifact_lists',
-    'rysnova-bim_artifact_hashes',
-    'rysnova-bim_customer_visibility',
     'audit_logs',
     'outbox_events',
     'workflow_instances',
@@ -242,45 +188,6 @@ if (!failures.length) {
   ]) {
     record(report, `forbidden-truth-source:${truth}`, contract.forbiddenTruthSources?.includes(truth), `contract must forbid Redis truth source: ${truth}`);
   }
-
-  record(report, 'rysnova-bim-boundary-ephemeral-only', contract.rysnovaBimBoundary?.allowedEphemeralRole === 'task-status', 'Rysnova Redis boundary must allow task-status only');
-  for (const field of [
-    'artifactList',
-    'artifacts',
-    'artifactTypes',
-    'contentHash',
-    'objectKey',
-    'customerVisible',
-    'customerPackageReady',
-    'customerPackageCount',
-    'missingTypes',
-    'outboxEvent',
-    'workflowState',
-    'artifactStatus',
-    'customerSignoffReady',
-    'customerSignoffConfirmed',
-    'customerSignoffReceipt',
-    'customerSignoffManifest',
-    'signoffEvidence',
-    'receiptNo',
-    'signerMobileHash',
-    'evidenceHash',
-    'acknowledgements',
-    'deepeningHandoffReady'
-  ]) {
-    record(
-      report,
-      `rysnova-bim-forbidden-business-field:${field}`,
-      contract.rysnovaBimBoundary?.forbiddenBusinessTruthFields?.includes(field),
-      `Rysnova Redis boundary must forbid business truth field: ${field}`
-    );
-  }
-  record(
-    report,
-    'rysnova-bim-package-readiness-truth-source',
-    String(contract.rysnovaBimBoundary?.sourceOfTruth?.packageReadiness || '').includes('database transaction/outbox'),
-    'Rysnova package readiness truth source must be artifact service + database transaction/outbox'
-  );
 
   record(report, 'key-prefix-policy', contract.keyPolicy?.prefix === 'rhautt:nexus:', 'Redis key prefix must be rhautt:nexus:');
   record(report, 'tenant-key-policy', String(contract.keyPolicy?.tenantScopedPattern || '').includes('tenant:<tenantId>'), 'Redis key policy must require tenant scope');
@@ -310,19 +217,19 @@ if (!failures.length) {
   const stored = boundaryCache.set({
     tenantId: 'tenant-a',
     role: 'task-status',
-    key: 'rysnova-bim-export-1',
+    key: 'catalog-refresh-1',
     value: { status: 'running', boundary: 'lifecycle_handoff_only' },
     ttlSeconds: 600
   });
   const hit = boundaryCache.get({
     tenantId: 'tenant-a',
     role: 'task-status',
-    key: 'rysnova-bim-export-1'
+    key: 'catalog-refresh-1'
   });
   const crossTenantMiss = boundaryCache.get({
     tenantId: 'tenant-b',
     role: 'task-status',
-    key: 'rysnova-bim-export-1'
+    key: 'catalog-refresh-1'
   });
   const degradedCache = createBoundaryCache({ redisAvailable: false });
   const degradedSet = degradedCache.set({
@@ -352,96 +259,13 @@ if (!failures.length) {
     truthSourceRejected = error.message.includes('not allowed') || error.message.includes('source of truth');
   }
 
-  const rejectedRysnovaTruthRoles = [];
-  for (const role of [
-    'rysnova-bim_customer_packages',
-    'rysnova-bim_customer_package_ready',
-    'rysnova-bim_customer_signoff',
-    'rysnova-bim_customer_signoff_receipts',
-    'rysnova-bim_customer_signoff_confirmed',
-    'rysnova-bim_artifact_lists',
-    'rysnova-bim_artifact_hashes',
-    'rysnova-bim_customer_visibility'
-  ]) {
-    try {
-      boundaryCache.set({
-        tenantId: 'tenant-a',
-        role,
-        key: 'capacity-rysnova-bim-project-23',
-        value: {
-          artifacts: ['principle-diagram', 'construction-drawing'],
-          contentHash: 'sha256:forbidden',
-          customerVisible: true,
-          customerPackageReady: true,
-          customerSignoffConfirmed: true,
-          receiptNo: 'LITH-SIGNOFF-FORBIDDEN',
-          signerMobileHash: 'sha256:forbidden',
-          evidenceHash: 'sha256:forbidden',
-          outboxEvent: 'rysnova-bim.customer_signoff.confirmed'
-        },
-        ttlSeconds: 300
-      });
-    } catch (error) {
-      if (error.message.includes('source of truth')) rejectedRysnovaTruthRoles.push(role);
-    }
-  }
-
-  let allowedRysnovaTaskStatusHasBusinessTruth = false;
-  try {
-    boundaryCache.set({
-      tenantId: 'tenant-a',
-      role: 'task-status',
-      key: 'rysnova-bim-customer-package-ready',
-      value: {
-        customerPackageReady: true,
-        customerSignoffConfirmed: true,
-        customerSignoffReceipt: {
-          receiptNo: 'LITH-SIGNOFF-FORBIDDEN',
-          signerMobileHash: 'sha256:forbidden',
-          evidenceHash: 'sha256:forbidden'
-        },
-        acknowledgements: ['forbidden'],
-        artifactTypes: ['principle-diagram'],
-        contentHash: 'sha256:forbidden'
-      },
-      ttlSeconds: 600
-    });
-    const businessTruthHit = boundaryCache.get({
-      tenantId: 'tenant-a',
-      role: 'task-status',
-      key: 'rysnova-bim-customer-package-ready'
-    });
-    allowedRysnovaTaskStatusHasBusinessTruth = Boolean(
-      businessTruthHit.value?.customerPackageReady ||
-      businessTruthHit.value?.customerSignoffConfirmed ||
-      businessTruthHit.value?.customerSignoffReceipt ||
-      businessTruthHit.value?.acknowledgements ||
-      businessTruthHit.value?.artifactTypes ||
-      businessTruthHit.value?.contentHash
-    );
-  } catch {
-    allowedRysnovaTaskStatusHasBusinessTruth = false;
-  }
-
   const handoffOnly = hit.value?.boundary === 'lifecycle_handoff_only' &&
     !Object.prototype.hasOwnProperty.call(hit.value || {}, 'controlCommand');
 
-  record(report, 'simulation-tenant-key-prefix', stored.key === 'rhautt:nexus:tenant:tenant-a:task-status:rysnova-bim-export-1', 'simulation must create tenant-scoped 瑞诺瓦AI舒适家 key');
+  record(report, 'simulation-tenant-key-prefix', stored.key === 'rhautt:nexus:tenant:tenant-a:task-status:catalog-refresh-1', 'simulation must create a tenant-scoped Rhautt Nexus key');
   record(report, 'simulation-tenant-isolation', hit.hit === true && crossTenantMiss.hit === false, 'tenant-b must not read tenant-a cache key');
   record(report, 'simulation-missing-ttl-rejected', missingTtlRejected, 'Redis cache writes without TTL must be rejected');
   record(report, 'simulation-truth-source-rejected', truthSourceRejected, 'Redis must reject business truth source roles such as quotations');
-  record(
-    report,
-    'simulation-rysnova-bim-truth-roles-rejected',
-    rejectedRysnovaTruthRoles.length === 8,
-    'Redis must reject Rysnova customer package, customer signoff, signoff receipt, artifact list/hash, ready-state, and visibility truth roles'
-  );
-  record(
-    report,
-    'simulation-rysnova-bim-task-status-no-business-truth',
-    allowedRysnovaTaskStatusHasBusinessTruth === false,
-    'Rysnova task-status cache must not contain customer package ready state, customer signoff receipt/confirmation, artifact types, or content hashes'
-  );
   record(report, 'simulation-redis-down-degrades', degradedSet.degraded === true && degradedGet.fallbackRequired === true, 'Redis unavailable must degrade to fallback/miss');
   record(report, 'simulation-lifecycle-handoff-only', handoffOnly, 'task-status cache must keep lifecycle_handoff_only and no controlCommand');
 
@@ -486,9 +310,6 @@ if (!failures.length) {
       'ttl-required',
       'redis-unavailable-safe-degrade',
       'not-business-truth-source',
-      'rysnova-bim-ephemeral-task-status-only',
-      'rysnova-bim-customer-package-not-redis-truth',
-      'rysnova-bim-customer-signoff-not-redis-truth',
       'lifecycle_handoff_only'
     ],
     finalLaunchRedisProof: false,

@@ -30,7 +30,7 @@ function collectOperations(spec) {
         method: method.toUpperCase(),
         path: routePath,
         operationId: operation.operationId,
-        binary: Boolean(operation.responses?.['200']?.$ref === '#/components/responses/RysnovaArtifactContentSuccess')
+        binary: false
       });
     }
   }

@@ -2,7 +2,6 @@ import { Injectable, ForbiddenException, Logger, ServiceUnavailableException } f
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DiagnosisSessionEntity } from './diagnosis.entity';
-import { LifecycleLinkEntity } from '../lifecycle/lifecycle.entity';
 import { JwtPayload } from '../auth/auth.service';
 import { EventBusService } from '../mdm/event-bus.service';
 import { ProductCatalogService } from '../product-catalog/product-catalog.service';
@@ -296,14 +295,10 @@ export class DiagnosisService {
       const customerId = lead.customer.id;
       const opportunityId = lead.opportunity?.id ?? null;
 
-      // P3: 查 lifecycle link 获取 project_id
-      const link = await em.getRepository(LifecycleLinkEntity)
-        .findOne({ where: { tenantId: user.tenantId, customerId } });
-
       const sessions = em.getRepository(DiagnosisSessionEntity);
       const session = await sessions.save(sessions.create({
         tenantId: user.tenantId, dealerId: user.dealerId ?? null,
-        customerId, opportunityId, projectId: link?.id ?? null, reportId,
+        customerId, opportunityId, projectId: null, reportId,
         pain_points: painPoints, systems,
         recommendedTier: null, // 不臆造档位：由 quote 域按真实价生成
         solutions: { systems, systemLabels }, // 诚实画像：仅系统建议，无 ROI/预算

@@ -73,7 +73,7 @@ const ACCOUNTS = [
 // 全部可售模块（与 subscription.entity.ts 的 SELLABLE_MODULES 保持一致）。
 const SELLABLE_MODULES = [
   'site', 'product-catalog', 'growth',
-  'crm', 'diagnosis', 'quote', 'design', 'delivery', 'lifecycle', 'rysnova-bim',
+  'crm', 'diagnosis', 'quote', 'delivery', 'lifecycle',
   'analytics',
 ];
 

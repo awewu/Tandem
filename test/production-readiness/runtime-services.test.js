@@ -3,54 +3,30 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 
-describe('runtime service resilience', () => {
-  test('safe runtime pre-listen services are logged as skipped instead of falsely started', () => {
+describe('runtime service retirement', () => {
+  test('pre-listen startup keeps monitoring without retired background services', () => {
     const { createProductionEngines } = require('../../server/modules/engineRegistry');
     const { startPreListenServices } = require('../../server/modules/runtimeServices');
     const logs = [];
     const logger = { log: (...args) => logs.push(args.join(' ')) };
     const engines = createProductionEngines({ runtimeProfile: 'safe' });
 
-    startPreListenServices({ engines, db: {}, logger });
+    startPreListenServices({ engines, logger });
 
     const output = logs.join('\n');
-    expect(output).toContain('WARN MQTT broker started (ports 1883/1884) skipped by runtime profile');
-    expect(output).toContain('WARN Yjs collaboration server started');
-    expect(output).toContain('WARN RAG knowledge base initialized skipped by runtime profile');
-    expect(output).toContain('WARN backup scheduler started skipped by runtime profile');
     expect(output).toContain('WARN monitoring system started skipped by runtime profile');
-    expect(output).not.toContain('OK MQTT broker started (ports 1883/1884)');
-    expect(output).not.toContain('OK Yjs collaboration server started');
+    expect(output).not.toMatch(/MQTT|Yjs|RAG|backup scheduler|drawing collaboration|self-check/i);
   });
 
-  test('drawing WebSocket startup is awaited and can degrade without killing HTTP runtime', () => {
+  test('runtime startup source does not register retired services', () => {
     const source = fs.readFileSync(path.join(ROOT, 'server/modules/runtimeServices.js'), 'utf8');
 
-    expect(source).toContain("process.env.DISABLE_DRAWING_WS === 'true'");
-    expect(source).toMatch(/await\s+wsServer\.start\(\)/);
-    expect(source).toContain('WARN drawing collaboration WebSocket startup skipped');
-    expect(source).toContain('engines.runtimeServiceFactories.drawingWebSocketServer');
-    expect(source).not.toContain("require('../../websocket-server')");
+    expect(source).not.toMatch(/workflowOrchestrator|evolution|mqttBroker|yjsCollaboration|ragKnowledgeBase|dataBackup|heartbeat|selfCheckOrchestrator|drawingWebSocketServer|collaborationSync/);
+    expect(fs.existsSync(path.join(ROOT, 'websocket-server.js'))).toBe(false);
   });
 
-  test('post-listen service startup uses engine registry facades instead of route-local hard requires', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'server/modules/runtimeServices.js'), 'utf8');
-
-    expect(source).toContain('engines.workflowOrchestrator.__getTarget()');
-    expect(source).toContain('engines.selfCheckOrchestrator.__getTarget()');
-    expect(source).toContain('engines.agentCoordinator.__getTarget()');
-    expect(source).toContain('engines.runtimeServiceFactories.collaborationSync(httpServer)');
-    expect(source).not.toContain("require('../core/WorkflowOrchestrator')");
-    expect(source).not.toContain("require('../core/SelfCheckOrchestrator')");
-    expect(source).not.toContain("require('../core/AgentCoordinator')");
-    expect(source).not.toContain("require('../engines/CollaborationSyncEngine')");
-  });
-
-  test('standalone drawing WebSocket entry handles startup rejection explicitly', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'websocket-server.js'), 'utf8');
-
-    expect(source).toMatch(/wsServer\.start\(\)\.catch/);
-    expect(source).toMatch(/this\.wss\.once\('error',\s*onError\)/);
-    expect(source).toMatch(/this\.server\.once\('error',\s*onError\)/);
+  test('post-listen startup accepts the production entrypoint no-argument call', () => {
+    const { startPostListenServices } = require('../../server/modules/runtimeServices');
+    expect(() => startPostListenServices()).not.toThrow();
   });
 });

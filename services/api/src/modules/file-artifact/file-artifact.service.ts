@@ -9,7 +9,15 @@ import { TenantScope } from '../common/tenant-context';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { Readable } from 'stream';
 import { artifactBase64Url, artifactContentUrl, resolveStorageRoot } from './file-artifact.storage';
+import {
+  publicSiteImageUrl,
+  readPublicSiteImage,
+  shouldSyncPublicSiteImage,
+  siteMediaOriginEnabled,
+  syncPublicSiteImage,
+} from './site-media-origin.client';
 
 const STORAGE_ROOT = resolveStorageRoot();
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -41,6 +49,16 @@ export class FileArtifactService {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, opts.buffer);
 
+    const syncToSiteOrigin = siteMediaOriginEnabled() && shouldSyncPublicSiteImage(opts.entityType, opts.mimeType);
+    if (syncToSiteOrigin) {
+      try {
+        await syncPublicSiteImage({ fileKey: key, mimeType: String(opts.mimeType), buffer: opts.buffer });
+      } catch (error) {
+        fs.rmSync(dest, { force: true });
+        throw error;
+      }
+    }
+
     return withRlsTransaction(this.ds, async (em) => {
       const repo = em.getRepository(FileArtifactEntity);
       const artifact = repo.create({
@@ -69,7 +87,7 @@ export class FileArtifactService {
         sizeBytes: opts.buffer.length,
         sourceHash: this.evidence.sha256(opts.buffer),
         destinationHash: this.evidence.sha256(opts.buffer),
-        storageProvider: process.env.STORAGE_PROVIDER ?? 'local',
+        storageProvider: syncToSiteOrigin ? 'everhot-site-origin+local' : process.env.STORAGE_PROVIDER ?? 'local',
         storageRegion: process.env.STORAGE_REGION ?? 'default',
         meta: { uploadedVia: 'file-artifact' },
       }, this.rls(user));
@@ -113,9 +131,11 @@ export class FileArtifactService {
       if (user.dealerId) qb.andWhere('(f.dealerId = :d OR f.dealerId IS NULL)', { d: user.dealerId });
       const row = await qb.getOne();
       if (!row) return { success: false, error: 'not found' };
+      const useSiteOrigin = siteMediaOriginEnabled() && shouldSyncPublicSiteImage(row.entityType, row.mimeType);
+      const remoteBuffer = useSiteOrigin ? await readPublicSiteImage(row.fileKey) : null;
       const p = path.join(STORAGE_ROOT, row.fileKey);
-      if (!fs.existsSync(p)) return { success: false, error: 'blob missing' };
-      const pulledBuffer = fs.readFileSync(p);
+      if (!remoteBuffer && !fs.existsSync(p)) return { success: false, error: 'blob missing' };
+      const pulledBuffer = remoteBuffer || fs.readFileSync(p);
       const pulledHash = this.evidence.sha256(pulledBuffer);
       // W-BIM-2 · 2.3：对象存储下载/回拉证据
       await this.evidence.record({
@@ -160,7 +180,7 @@ export class FileArtifactService {
         .andWhere('f.status = :s', { s: 'active' });
       if (user.dealerId) qb.andWhere('(f.dealerId = :d OR f.dealerId IS NULL)', { d: user.dealerId });
       const items = await qb.orderBy('f.createdAt', 'DESC').getMany();
-      return { success: true, data: { items } };
+      return { success: true, data: { items: items.map((item) => this.toView(item)) } };
     }, this.rls(user));
   }
 
@@ -170,6 +190,10 @@ export class FileArtifactService {
         where: { id, tenantId, status: 'active' } as any,
       });
       if (!row) return null;
+      if (siteMediaOriginEnabled() && shouldSyncPublicSiteImage(row.entityType, row.mimeType)) {
+        const remoteBuffer = await readPublicSiteImage(row.fileKey);
+        if (remoteBuffer) return { row, stream: Readable.from(remoteBuffer) };
+      }
       const stream = this.getStream(row.fileKey);
       if (!stream) return null;
       return { row, stream };
@@ -235,9 +259,12 @@ export class FileArtifactService {
   }
 
   private toView(row: FileArtifactEntity) {
+    const remoteContentUrl = siteMediaOriginEnabled() && shouldSyncPublicSiteImage(row.entityType, row.mimeType)
+      ? publicSiteImageUrl(row.fileKey)
+      : '';
     return {
       ...row,
-      contentUrl: artifactContentUrl(row.id),
+      contentUrl: remoteContentUrl || artifactContentUrl(row.id),
       base64Url: artifactBase64Url(row.id),
     };
   }

@@ -15,11 +15,6 @@ function createHealthRoutes(options = {}) {
     res.status(result.success ? 200 : 503).json(result);
   });
 
-  router.get('/heartbeat', (req, res) => {
-    const result = service.getHeartbeat();
-    res.json(result);
-  });
-
   router.get('/observability', (req, res) => {
     const result = service.getObservability();
     res.json(result);

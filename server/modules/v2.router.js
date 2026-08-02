@@ -7,17 +7,12 @@ const express = require('express');
 const createAuditRoutes = require('./audit/audit.routes');
 const createContractsRoutes = require('./contracts/contracts.routes');
 const createHealthRoutes = require('./health/health.routes');
-const createDesignRoutes = require('./design/design.routes');
-const createRysnovaRoutes = require('./rysnova-bim/rysnova-bim.routes');
 const createSystemPacksRoutes = require('./system-packs/system-packs.routes');
 const createAnalyticsRoutes = require('./analytics/analytics.routes');
-const createGovernanceRoutes = require('./governance/governance.routes');
-const createDesignCandidateRoutes = require('./react-candidate/design-candidate.routes');
 const createDevicesCandidateRoutes = require('./react-candidate/devices-candidate.routes');
 const createProjectsCandidateRoutes = require('./react-candidate/projects-candidate.routes');
 
 const REACT_CANDIDATE_ROUTES = [
-  { path: '/design', name: 'design', factory: createDesignCandidateRoutes, optionKey: 'designCandidate' },
   { path: '/devices', name: 'devices', factory: createDevicesCandidateRoutes, optionKey: 'devicesCandidate' },
   { path: '/projects', name: 'projects', factory: createProjectsCandidateRoutes, optionKey: 'projectsCandidate' }
 ];
@@ -34,11 +29,8 @@ function createV2Router(options = {}) {
 
   router.use('/audit', createAuditRoutes(options.audit || options));
   router.use('/contracts', createContractsRoutes(options.contracts || options));
-  router.use('/design', createDesignRoutes(options.design || options));
-  router.use('/rysnova-bim', createRysnovaRoutes(options.rysnovaBim || options));
   router.use('/system-packs', createSystemPacksRoutes(options.systemPacks || options));
   router.use('/analytics', createAnalyticsRoutes(options.analytics || options));
-  router.use('/governance', createGovernanceRoutes(options.governance || options));
   router.use('/health', createHealthRoutes(options.health || options));
 
   router.get('/react-candidate/status', (req, res) => {

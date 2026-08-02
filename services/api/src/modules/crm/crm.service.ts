@@ -3,11 +3,9 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { CustomerEntity, InteractionEntity, OpportunityEntity } from './crm.entity';
 import { JwtPayload } from '../auth/auth.service';
-import { BimService } from '../rysnova-bim/bim.service';
 import { encryptPII, hashPII } from '../compliance/compliance.pii';
 import { AuditLogEntity } from '../governance/governance.entity';
 import { EventBusService } from '../mdm/event-bus.service';
-import { LifecycleService } from '../lifecycle/lifecycle.service';
 import { withRlsTransaction } from '../common/rls';
 import { TenantScope } from '../common/tenant-context';
 import { ownershipScope } from '../common/scope';
@@ -16,9 +14,7 @@ import { ownershipScope } from '../common/scope';
 export class CrmService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
-    private readonly bimService: BimService,
     private readonly eventBus: EventBusService,
-    private readonly lifecycle: LifecycleService,
   ) {}
 
   // ── Leads / Customers ───────────────────────────────────────────────────────
@@ -51,27 +47,12 @@ export class CrmService {
         productDataNamespace: 'rhautt_shared',
       }));
 
-      // P3: 先串联生命周期（创建 lifecycle_link），取 link.id 作为 opportunity 的 project_id
-      const link = await this.lifecycle.advanceInTx(em, {
-        tenantId, customerId: customer.id, stage: 'lead-created',
-        dealerId: user.dealerId ?? null, storeId: user.storeId ?? null,
-        phoneHash, projectAddress: dto.address ?? null,
-      });
-
       const opportunity = await opportunities.save(opportunities.create({
         tenantId, dealerId: user.dealerId, storeId: user.storeId,
         customerId: customer.id, ownerUserId: user.userId,
-        projectId: link.id,
+        projectId: null,
         stage: 'lead', productDataNamespace: 'rhautt_shared',
       }));
-
-      // 回填 opportunityId 到 lifecycle link
-      link.opportunityId = opportunity.id;
-      await this.lifecycle.advanceInTx(em, {
-        tenantId, customerId: customer.id, stage: 'lead-created', opportunityId: opportunity.id,
-        dealerId: user.dealerId ?? null, storeId: user.storeId ?? null,
-        phoneHash, projectAddress: dto.address ?? null,
-      });
 
       await this.recordAudit(em, tenantId, user.userId, 'customer.create', 'customer', customer.id, null, {
         ...this.customerAuditState(customer), opportunityId: opportunity.id,
@@ -169,11 +150,6 @@ export class CrmService {
         { id: opportunityId, tenantId, ...scoped },
         { stage: 'signed' as any, quotationId } as any,
       );
-      // 同事务串联生命周期（推进至 signed，记录关联报价）
-      await this.lifecycle.advanceInTx(em, {
-        tenantId, customerId: opp.customerId, stage: 'contract-pending', opportunityId, quotationId,
-        dealerId: opp.dealerId ?? null, storeId: opp.storeId ?? null,
-      });
       const signed = { ...opp, stage: 'signed', quotationId };
       await this.recordAudit(
         em, tenantId, user.userId, 'opportunity.sign', 'opportunity', opportunityId,
@@ -185,11 +161,10 @@ export class CrmService {
         payload: { opportunityId, quotationId, customerId: opp?.customerId, ownerUserId: opp?.ownerUserId },
       });
     }, this.rls(user));
-    const bimResult = await this.bimService.inheritFromQuotation(user, quotationId);
     // P2-4 · 同步实时化：签单事务已提交，立即催投该租户 pending 事件（站内通知等），
     // 把可见反应从"等 sweep（≤5s）"压到毫秒级，消除"点了没反应"。尽力而为——不阻断签单结果。
     await this.eventBus.kickDispatch(tenantId);
-    return { signed: true, opportunityId, bimProject: bimResult.project };
+    return { signed: true, opportunityId };
   }
 
   // ── Opportunities ───────────────────────────────────────────────────────────
@@ -316,26 +291,12 @@ export class CrmService {
       productDataNamespace: 'rhautt_shared',
     }));
 
-    // P3: 先串联生命周期，取 link.id 作为 opportunity 的 project_id
-    const link = await this.lifecycle.advanceInTx(em, {
-      tenantId: dto.tenantId, customerId: customer.id, stage: 'lead-created',
-      dealerId: dto.dealerId ?? null, storeId: dto.storeId ?? null,
-      phoneHash, projectAddress: dto.address ?? null,
-    });
-
     const opportunity = await opportunities.save(opportunities.create({
       tenantId: dto.tenantId, dealerId: dto.dealerId ?? null, storeId: dto.storeId ?? null,
       customerId: customer.id, ownerUserId: dto.ownerUserId ?? null,
-      projectId: link.id,
+      projectId: null,
       stage: 'lead', productDataNamespace: 'rhautt_shared',
     }));
-
-    // 回填 opportunityId 到 lifecycle link
-    await this.lifecycle.advanceInTx(em, {
-      tenantId: dto.tenantId, customerId: customer.id, stage: 'lead-created', opportunityId: opportunity.id,
-      dealerId: dto.dealerId ?? null, storeId: dto.storeId ?? null,
-      phoneHash, projectAddress: dto.address ?? null,
-    });
 
     await this.recordAudit(
       em, dto.tenantId, dto.ownerUserId ?? null, 'customer.create', 'customer', customer.id, null,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * PRD <-> Code Bidirectional Crosswalk Check  (遗憾1)
- * 检测 PRD 15 模块是否有对应代码落地，输出三档覆盖率并写 evidence JSON。
+ * 检测当前 PRD 模块是否有对应代码落地，输出三档覆盖率并写 evidence JSON。
  * Run: node scripts/agent-guards/prd-code-crosswalk-check.js
  */
 'use strict';
@@ -11,16 +11,12 @@ const ROOT = path.join(__dirname, '..', '..');
 const r = (p) => path.join(ROOT, p);
 const exists = (p) => fs.existsSync(r(p));
 
-// 15 PRD 模块 x 代码锚点（file | grep）
+// 当前 PRD 模块 x 代码锚点（file | grep）
 const MODULES = [
   { id:'M01', section:'4.1', label:'瑞诺瓦 AI 问诊',
     anchors:[{t:'file',v:'public/pain-diagnosis.html'},{t:'file',v:'server/routes/ai-diagnosis.js'}] },
-  { id:'M02', section:'4.1', label:'Rysnova BIM 工作台',
-    anchors:[{t:'file',v:'public/rysnova-bim-designer.html'},{t:'file',v:'server/routes/bim.js'}] },
   { id:'M03', section:'4.2', label:'客户项目门户',
     anchors:[{t:'file',v:'public/customer-view.html'},{t:'file',v:'server/routes/customers.js'}] },
-  { id:'M04', section:'4.2', label:'设计师成交工作台',
-    anchors:[{t:'file',v:'public/designer.html'},{t:'file',v:'server/routes/design.js'}] },
   { id:'M05', section:'4.2', label:'业务控制台/多租户后台',
     anchors:[{t:'file',v:'public/business-console.html'},{t:'file',v:'server/routes/admin.js'}] },
   { id:'M06', section:'4.3', label:'六大舒适系统计算引擎',
@@ -35,8 +31,6 @@ const MODULES = [
     anchors:[{t:'file',v:'server/routes/crm.js'},{t:'grep',dir:'server',pat:'Opportunity|lead_owner',mode:'content'}] },
   { id:'M11', section:'4.9', label:'财务闭环/报价快照',
     anchors:[{t:'grep',dirs:['server','services/api'],pat:'price_snapshot|quotation_lock',mode:'content'}] },
-  { id:'M12', section:'4.10', label:'design<->Rysnova 单一真相源',
-    anchors:[{t:'grep',dirs:['server','services/api'],pat:'rysnova-bim_sync|lithonovaSync|design_id',mode:'content'}] },
   { id:'M13', section:'4.11', label:'IoT/数字孪生 mock',
     anchors:[{t:'grep',dir:'server',pat:'IoTPlatform|DigitalTwin|installedAsset|mqtt',mode:'content'}] },
   { id:'M14', section:'5.3', label:'中国合规(等保/PIPL)',

@@ -11,6 +11,8 @@ import {
   Radio,
   Rocket,
   Search,
+  Send,
+  Settings2,
   Shield,
   UsersRound,
   Zap,
@@ -74,6 +76,9 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     children: [
       { key: 'geo', label: 'GEO', href: '/growth/geo', icon: Search },
       { key: 'copywriter', label: '文案 Copilot', href: '/growth/copywriter', icon: PenTool },
+      { key: 'wechat-review', label: '内容审核', href: '/growth/wechat-review', icon: BadgeCheck },
+      { key: 'wechat-accounts', label: '发布账号配置', href: '/growth/wechat-accounts', icon: Settings2 },
+      { key: 'wechat-drafts', label: '发布记录', href: '/growth/wechat-drafts', icon: Send },
       { key: 'sentiment', label: '舆情雷达', href: '/growth/sentiment', icon: Radio },
       { key: 'automation', label: '营销自动化', href: '/growth/automation', icon: Zap },
       { key: 'materials', label: '营销物料库管理', href: '/growth/materials', icon: FolderOpen },

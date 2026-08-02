@@ -11,13 +11,14 @@ import {
   RefreshCw,
   Save,
   Search,
+  Send,
   Sparkles,
   Trash2,
   X,
   XCircle,
 } from 'lucide-react';
 import { WorkbenchPaginationFooter } from './WorkbenchCore';
-import { growthCopy } from '../lib/api';
+import { brandSites, growthCopy, wechatPublishing } from '../lib/api';
 
 type CopyAsset = {
   id: string;
@@ -34,6 +35,8 @@ type CopyAsset = {
 
 type SortBy = 'channel' | 'brandSlug' | 'status' | 'createdAt';
 type SortOrder = 'ASC' | 'DESC';
+type WechatAccountOption = { id: string; displayName: string; brandId: string; appIdMasked: string };
+type BrandOption = { id: string; label: string };
 
 const CHANNELS = [
   { value: 'xiaohongshu', label: '小红书' },
@@ -43,7 +46,11 @@ const CHANNELS = [
   { value: 'seo', label: 'SEO' },
   { value: 'ad', label: '广告投放' },
 ];
-const BRANDS = ['', 'Rheem', 'Ruud', 'Everhot'];
+const DEFAULT_BRANDS: BrandOption[] = [
+  { id: 'rheem', label: 'Rheem' },
+  { id: 'ruud', label: 'Ruud' },
+  { id: 'everhot', label: 'Everhot' },
+];
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const SORTABLE_COLUMNS: Array<{ key: SortBy; label: string }> = [
   { key: 'channel', label: '渠道' },
@@ -81,6 +88,20 @@ function channelLabel(value?: string | null) {
 function statusBadge(status: string) {
   const config = STATUS_CONFIG[status] || { label: status, className: 'badge badge-grey' };
   return <span className={config.className} style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}>{config.label}</span>;
+}
+
+function normalizeWechatBrand(value?: string | null) {
+  const brand = String(value || '').trim().toLowerCase();
+  if (brand.includes('ruud') || brand.includes('瑞德')) return 'ruud';
+  if (brand.includes('everhot') || brand.includes('恒热')) return 'everhot';
+  return 'rheem';
+}
+
+function wechatSubmitMissingReason(form: { accountIds: string[]; digest: string; coverAssetId: string }) {
+  if (!form.accountIds.length) return '请先选择至少一个公众号';
+  if (!form.coverAssetId.trim()) return '请填写封面素材 ID';
+  if (!form.digest.trim()) return '请填写公众号摘要';
+  return '';
 }
 
 function normalizeHeading(value: string) {
@@ -121,7 +142,8 @@ export default function GrowthCopyTable() {
   const [pageSize, setPageSize] = useState(20);
   const [sortBy, setSortBy] = useState<SortBy>('createdAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('DESC');
-  const [generateForm, setGenerateForm] = useState({ channel: 'xiaohongshu', brandSlug: 'Rheem', prompt: '' });
+  const [brandOptions, setBrandOptions] = useState<BrandOption[]>(DEFAULT_BRANDS);
+  const [generateForm, setGenerateForm] = useState({ channel: 'xiaohongshu', brandSlug: DEFAULT_BRANDS[0].id, prompt: '' });
   const [generateBusy, setGenerateBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -131,6 +153,10 @@ export default function GrowthCopyTable() {
   const [previewItem, setPreviewItem] = useState<CopyAsset | null>(null);
   const [previewDraft, setPreviewDraft] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
+  const [wechatSubmitOpen, setWechatSubmitOpen] = useState(false);
+  const [wechatAccounts, setWechatAccounts] = useState<WechatAccountOption[]>([]);
+  const [wechatForm, setWechatForm] = useState({ brandId: DEFAULT_BRANDS[0].id, accountIds: [] as string[], digest: '', coverAssetId: '', sourceUrl: '' });
+  const [wechatBusy, setWechatBusy] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -156,14 +182,63 @@ export default function GrowthCopyTable() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    brandSites.list()
+      .then((result) => {
+        if (cancelled) return;
+        const items = Array.isArray(result?.items) ? result.items : [];
+        const next = items
+          .filter((site: any) => String(site?.status || 'active') === 'active')
+          .map((site: any) => {
+            const id = String(site?.code || '').trim().toLowerCase();
+            const label = `${site?.nameCn || site?.name_cn || site?.nameEn || site?.name_en || id} ${site?.nameEn || site?.name_en || ''}`.trim();
+            return id ? { id, label } : null;
+          })
+          .filter(Boolean) as BrandOption[];
+        if (!next.length) return;
+        setBrandOptions(next);
+        setGenerateForm((current) => next.some((brand) => brand.id === current.brandSlug)
+          ? current
+          : { ...current, brandSlug: next[0].id });
+        setWechatForm((current) => next.some((brand) => brand.id === current.brandId)
+          ? current
+          : { ...current, brandId: next[0].id });
+      })
+      .catch(() => setBrandOptions(DEFAULT_BRANDS));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const resolveBrandOption = useCallback((value?: string | null) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return brandOptions.find((brand) => {
+      const label = brand.label.toLowerCase();
+      return brand.id.toLowerCase() === normalized || label === normalized || label.includes(normalized) || normalized.includes(brand.id.toLowerCase());
+    }) || null;
+  }, [brandOptions]);
+
+  const displayBrand = useCallback((value?: string | null) => {
+    if (!value) return '-';
+    return resolveBrandOption(value)?.label || value;
+  }, [resolveBrandOption]);
+
   const filtered = useMemo(() => allItems.filter((item) => {
     const haystack = `${item.prompt || ''} ${item.draft || ''}`.toLowerCase();
     if (debouncedKeyword && !haystack.includes(debouncedKeyword.toLowerCase())) return false;
     if (channelFilter !== 'all' && item.channel !== channelFilter) return false;
-    if (brandFilter !== 'all' && (item.brandSlug || '') !== brandFilter) return false;
+    if (brandFilter !== 'all') {
+      if (brandFilter === '' && item.brandSlug) return false;
+      if (brandFilter !== '') {
+        const option = resolveBrandOption(item.brandSlug);
+        if ((option?.id || String(item.brandSlug || '').trim().toLowerCase()) !== brandFilter) return false;
+      }
+    }
     if (statusFilter !== 'all' && item.status !== statusFilter) return false;
     return true;
-  }), [allItems, brandFilter, channelFilter, debouncedKeyword, statusFilter]);
+  }), [allItems, brandFilter, channelFilter, debouncedKeyword, resolveBrandOption, statusFilter]);
 
   const sorted = useMemo(() => [...filtered].sort((left, right) => {
     const leftValue = String(left[sortBy] || '').toLowerCase();
@@ -294,6 +369,71 @@ export default function GrowthCopyTable() {
     finally { setBusy(false); }
   }
 
+  async function loadWechatAccounts(brandId: string) {
+    setWechatBusy(true);
+    setError('');
+    try {
+      const result = await wechatPublishing.availableAccounts(brandId);
+      const accounts = Array.isArray(result?.items) ? result.items : [];
+      setWechatAccounts(accounts);
+      setWechatForm((current) => ({ ...current, accountIds: accounts.length === 1 ? [accounts[0].id] : [] }));
+    } catch (loadError) {
+      setWechatAccounts([]);
+      setError((loadError as Error).message || '公众号加载失败');
+    } finally {
+      setWechatBusy(false);
+    }
+  }
+
+  async function openWechatSubmit() {
+    if (!previewItem) return;
+    const brandId = resolveBrandOption(previewItem.brandSlug)?.id || normalizeWechatBrand(previewItem.brandSlug);
+    setWechatSubmitOpen(true);
+    setWechatForm((current) => ({
+      ...current,
+      brandId,
+      digest: current.digest || truncate(copyText(previewItem), 80),
+      accountIds: [],
+    }));
+    await loadWechatAccounts(brandId);
+  }
+
+  async function submitWechatReview() {
+    if (!previewItem) return;
+    const missingReason = wechatSubmitMissingReason(wechatForm);
+    if (missingReason) {
+      setError(missingReason);
+      return;
+    }
+    setWechatBusy(true);
+    setError('');
+    try {
+      const title = truncate(copyText(previewItem).split(/\n/)[0] || previewItem.prompt, 56);
+      const body = copyText({ ...previewItem, draft: previewDraft });
+      await Promise.all(wechatForm.accountIds.map((accountId) => wechatPublishing.createReviewVersion({
+        sourceContentId: previewItem.id,
+        brandId: wechatForm.brandId,
+        brandName: brandOptions.find((brand) => brand.id === wechatForm.brandId)?.label || wechatForm.brandId,
+        accountId,
+        title,
+        digest: wechatForm.digest.trim(),
+        author: 'Rhautt Comfort',
+        contentHtml: `<p>${body.replace(/[<&>]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[char] || char)).replace(/\n+/g, '</p><p>')}</p>`,
+        sourceUrl: wechatForm.sourceUrl.trim() || undefined,
+        coverImage: { assetId: wechatForm.coverAssetId.trim() },
+        bodyImages: [],
+      })));
+      setMessage(`已提交 ${wechatForm.accountIds.length} 个公众号审核`);
+      setWechatSubmitOpen(false);
+      setPreviewItem(null);
+      await load();
+    } catch (submitError) {
+      setError((submitError as Error).message || '提交审核失败');
+    } finally {
+      setWechatBusy(false);
+    }
+  }
+
   return (
     <section className="card-elevated" style={{ padding: 18, display: 'grid', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -309,7 +449,7 @@ export default function GrowthCopyTable() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Sparkles size={16} style={{ color: 'var(--brand)' }} /><span className="t-label">AI 生成文案</span></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
           <label style={{ display: 'grid', gap: 6 }}><span className="t-label">渠道</span><select className="input" value={generateForm.channel} onChange={(event) => patchGenerateForm({ channel: event.target.value })}>{CHANNELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-          <label style={{ display: 'grid', gap: 6 }}><span className="t-label">品牌</span><select className="input" value={generateForm.brandSlug} onChange={(event) => patchGenerateForm({ brandSlug: event.target.value })}>{BRANDS.map((brand) => <option key={brand} value={brand}>{brand || '未指定'}</option>)}</select></label>
+          <label style={{ display: 'grid', gap: 6 }}><span className="t-label">品牌</span><select className="input" value={generateForm.brandSlug} onChange={(event) => patchGenerateForm({ brandSlug: event.target.value })}><option value="">未指定</option>{brandOptions.map((brand) => <option key={brand.id} value={brand.id}>{brand.label}</option>)}</select></label>
         </div>
         <textarea className="input" rows={3} value={generateForm.prompt} onChange={(event) => patchGenerateForm({ prompt: event.target.value })} placeholder="描述需要什么文案，例如：写一条夏季热泵推广文案，突出节能省电和即开即热" style={{ resize: 'vertical' }} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -323,7 +463,7 @@ export default function GrowthCopyTable() {
         <Search size={16} style={{ color: 'var(--t-tertiary)' }} />
         <input className="input" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索提示词或文案内容" style={{ width: 240 }} />
         <select className="input" value={channelFilter} onChange={(event) => { setChannelFilter(event.target.value); setPage(1); }} style={{ width: 150 }}><option value="all">全部渠道</option>{CHANNELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-        <select className="input" value={brandFilter} onChange={(event) => { setBrandFilter(event.target.value); setPage(1); }} style={{ width: 140 }}><option value="all">全部品牌</option>{BRANDS.filter(Boolean).map((brand) => <option key={brand} value={brand}>{brand}</option>)}<option value="">未指定品牌</option></select>
+        <select className="input" value={brandFilter} onChange={(event) => { setBrandFilter(event.target.value); setPage(1); }} style={{ width: 140 }}><option value="all">全部品牌</option>{brandOptions.map((brand) => <option key={brand.id} value={brand.id}>{brand.label}</option>)}<option value="">未指定品牌</option></select>
         <select className="input" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }} style={{ width: 140 }}><option value="all">全部状态</option><option value="draft">草稿</option><option value="approved">已审核</option><option value="rejected">已拒绝</option><option value="published">已发布</option></select>
       </div>
 
@@ -350,7 +490,7 @@ export default function GrowthCopyTable() {
                 <td><input type="checkbox" checked={selected} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} aria-label={`选择${truncate(copyText(item), 20)}`} /></td>
                 <td><div style={{ display: 'grid', gap: 3 }}><strong style={{ color: 'var(--t-primary)', fontSize: 13 }}>{truncate(copyText(item) || item.prompt)}</strong>{!item.draft && <span style={{ color: 'var(--t-tertiary)', fontSize: 11 }}>草稿为空，显示提示词</span>}</div></td>
                 <td><span className="badge badge-info">{channelLabel(item.channel)}</span></td>
-                <td>{item.brandSlug || '-'}</td>
+                <td>{displayBrand(item.brandSlug)}</td>
                 <td>{statusBadge(item.status)}</td>
                 <td>{formatDate(item.createdAt)}</td>
                 <td>{hasCompliance ? <span className="badge badge-danger" title={item.complianceFlags.join('、')}>{item.complianceFlags.join('、')}</span> : <span style={{ color: 'var(--t-tertiary)' }}>—</span>}</td>
@@ -373,16 +513,94 @@ export default function GrowthCopyTable() {
 
       {previewItem && <div onClick={() => setPreviewItem(null)} style={{ position: 'fixed', inset: 0, zIndex: 50, padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(17,24,39,.46)' }}>
         <div onClick={(event) => event.stopPropagation()} className="card-elevated" style={{ width: 'min(100%,860px)', maxHeight: '92vh', overflow: 'auto', padding: 16, display: 'grid', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><div><p className="t-label">文案预览</p><div style={{ display: 'flex', gap: 8, marginTop: 4 }}>{statusBadge(previewItem.status)}<span className="badge badge-info">{channelLabel(previewItem.channel)}</span>{previewItem.brandSlug && <span className="badge badge-grey">{previewItem.brandSlug}</span>}</div></div><button className="btn btn-ghost btn-sm icon-only" onClick={() => setPreviewItem(null)} aria-label="关闭预览"><X size={18} /></button></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><div><p className="t-label">文案预览</p><div style={{ display: 'flex', gap: 8, marginTop: 4 }}>{statusBadge(previewItem.status)}<span className="badge badge-info">{channelLabel(previewItem.channel)}</span>{previewItem.brandSlug && <span className="badge badge-grey">{displayBrand(previewItem.brandSlug)}</span>}</div></div><button className="btn btn-ghost btn-sm icon-only" onClick={() => setPreviewItem(null)} aria-label="关闭预览"><X size={18} /></button></div>
           <textarea className="input" value={previewDraft} onChange={(event) => setPreviewDraft(event.target.value)} rows={14} style={{ minHeight: 240, resize: 'vertical', lineHeight: 1.7 }} />
           {previewItem.complianceFlags.length > 0 && <div style={{ display: 'flex', gap: 8, color: 'var(--danger)', fontSize: 13 }}><AlertCircle size={16} />合规词命中：{previewItem.complianceFlags.join('、')}</div>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button className="btn btn-outline btn-sm" onClick={savePreview} disabled={saveBusy || busy || previewItem.status === 'rejected' || previewDraft === copyText(previewItem)}>{saveBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}保存</button>
             {previewItem.status === 'draft' && <button className="btn btn-brand btn-sm" onClick={approvePreview} disabled={busy || previewItem.complianceFlags.length > 0}><CheckCircle2 size={14} />审核通过</button>}
+            <button className="btn btn-outline btn-sm" onClick={openWechatSubmit} disabled={busy || wechatBusy}><Send size={14} />提交公众号审核</button>
             {previewItem.status === 'draft' && <button className="btn btn-outline btn-sm" onClick={() => reject(previewItem.id).then(() => setPreviewItem(null))} disabled={busy}><XCircle size={14} />拒绝</button>}
             {previewItem.status === 'rejected' && <button className="btn btn-outline btn-sm" onClick={() => removeRejected(previewItem.id).then(() => setPreviewItem(null))} disabled={busy}><Trash2 size={14} />删除</button>}
             <button className="btn btn-ghost btn-sm" onClick={() => setPreviewItem(null)}>关闭</button>
           </div>
+          {wechatSubmitOpen && (
+            <div className="inset" style={{ display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                <span className="t-label">微信公众号审核目标</span>
+                {wechatBusy ? <Loader2 size={14} className="animate-spin" style={{ color: 'var(--brand)' }} /> : null}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                <select className="input" value={wechatForm.brandId} onChange={(event) => {
+                  const brandId = event.target.value;
+                  setWechatForm({ ...wechatForm, brandId, accountIds: [] });
+                  loadWechatAccounts(brandId);
+                }}>
+                  {brandOptions.map((brand) => <option key={brand.id} value={brand.id}>{brand.label}</option>)}
+                </select>
+                <input className="input" value={wechatForm.coverAssetId} onChange={(event) => setWechatForm({ ...wechatForm, coverAssetId: event.target.value })} placeholder="封面素材 ID" />
+                <input className="input" value={wechatForm.sourceUrl} onChange={(event) => setWechatForm({ ...wechatForm, sourceUrl: event.target.value })} placeholder="原文链接（可选）" />
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--t-secondary)', fontSize: 12 }}>该品牌下可用公众号，支持单选或全选</span>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={!wechatAccounts.length}
+                    onClick={() => setWechatForm({
+                      ...wechatForm,
+                      accountIds: wechatForm.accountIds.length === wechatAccounts.length ? [] : wechatAccounts.map((account) => account.id),
+                    })}
+                  >
+                    {wechatForm.accountIds.length === wechatAccounts.length && wechatAccounts.length ? '取消全选' : '全选'}
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+                  {wechatAccounts.map((account) => {
+                    const checked = wechatForm.accountIds.includes(account.id);
+                    return (
+                      <label key={account.id} className="inset" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, borderColor: checked ? 'var(--brand)' : 'var(--border)' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) => setWechatForm({
+                            ...wechatForm,
+                            accountIds: event.target.checked
+                              ? Array.from(new Set([...wechatForm.accountIds, account.id]))
+                              : wechatForm.accountIds.filter((id) => id !== account.id),
+                          })}
+                        />
+                        <span style={{ display: 'grid', gap: 2 }}>
+                          <strong style={{ fontSize: 13 }}>{account.displayName}</strong>
+                          <span style={{ color: 'var(--t-tertiary)', fontSize: 11 }}>{account.appIdMasked}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {!wechatBusy && !wechatAccounts.length ? (
+                    <div className="inset" style={{ padding: 10, color: 'var(--danger)', fontSize: 12 }}>
+                      当前品牌没有已启用且连接正常的公众号，请先到“发布账号配置”完成测试并启用。
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <textarea className="input" rows={2} value={wechatForm.digest} onChange={(event) => setWechatForm({ ...wechatForm, digest: event.target.value })} placeholder="公众号摘要" />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span className={wechatSubmitMissingReason(wechatForm) ? 'badge badge-warning' : 'badge badge-success'}>
+                  {wechatSubmitMissingReason(wechatForm) || `将提交到 ${wechatForm.accountIds.length} 个公众号审核`}
+                </span>
+                <button
+                  className="btn btn-brand btn-sm"
+                  onClick={submitWechatReview}
+                  disabled={wechatBusy || Boolean(wechatSubmitMissingReason(wechatForm))}
+                  title={wechatSubmitMissingReason(wechatForm) || undefined}
+                >
+                  <Send size={14} />确认提交审核
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>}
     </section>

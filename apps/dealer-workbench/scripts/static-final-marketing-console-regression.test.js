@@ -44,7 +44,6 @@ const obsoleteModules = [
   ['finance', 'finance', /href:\s*['"]\/finance(?:['"/?]|$)|href=["']\/finance(?:["'/?]|$)|\/finance\b/],
   ['team', 'team', /href:\s*['"]\/team(?:['"/?]|$)|href=["']\/team(?:["'/?]|$)|\/team\b/],
   ['aftersales', 'aftersales', /href:\s*['"]\/aftersales(?:['"/?]|$)|href=["']\/aftersales(?:["'/?]|$)|\/aftersales\b/],
-  ['Hub', 'hub', /href:\s*['"]\/hub(?:['"/?]|$)|href=["']\/hub(?:["'/?]|$)|\/hub\b|\/hub-console\b/],
 ];
 
 test('retained marketing-console routes still have route code', () => {
@@ -72,9 +71,10 @@ test('marketing navigation exposes only retained marketing modules', () => {
   }
 
   assert.match(navigation, /href:\s*'\/brand'/);
-  assert.match(dealerNav, /WORKBENCH_NAV\.map/);
+  assert.match(dealerNav, /const visibleNav = WORKBENCH_NAV\.filter/);
+  assert.match(dealerNav, /visibleNav\.map/);
   assert.match(dealerNav, /className="mobile-nav"/);
-  assert.match(dealerNav, /gridTemplateColumns: `repeat\(\$\{WORKBENCH_NAV\.length\}/);
+  assert.match(dealerNav, /gridTemplateColumns: `repeat\(\$\{Math\.max\(visibleNav\.length, 1\)\}/);
 });
 
 test('top bar renders first-level and second-level titles instead of a detail breadcrumb', () => {
@@ -109,7 +109,6 @@ test('Rheem Red and marketing-console primitives remain the UI baseline', () => 
   assert.match(workbenchCore, /WorkbenchTableState/);
   assert.match(workbenchCore, /from 'lucide-react'/);
   assert.match(growth, /var\(--brand\)/);
-  assert.doesNotMatch(`${navigation}\n${dealerNav}\n${dealerTopBar}`, /Dealer Hub|\/hub-console/);
 });
 
 test('product catalog behavior remains represented in the retained product page', () => {
@@ -119,7 +118,8 @@ test('product catalog behavior remains represented in the retained product page'
   assert.match(products, /const basePayload = createProductPayload\(createDraft, createCategoryTree\);/);
   assert.match(products, /saveOfficialProductDetailContent\(createdId/);
   assert.match(products, /products\.create\(payload\)/);
-  assert.match(products, /products\.update\(product\.id, productUpdatePayload\(product, draft\)\)/);
+  assert.match(products, /const payload = productUpdatePayload\(product, draft\);/);
+  assert.match(products, /products\.update\(product\.id, \{ \.\.\.payload, assetRefs: nextAssetRefs \}\)/);
   assert.match(products, /products\.archive\(product\.id/);
   assert.match(products, /setModule\('catalog'\)/);
   assert.match(products, /setModule\('materials'\)/);
@@ -150,13 +150,13 @@ test('archived brand site delete is wired end-to-end without shelf-table manual 
 
 test('account permission behavior remains marketing-console scoped', () => {
   assert.match(accounts, /adminUsers\.list\(q\)/);
-  assert.match(accounts, /adminUsers\.update\(u\.id, patch\)/);
+  assert.match(accounts, /adminUsers\.update\(user\.id, patch\)/);
   assert.match(accounts, /adminUsers\.create\(/);
   assert.match(accounts, /adminUsers\.resetPassword\(user\.id, pwd\)/);
-  assert.match(accounts, /BRAND_ADMINS/);
-  assert.match(accounts, /dealer_admin/);
+  assert.match(accounts, /can\(mePermissions, 'admin\.users\.view', meRole\)/);
+  assert.match(accounts, /can\(mePermissions, 'admin\.users\.read', meRole\)/);
   assert.match(accounts, /href="\/comfort\/sites"/);
-  assert.doesNotMatch(accounts, /href="\/hub"|\/team\b/);
+  assert.doesNotMatch(accounts, /\/team\b/);
 });
 
 test('retained brand website and growth features keep stateful controls', () => {

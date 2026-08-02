@@ -149,9 +149,9 @@ describe('production outbox service', () => {
       now: () => new Date('2026-06-06T08:00:00.000Z')
     });
     const event = await service.publish({ tenantId: 'tenant-a' }, {
-      aggregateType: 'rysnova-bim_artifact',
-      aggregateId: 'ART-1',
-      eventType: 'rysnova-bim.artifact.shared'
+      aggregateType: 'quotation',
+      aggregateId: 'QUOTE-1',
+      eventType: 'quotation.persisted'
     });
 
     const firstFailure = await service.markFailed({ tenantId: 'tenant-a' }, event.id, new Error('temporary queue outage'));
@@ -179,10 +179,10 @@ describe('production outbox service', () => {
       now: () => new Date('2026-06-06T08:00:00.000Z')
     });
     const event = await service.publish({ tenantId: 'tenant-a' }, {
-      aggregateType: 'rysnova-bim_artifact',
-      aggregateId: 'ART-2',
-      eventType: 'rysnova-bim.artifact.shared',
-      idempotencyKey: 'tenant-a:ART-2:rysnova-bim.artifact.shared'
+      aggregateType: 'quotation',
+      aggregateId: 'QUOTE-2',
+      eventType: 'quotation.persisted',
+      idempotencyKey: 'tenant-a:QUOTE-2:quotation.persisted'
     });
     await service.markFailed({ tenantId: 'tenant-a' }, event.id, 'object storage unavailable');
 
@@ -194,7 +194,7 @@ describe('production outbox service', () => {
       availableAt: '2026-06-06T08:00:00.000Z',
       replayedAt: '2026-06-06T08:00:00.000Z',
       replayReason: 'operator-fixed-storage',
-      idempotencyKey: 'tenant-a:ART-2:rysnova-bim.artifact.shared'
+      idempotencyKey: 'tenant-a:QUOTE-2:quotation.persisted'
     }));
     expect(replayed.deadLetteredAt).toBeUndefined();
     expect(replayed.lastError).toBeUndefined();

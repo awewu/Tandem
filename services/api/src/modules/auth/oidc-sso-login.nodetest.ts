@@ -57,7 +57,7 @@ test('OIDC login uses discovery from the configured issuer', async () => {
     json: async () => DISCOVERY,
   }));
   try {
-    const result = await service({ OIDC_ISSUER: 'https://issuer.example/' }).createLoginRedirect('/hub');
+    const result = await service({ OIDC_ISSUER: 'https://issuer.example/' }).createLoginRedirect('/brand');
 
     assert.equal(
       fetchMock.calls[0].input,
@@ -76,7 +76,7 @@ test('OIDC login fails closed when discovery fails', async () => {
     json: async () => ({}),
   }));
   try {
-    await assert.rejects(() => service().createLoginRedirect('/hub'), /OIDC discovery failed/);
+    await assert.rejects(() => service().createLoginRedirect('/brand'), /OIDC discovery failed/);
   } finally {
     fetchMock.restore();
   }
@@ -89,7 +89,7 @@ test('OIDC login fails closed when discovery omits authorization endpoint', asyn
   }));
   try {
     await assert.rejects(
-      () => service().createLoginRedirect('/hub'),
+      () => service().createLoginRedirect('/brand'),
       /OIDC authorization endpoint missing/
     );
   } finally {
@@ -107,7 +107,7 @@ test('OIDC login redirect contains authorization code parameters', async () => {
       OIDC_CLIENT_ID: 'client-a',
       OIDC_REDIRECT_URI: 'http://localhost:5000/api/v2/auth/sso/callback',
       OIDC_SCOPES: 'openid profile',
-    }).createLoginRedirect('/hub');
+    }).createLoginRedirect('/brand');
 
     const url = new URL(result.location);
     assert.equal(url.pathname, '/oauth2/authorize');
@@ -144,7 +144,7 @@ test('OIDC login default local client returns through localhost callback before 
     json: async () => DISCOVERY,
   }));
   try {
-    const result = await service().createLoginRedirect('/hub');
+    const result = await service().createLoginRedirect('/brand');
     const url = new URL(result.location);
 
     assert.equal(url.searchParams.get('client_id'), 'cli_mrvdz1yr8jfzrb8u');
@@ -152,7 +152,7 @@ test('OIDC login default local client returns through localhost callback before 
       url.searchParams.get('redirect_uri'),
       'http://localhost:5000/api/v2/auth/sso/callback'
     );
-    assert.equal(result.redirect, '/hub');
+    assert.equal(result.redirect, '/brand');
   } finally {
     fetchMock.restore();
   }
@@ -164,7 +164,7 @@ test('OIDC login default production client returns through nexus callback before
     json: async () => DISCOVERY,
   }));
   try {
-    const result = await service({ NODE_ENV: 'production' }).createLoginRedirect('/hub');
+    const result = await service({ NODE_ENV: 'production' }).createLoginRedirect('/brand');
     const url = new URL(result.location);
 
     assert.equal(url.searchParams.get('client_id'), 'cli_mrve0bgvgnl2gkjg');
@@ -172,7 +172,7 @@ test('OIDC login default production client returns through nexus callback before
       url.searchParams.get('redirect_uri'),
       'https://nexus.rhautt.com/api/v2/auth/sso/callback'
     );
-    assert.equal(result.redirect, '/hub');
+    assert.equal(result.redirect, '/brand');
   } finally {
     fetchMock.restore();
   }
@@ -198,7 +198,7 @@ test('OIDC login creates short-lived HTTP-only state cookie', async () => {
     json: async () => DISCOVERY,
   }));
   try {
-    const result = await service().createLoginRedirect('/hub');
+    const result = await service().createLoginRedirect('/brand');
     const stateCookie = findCookie(result.cookies, SSO_STATE_COOKIE);
 
     assert.equal(result.state.length >= 32, true);
@@ -239,7 +239,7 @@ test('AuthController exposes public GET SSO login and writes redirect response',
     },
   };
 
-  const result = await controller.ssoLogin('/hub', response);
+  const result = await controller.ssoLogin('/brand', response);
   const handler = AuthController.prototype.ssoLogin;
 
   assert.equal(Reflect.getMetadata(IS_PUBLIC_KEY, handler), true);
@@ -273,7 +273,7 @@ test('AuthController redirects SSO login failures to a diagnostic brand fallback
     },
   };
 
-  const result = await controller.ssoLogin('/hub', response);
+  const result = await controller.ssoLogin('/brand', response);
 
   assert.equal(result.statusCode, 302);
   assert.equal(headers.Location, '/?returnUrl=%2Fbrand&ssoError=sso_unavailable');

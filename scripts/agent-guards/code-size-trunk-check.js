@@ -53,8 +53,7 @@ const COMPATIBILITY_RUNTIME_PREFIXES = [
   'server/services/',
   'server/api/',
   'server/admin/',
-  'server/utils/',
-  'server/v9/'
+  'server/utils/'
 ];
 
 const COMPATIBILITY_TRUNK_FILES = new Set([

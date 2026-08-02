@@ -32,8 +32,6 @@ const REQUIRED_FILES = [
   '.claude/agents/enterprise-ai-control-architect.md',
   '.claude/agents/frontend-contract-auditor.md',
   '.claude/agents/quote-cost-governor.md',
-  '.claude/agents/solution-design-rysnova-bim-director.md',
-  '.claude/agents/rysnova-bim-engineering-builder.md',
   '.claude/agents/customer-project-lifecycle-director.md',
   '.claude/agents/hvac-standards-auditor.md',
   '.claude/agents/iot-lifecycle-architect.md',
@@ -53,7 +51,6 @@ const REQUIRED_FILES = [
   'scripts/agent-guards/ui-vi-check.js',
   'scripts/agent-guards/ruud-vi-research-check.js',
   'scripts/agent-guards/portal-architecture-check.js',
-  'scripts/agent-guards/delivery-goal-check.js',
   'scripts/agent-guards/database-schema-check.js',
   'scripts/agent-guards/workspace-size-governance-check.js'
 ];
@@ -68,16 +65,13 @@ const REQUIRED_PACKAGE_SCRIPTS = [
   'guard:portal-architecture',
   'guard:database',
   'guard:nexus-naming',
-  'guard:delivery-goal',
   'guard:trunk-migration',
   'guard:production-trunk-isolation',
   'guard:workspace-size',
   'guard:all',
   'harness:all',
-  'harness:legacy-fusion',
   'test:production-readiness',
   'perf:capacity',
-  'perf:capacity:inprocess',
   'production:self-check:sandbox'
 ];
 
@@ -87,16 +81,12 @@ const REQUIRED_ACTIVE_PAGES = [
   '/pain-diagnosis.html',
   '/customer-share.html',
   '/customer-view.html',
-  '/designer.html',
-  '/rysnova-bim-designer.html',
   '/staff-portal.html',
   '/business-console.html',
   '/login.html'
 ];
 
 const REQUIRED_ROUTE_DOMAINS = [
-  'quote-calculation',
-  'engineering-delivery',
   'lifecycle-iot-front-office',
   'comfort-home-domain',
   'admin-governance',
@@ -146,9 +136,6 @@ if (exists('package.json')) {
   }
   if (pkg.scripts?.['guard:all'] && !pkg.scripts['guard:all'].includes('guard:nexus-naming')) {
     failures.push('package.json guard:all must include guard:nexus-naming');
-  }
-  if (pkg.scripts?.['guard:all'] && !pkg.scripts['guard:all'].includes('guard:delivery-goal')) {
-    failures.push('package.json guard:all must include guard:delivery-goal');
   }
   if (pkg.scripts?.['guard:all'] && !pkg.scripts['guard:all'].includes('guard:production-trunk-isolation')) {
     failures.push('package.json guard:all must include guard:production-trunk-isolation');

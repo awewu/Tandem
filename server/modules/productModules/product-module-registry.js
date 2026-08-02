@@ -6,7 +6,6 @@ const DEPLOYMENT_MODES = Object.freeze({
 
 const MODULE_IDS = Object.freeze({
   RYSNOVA_CONSUMER_SYSTEM: 'rysnova-consumer-system',
-  RYSNOVA_ENGINEERING_SUPPORT: 'rysnova-bim-engineering-support',
   RHAUTT_SHARED_PLATFORM: 'rhautt-shared-platform'
 });
 
@@ -136,92 +135,6 @@ const MODULES = Object.freeze({
     reportType: 'rysnova-ai-diagnosis-report',
     legacyReportTypes: ['rysnova-ai-diagnosis-report']
   }),
-  rysnovaBim: Object.freeze({
-    id: MODULE_IDS.RYSNOVA_ENGINEERING_SUPPORT,
-    namespace: 'rysnova-bim',
-    dataNamespace: 'rysnova-bim',
-    apiNamespace: '/api/v2/rysnova-bim',
-    displayName: 'Rysnova',
-    kind: 'engineering-bim-technical-support',
-    ownershipModel: PRODUCT_BOUNDARY,
-    defaultDeploymentMode: DEPLOYMENT_MODES.RHAUTT_PORTAL_EMBEDDED,
-    supportedDeploymentModes: [DEPLOYMENT_MODES.RHAUTT_PORTAL_EMBEDDED, DEPLOYMENT_MODES.STANDALONE],
-    standaloneAliases: ['/rysnova-bim', '/rysnova-bim-bim', '/rysnova-bim-workbench'],
-    embeddedEntry: '/rysnova-bim-designer.html',
-    poweredBy: POWERED_BY,
-    productIndependenceLevel: PRODUCT_INDEPENDENCE_LEVEL,
-    standaloneDomainStrategy: STANDALONE_DOMAIN_STRATEGY,
-    standaloneAppShellMode: STANDALONE_APP_SHELL_MODE,
-    targetApp: 'apps/dealer-workbench',
-    objectStoragePrefix: 'rysnova-bim/',
-    analyticsNamespace: 'rysnova-bim',
-    futureDatabaseStrategy: PRODUCT_DATABASE_STRATEGY,
-    standalonePostgresSchema: 'rysnova-bim',
-    standaloneMongoDatabase: 'rysnova-bim_documents',
-    standaloneObjectStorageBucket: 'rysnova-bim-product-artifacts',
-    databaseIndependence: Object.freeze({
-      currentDataMode: CURRENT_DATA_MODE,
-      futureDataMode: FUTURE_DATA_MODE,
-      sharedFoundationTables: SHARED_FOUNDATION_TABLES,
-      ownedPostgresTables: ['file_artifacts', 'quotations'],
-      ownedMongoNamespaces: ['RysnovaArtifact.moduleNamespace=rysnova-bim'],
-      ownedObjectStoragePrefix: 'rysnova-bim/',
-      standalonePostgresSchema: 'rysnova-bim',
-      standaloneMongoDatabase: 'rysnova-bim_documents',
-      standaloneObjectStorageBucket: 'rysnova-bim-product-artifacts',
-      requiredExtractionKeys: PRODUCT_EXTRACTION_KEYS,
-      standaloneDatabaseTarget: 'rysnova-bim-owned-postgres-schema-plus-mongodb-namespace',
-      extractionProofRequired: true,
-      futureStandaloneProductReady: true,
-      extractionPlan: 'extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes'
-    }),
-    portalIntegration: Object.freeze({
-      embeddedInRhauttPortal: true,
-      embeddedEntry: '/rysnova-bim-designer.html'
-    }),
-    standaloneProductization: Object.freeze({
-      launchable: true,
-      aliases: ['/rysnova-bim', '/rysnova-bim-bim', '/rysnova-bim-workbench'],
-      targetApp: 'apps/dealer-workbench',
-      appShellMode: STANDALONE_APP_SHELL_MODE,
-      domainStrategy: STANDALONE_DOMAIN_STRATEGY,
-      standaloneDomainTargets: ['pending-dedicated-rysnova-bim-domain-or-subdomain'],
-      externalDomainProofRequired: true,
-      databaseExtractionReady: true
-    }),
-    dataBoundary: Object.freeze({
-      postgresRegistry: 'rhautt_nexus.product_modules',
-      deploymentRegistry: 'rhautt_nexus.product_module_deployments',
-      dataPartitionRegistry: 'rhautt_nexus.product_module_data_partitions',
-      moduleNamespace: 'rysnova-bim',
-      dataNamespace: 'rysnova-bim',
-      productNamespace: 'rysnova-bim',
-      productDataNamespace: 'rysnova-bim',
-      objectStoragePrefix: 'rysnova-bim/',
-      analyticsNamespace: 'rysnova-bim',
-      futureDatabaseStrategy: PRODUCT_DATABASE_STRATEGY,
-      productIndependenceLevel: PRODUCT_INDEPENDENCE_LEVEL,
-      standaloneDomainStrategy: STANDALONE_DOMAIN_STRATEGY,
-      standaloneAppShellMode: STANDALONE_APP_SHELL_MODE,
-      currentDataMode: CURRENT_DATA_MODE,
-      futureDataMode: FUTURE_DATA_MODE,
-      sharedFoundationTables: SHARED_FOUNDATION_TABLES,
-      ownedPostgresTables: ['file_artifacts', 'quotations'],
-      ownedMongoNamespaces: ['RysnovaArtifact.moduleNamespace=rysnova-bim'],
-      standalonePostgresSchema: 'rysnova-bim',
-      standaloneMongoDatabase: 'rysnova-bim_documents',
-      standaloneObjectStorageBucket: 'rysnova-bim-product-artifacts',
-      requiredExtractionKeys: PRODUCT_EXTRACTION_KEYS,
-      standaloneDatabaseTarget: 'rysnova-bim-owned-postgres-schema-plus-mongodb-namespace',
-      extractionProofRequired: true,
-      futureStandaloneProductReady: true,
-      postgresPartitionKey: 'product_data_namespace',
-      mongodbNamespace: 'RysnovaArtifact.moduleNamespace=rysnova-bim',
-      independentDatabaseReady: true,
-      extractionPlan: 'extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes'
-    }),
-    source: 'rysnova-bim'
-  }),
   sharedPlatform: Object.freeze({
     id: MODULE_IDS.RHAUTT_SHARED_PLATFORM,
     namespace: 'rhautt-shared',
@@ -268,15 +181,6 @@ function rysnovaModuleContext(input = {}) {
   };
 }
 
-function rysnovaBimModuleContext(input = {}) {
-  return {
-    moduleId: resolveModuleId(input.moduleId, MODULES.rysnovaBim.id),
-    moduleDeploymentMode: resolveDeploymentMode(input.moduleDeploymentMode, MODULES.rysnovaBim.defaultDeploymentMode),
-    moduleNamespace: MODULES.rysnovaBim.namespace,
-    dataNamespace: MODULES.rysnovaBim.dataNamespace
-  };
-}
-
 module.exports = {
   DEPLOYMENT_MODES,
   MODULE_IDS,
@@ -295,6 +199,5 @@ module.exports = {
   resolveModuleId,
   getModuleById,
   productModuleContext,
-  rysnovaModuleContext,
-  rysnovaBimModuleContext
+  rysnovaModuleContext
 };

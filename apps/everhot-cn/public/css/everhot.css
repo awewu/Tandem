@@ -939,6 +939,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .pd-series { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); margin-bottom: var(--space-4); }
 .pd-tagline { font-size: 16px; color: rgba(255,255,255,.78); line-height: 1.75; max-width: 540px; margin-bottom: 26px; }
 .pd-hero-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.pd-gallery-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--space-4); }
+.pd-gallery-item { margin: 0; aspect-ratio: 4/3; overflow: hidden; border: 1px solid var(--border); background: #fff; }
+.pd-gallery-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* D2 positioning */
 .pd-value-prop { font-size: 19px; line-height: 1.75; max-width: 820px; color: var(--ink, #1a1a1a); margin: 0 0 8px; }
@@ -987,6 +990,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 @media (max-width: 760px) {
   .pd-hero-inner { grid-template-columns: 1fr; }
+  .pd-gallery-grid { grid-template-columns: 1fr; }
   .pd-hero-icon { font-size: 64px; }
   .pd-official-detail-body img,
   .pd-official-detail-body p,

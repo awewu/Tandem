@@ -54,7 +54,6 @@ const quotationEngineAvailability = canLoad('../core/QuotationEngine');
 const analyticsEngineAvailability = canLoad('../core/AnalyticsEngine');
 const predictiveMaintenanceEngine = lazyOptionalEngine('../engines/PredictiveMaintenanceEngine');
 const llmServiceEngine = lazyOptionalEngine('../engines/LLMServiceEngine');
-const floorPlanRecognitionEngine = lazyOptionalEngine('../engines/FloorPlanRecognitionEngine');
 
 // ======================== 工厂函数 ========================
 module.exports = function createBusinessDomainRouter(db) {
@@ -766,63 +765,14 @@ module.exports = function createBusinessDomainRouter(db) {
   });
 
   // ====================================================================
-  // 象限 3 · Rysnova legacy 4 件套入口（已退役）
-  // ====================================================================
-
-  router.post('/api/rysnova-bim/generate-deliverables', (req, res) => {
-    const { contractId } = req.body || {};
-    return res.status(410).json({
-      success: false,
-      error: 'Rysnova legacy deliverable generator retired. Use the tenant-scoped v2 artifact contract.',
-      code: 'RYSNOVA_LEGACY_DELIVERABLES_RETIRED',
-      migration: {
-        method: 'POST',
-        path: '/api/v2/rysnova-bim/projects/{projectId}/deliverable-artifacts',
-        projectIdHint: contractId || 'CNT-20260401-001',
-        requiredEvidence: [
-          'tenant bearer token',
-          'audit log',
-          'object storage evidence',
-          'quoteCostSummary',
-          'quantityTakeoffSummary',
-          'standardsSummary',
-          'customerReportSummary'
-        ]
-      }
-    });
-  });
-
-  router.get('/rysnova-bim-deliverables/:contractId/:fileName', (req, res) => {
-    return res.status(410).json({
-      success: false,
-      error: 'Rysnova legacy deliverable download retired. Use the v2 customer package or artifact objectKey with storage evidence.',
-      code: 'RYSNOVA_LEGACY_DOWNLOAD_RETIRED',
-      migration: {
-        contractId: req.params.contractId,
-        legacyFileName: req.params.fileName,
-        customerPackage: '/api/v2/rysnova-bim/projects/{projectId}/customer-package',
-        deliverableArtifacts: '/api/v2/rysnova-bim/projects/{projectId}/deliverable-artifacts',
-        requiredEvidence: [
-          'tenant bearer token',
-          'customer-visible approved/shared artifact',
-          'object storage evidence',
-          'integrity passed',
-          'no internal fields leaked'
-        ]
-      }
-    });
-  });
-
-  // ====================================================================
-  // 象限 1+2 · AI 服务（LLM + 户型图识别）
+  // 象限 1+2 · AI 服务
   // ====================================================================
 
   router.get('/api/ai/health', async (req, res) => {
     const llmEngine = llmServiceEngine.get();
-    const fprEngine = floorPlanRecognitionEngine.get();
     if (!llmEngine) return res.status(503).json({ success: false, error: 'LLM 引擎未加载' });
     const llm = await llmEngine.health();
-    res.json({ success: true, data: { llm, floorPlanRecognition: !!fprEngine } });
+    res.json({ success: true, data: { llm } });
   });
 
   router.post('/api/ai/chat', async (req, res) => {
@@ -866,7 +816,6 @@ module.exports = function createBusinessDomainRouter(db) {
     } catch (e) { return errorResponse(res, e); }
   });
 
-  // P0 修复 2026-04-27：删除重复的 /api/floorplan/recognize
   // server-production.js:2315 已定义（带 authenticateToken 鉴权）为唯一权威版本
 
   // ====================================================================
@@ -879,15 +828,14 @@ module.exports = function createBusinessDomainRouter(db) {
       data: {
         module: 'business-domain',
         version: '1.0.0',
-        domains: ['contracts (gantt/phase/report)', 'material', 'acceptance', 'settlement', 'crm (customers/360/funnel/opp/campaigns/opportunities-list)', 'products (CRUD/shelf)', 'promotion', 'pricing', 'operation (devices/dashboard/predictions+RUL/energy)', 'dashboard (stats/sales-trend)', 'rysnova-bim-legacy-retired-boundary', 'quote-with-promotion', 'quotes-list', 'ai (chat/diagnose/explain/quote-summary)'],
+        domains: ['contracts (gantt/phase/report)', 'material', 'acceptance', 'settlement', 'crm (customers/360/funnel/opp/campaigns/opportunities-list)', 'products (CRUD/shelf)', 'promotion', 'pricing', 'operation (devices/dashboard/predictions+RUL/energy)', 'dashboard (stats/sales-trend)', 'quote-with-promotion', 'quotes-list', 'ai (chat/diagnose/explain/quote-summary)'],
         endpoints: 36,
         engines: {
           predictiveMaintenance: predictiveMaintenanceEngine.available,
           promotion: promotionEngineAvailability,
           quotation: quotationEngineAvailability,
           analytics: analyticsEngineAvailability,
-          llm: llmServiceEngine.available,
-          floorPlanRecognition: floorPlanRecognitionEngine.available
+          llm: llmServiceEngine.available
         },
         llmMode: llmServiceEngine.available ? (llmServiceEngine.get()?.mode || 'available') : 'unavailable',
         timestamp: now()

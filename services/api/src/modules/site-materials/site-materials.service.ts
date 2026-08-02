@@ -3,6 +3,12 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  readRemoteSiteMaterialAsset,
+  readRemoteSiteMaterialManifest,
+  siteMediaOriginEnabled,
+  syncSiteMaterialBundle,
+} from '../file-artifact/site-media-origin.client';
+import {
   SiteAudienceCardItem,
   SiteHeroCarouselItem,
   SiteMaterialKey,
@@ -103,6 +109,8 @@ export class SiteMaterialsService {
 
   async readAsset(brandCode: string, asset: string): Promise<{ buffer: Buffer; mimeType: string }> {
     this.assertSupportedBrand(brandCode);
+    const remoteBuffer = await readRemoteSiteMaterialAsset(asset);
+    if (remoteBuffer) return { buffer: remoteBuffer, mimeType: mimeTypeFromFilename(path.basename(asset)) };
     const localAssetPath = this.resolvePreviewAssetPath(asset);
     if (!localAssetPath) throw new BadRequestException('unsupported material asset');
 
@@ -131,9 +139,7 @@ export class SiteMaterialsService {
     if (!MATERIAL_KEYS.has(key)) throw new BadRequestException('unsupported material key');
 
     const { ext, buffer, mimeType } = decodeImage(body.mimeType, body.dataBase64);
-    await mkdir(this.materialDir, { recursive: true });
-    const outputName = `${key}.${ext}`;
-    await writeFile(path.join(this.materialDir, outputName), buffer);
+    const outputName = `${key}-${Date.now()}.${ext}`;
 
     const manifest = await this.readManifest();
     manifest[key] = {
@@ -143,7 +149,7 @@ export class SiteMaterialsService {
       size: buffer.length,
       updatedAt: new Date().toISOString(),
     };
-    await this.writeManifest(manifest);
+    await this.writeManifest(manifest, [{ path: outputName, mimeType, dataBase64: buffer.toString('base64') }]);
     return manifest[key];
   }
 
@@ -214,18 +220,18 @@ export class SiteMaterialsService {
     const files = Array.isArray(filesInput) ? filesInput : [];
     if (!files.length) throw new BadRequestException('missing carousel images');
 
-    await mkdir(this.materialDir, { recursive: true });
     const manifest = await this.readManifest();
     const current = Array.isArray(manifest['home-hero-carousel']) ? manifest['home-hero-carousel'] : [];
     const now = Date.now();
     const saved: SiteHeroCarouselItem[] = [];
+    const bundleFiles: Array<{ path: string; mimeType: string; dataBase64: string }> = [];
 
     for (const [index, file] of files.entries()) {
       const row = file as { filename?: string; mimeType?: string; dataBase64?: string; linkUrl?: string };
       const { ext, buffer, mimeType } = decodeImage(row.mimeType, row.dataBase64);
       const id = `hero-${now}-${index}`;
       const outputName = `${id}.${ext}`;
-      await writeFile(path.join(this.materialDir, outputName), buffer);
+      bundleFiles.push({ path: outputName, mimeType, dataBase64: buffer.toString('base64') });
       saved.push({
         id,
         src: `/assets/img/site-materials/${outputName}`,
@@ -241,11 +247,13 @@ export class SiteMaterialsService {
     }
 
     manifest['home-hero-carousel'] = [...current, ...saved].map((item, index) => ({ ...item, sortOrder: index }));
-    await this.writeManifest(manifest);
+    await this.writeManifest(manifest, bundleFiles);
     return manifest['home-hero-carousel'];
   }
 
   private async readManifest(): Promise<SiteMaterialManifest> {
+    const remoteManifest = await readRemoteSiteMaterialManifest();
+    if (remoteManifest) return { ...DEFAULT_MANIFEST, ...remoteManifest } as SiteMaterialManifest;
     try {
       const manifest = JSON.parse(await readFile(this.manifestPath, 'utf8'));
       return { ...DEFAULT_MANIFEST, ...manifest };
@@ -254,8 +262,18 @@ export class SiteMaterialsService {
     }
   }
 
-  private async writeManifest(manifest: SiteMaterialManifest) {
+  private async writeManifest(
+    manifest: SiteMaterialManifest,
+    files: Array<{ path: string; mimeType: string; dataBase64: string }> = [],
+  ) {
+    if (siteMediaOriginEnabled()) {
+      await syncSiteMaterialBundle(manifest as Record<string, unknown>, files);
+      return;
+    }
     await mkdir(this.materialDir, { recursive: true });
+    for (const file of files) {
+      await writeFile(path.join(this.materialDir, file.path), Buffer.from(file.dataBase64, 'base64'));
+    }
     await writeFile(this.manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
   }
 
