@@ -1,0 +1,170 @@
+[
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "level": "L1",
+    "expected": 1200,
+    "actual": 350,
+    "diff": -850
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "level": "L1A",
+    "expected": 1900,
+    "actual": 550,
+    "diff": -1350
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "level": "L2",
+    "expected": 2600,
+    "actual": 850,
+    "diff": -1750
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "level": "L3",
+    "expected": 4100,
+    "actual": 850,
+    "diff": -3250
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "level": "L1",
+    "expected": 1200,
+    "actual": 1100,
+    "diff": -100
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "level": "L2",
+    "expected": 2600,
+    "actual": 1700,
+    "diff": -900
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "level": "L3",
+    "expected": 4100,
+    "actual": 1700,
+    "diff": -2400
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "level": "L4",
+    "expected": 5700,
+    "actual": 2900,
+    "diff": -2800
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "level": "L1",
+    "expected": 1200,
+    "actual": 1500,
+    "diff": 300
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "level": "L2",
+    "expected": 2600,
+    "actual": 1500,
+    "diff": -1100
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "level": "L3",
+    "expected": 4100,
+    "actual": 2100,
+    "diff": -2000
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "level": "L1",
+    "expected": 1200,
+    "actual": 0,
+    "diff": -1200
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "level": "L2",
+    "expected": 2600,
+    "actual": 0,
+    "diff": -2600
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "level": "L1",
+    "expected": 300,
+    "actual": 0,
+    "diff": -300
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "level": "L1",
+    "expected": 1200,
+    "actual": 1600,
+    "diff": 400
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "level": "L2",
+    "expected": 2600,
+    "actual": 1600,
+    "diff": -1000
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "level": "L3",
+    "expected": 5700,
+    "actual": 1600,
+    "diff": -4100
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "level": "L1",
+    "expected": 1200,
+    "actual": 0,
+    "diff": -1200
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "level": "L2",
+    "expected": 2600,
+    "actual": 0,
+    "diff": -2600
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "level": "L3",
+    "expected": 4100,
+    "actual": 150,
+    "diff": -3950
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "level": "L4",
+    "expected": 5700,
+    "actual": 300,
+    "diff": -5400
+  }
+]

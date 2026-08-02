@@ -1,0 +1,36 @@
+﻿
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.7 [39m[90mE:/Hermes[39m
+
+ [32m鉁?[39m tests/unit/p3-frontier.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+{"level":30,"time":"2026-08-01T23:33:41.633Z","service":"tandem","env":"test","name":"fake-live","transport":"http","toolCount":0,"msg":"[mcp-bridge] server registered (V1 stub)"}
+{"level":40,"time":"2026-08-01T23:33:41.694Z","service":"tandem","env":"test","checkId":"bg_msb0ce50_5d8cln","actor":"user_alice","intent":"瀹㈡埛鏁版嵁鍑哄","hits":1,"msg":"[baseline-guard] HARD_BLOCK"}
+{"level":30,"time":"2026-08-01T23:33:41.696Z","service":"tandem","env":"test","checkId":"bg_msb0ce67_msj9so","actor":"user_alice","hits":1,"msg":"[baseline-guard] SOFT_WARN"}
+{"level":40,"time":"2026-08-01T23:33:41.697Z","service":"tandem","env":"test","checkId":"bg_msb0ce69_g4zwt3","actor":"user_alice","intent":"瀹㈡埛鏁版嵁鍑哄","hits":1,"msg":"[baseline-guard] HARD_BLOCK"}
+{"level":30,"time":"2026-08-01T23:33:41.699Z","service":"tandem","env":"test","checkId":"bg_msb0ce6b_0zmb4q","actor":"user_alice","hits":1,"msg":"[baseline-guard] SOFT_WARN"}
+{"level":30,"time":"2026-08-01T23:33:41.700Z","service":"tandem","env":"test","checkId":"bg_msb0ce6c_8v8ogt","actor":"user_alice","hits":1,"msg":"[baseline-guard] SOFT_WARN"}
+{"level":30,"time":"2026-08-01T23:33:41.750Z","service":"tandem","env":"test","decisionId":"cbd_msb0ce7p_96o7a981","outcome":"adopted","by":"user_alice","brainVersion":1,"msg":"[company-brain-decision] feedback recorded"}
+{"level":30,"time":"2026-08-01T23:33:41.751Z","service":"tandem","env":"test","decisionId":"cbd_msb0ce7r_y85haesw","outcome":"overruled","by":"champion_bob","brainVersion":1,"msg":"[company-brain-decision] feedback recorded"}
+{"level":30,"time":"2026-08-01T23:33:41.752Z","service":"tandem","env":"test","decisionId":"cbd_msb0ce7s_so9vgr7c","outcome":"adopted","by":"u","brainVersion":1,"msg":"[company-brain-decision] feedback recorded"}
+{"level":30,"time":"2026-08-01T23:33:41.753Z","service":"tandem","env":"test","implicitAdopted":1,"ignored":0,"staleDays":7,"msg":"[company-brain-decision] stale decisions resolved (implicit-adopt + ignored)"}
+{"level":30,"time":"2026-08-01T23:33:41.754Z","service":"tandem","env":"test","implicitAdopted":0,"ignored":1,"staleDays":7,"msg":"[company-brain-decision] stale decisions resolved (implicit-adopt + ignored)"}
+{"level":30,"time":"2026-08-01T23:33:41.754Z","service":"tandem","env":"test","implicitAdopted":1,"ignored":0,"staleDays":7,"msg":"[company-brain-decision] stale decisions resolved (implicit-adopt + ignored)"}
+{"level":30,"time":"2026-08-01T23:33:41.754Z","service":"tandem","env":"test","decisionId":"cbd_msb0ce7u_mb8jsdv7","outcome":"adopted","by":"u","brainVersion":1,"msg":"[company-brain-decision] feedback recorded"}
+{"level":30,"time":"2026-08-01T23:33:41.768Z","service":"tandem","env":"test","decisionId":"cbd_msb0ce88_r4w6dyzg","outcome":"adopted","by":"u","brainVersion":1,"msg":"[company-brain-decision] feedback recorded"}
+{"level":30,"time":"2026-08-01T23:33:41.769Z","service":"tandem","env":"test","decisionId":"cbd_msb0ce88_q1w0gqlw","outcome":"overruled","by":"u","brainVersion":1,"msg":"[company-brain-decision] feedback recorded"}
+{"level":30,"time":"2026-08-01T23:33:42.282Z","service":"tandem","env":"test","id":"epi_msb0cemg_hix1cd","signal":"overruled","context":"im_reply","msg":"[reflection] episodic reflection recorded"}
+{"level":30,"time":"2026-08-01T23:33:42.282Z","service":"tandem","env":"test","id":"epi_msb0cemg_he897j","signal":"overruled","context":"im_reply","msg":"[reflection] episodic reflection recorded"}
+{"level":30,"time":"2026-08-01T23:33:42.331Z","service":"tandem","env":"test","id":"srpo_msb0cenv_f03605","context":"im_reply","keywords":["瀹㈡埛鎶曡瘔","杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅杩欏缓璁笉瀵硅繖寤鸿涓嶅"],"msg":"[srpo] correction patch generated"}
+{"level":30,"time":"2026-08-01T23:33:42.331Z","service":"tandem","env":"test","id":"srpo_msb0cenv_kia2tb","context":"im_reply","keywords":["no","good"],"msg":"[srpo] correction patch generated"}
+ [32m鉁?[39m tests/unit/im-seed-from-org.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 921[2mms[22m[39m
+     [33m[2m鉁?[22m[39m 鍏佽鏈?organization.manage 鏉冮檺鐨勮鑹插悓姝ョ粍缁囩兢 [33m 902[2mms[22m[39m
+{"level":40,"time":"2026-08-01T23:33:42.954Z","service":"tandem","env":"test","err":"Cannot read properties of undefined (reading 'list')","msg":"[company-brain] OKR anchor context failed"}
+{"level":40,"time":"2026-08-01T23:33:42.956Z","service":"tandem","env":"test","err":"Cannot read properties of undefined (reading 'list')","msg":"[company-brain] OKR anchor context failed"}
+ [32m鉁?[39m tests/unit/governed-chat.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1461[2mms[22m[39m
+     [33m[2m鉁?[22m[39m 娌荤悊鍚庣殑 systemPrompt 鐪熷嚭鐜板湪 LLM messages[0] (浼佷笟鍙楁帶澹版槑 + persona prompt) [33m 1070[2mms[22m[39m
+ [32m鉁?[39m tests/unit/shouchao-document-extract.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1291[2mms[22m[39m
+     [33m[2m鉁?[22m[39m 瑙ｆ瀽鐪熷疄 PDF (pdfjs-dist) [33m 1043[2mms[22m[39m
+ [32m鉁?[39m tests/unit/intranet-draft-visibility.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 1543[2mms[22m[39m
+     [33m[2m鉁?[22m[39m 鏅€氬憳宸?+ ?includeDrafts=1 鈫?浠嶅彧瑙佸凡鍙戝竷 (鑽夌琚繃婊? [33m 1058[2mms[22m[39m
+     [33m[2m鉁?[22m[39m 鍐呯綉鍐呭缂栬緫鍙敵璇?PDF 涓婁紶鍦板潃 [33m 407[2mms[22m[39m
+ [32m鉁?[39m tests/unit/permission-hardening.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1718[2mms[22m[39m
+     [33m[2m鉁?[22m[39m body.userId / body.tenantId 琚拷鐣? skill 鏀跺埌鐨?ctx 鏄壌鏉冭韩浠?[33m 1638[2mms[22m[39m
