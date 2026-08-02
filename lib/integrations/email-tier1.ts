@@ -533,3 +533,27 @@ export async function fetchAttachment(
     } finally { lock.release(); }
   } finally { await client.logout(); }
 }
+
+/**
+ * 快速获取收件箱未读数 (IMAP STATUS, 不拉正文/不加锁)。用于导航角标轮询。
+ */
+export async function getUnreadCount(
+  cred: EmailCredentials,
+  folder?: string
+): Promise<number> {
+  const client = new ImapFlow({
+    host: cred.imap.host, port: cred.imap.port,
+    secure: cred.imap.secure, auth: cred.imap.auth, logger: false,
+  });
+  try {
+    await client.connect();
+    const resolved = await resolveMailbox(client, folder ?? 'INBOX');
+    const status = await client.status(resolved, { unseen: true });
+    return status?.unseen ?? 0;
+  } catch (err) {
+    logger.warn({ err }, '[imap] get unread count failed');
+    return 0;
+  } finally {
+    await client.logout();
+  }
+}

@@ -65,6 +65,7 @@
 | `OWNERSHIP-SSOT-2026-05-31.md` | Ownership SSOT + Org 后端化 |
 | `ARCHITECTURE-BREAKDOWN.md` | Tandem 7 大思路功能+架构拆解 (实现轴) |
 | `STATE-OF-THE-CODE.md` | 代码现状 |
+| `STATE-OF-THE-CODE-2026-08.md` | 代码现状整合汇总 (2026-08 并行窗口错乱恢复 + 体系盘点 + 邮箱攻坚对账) |
 | `STORE-SLICE-PLAN-2026-05-31.md` | `lib/store.ts` 拆 slice 备忘 |
 
 ## 3. UI 设计
