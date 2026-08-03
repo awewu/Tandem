@@ -35,6 +35,7 @@ import {
   Clock3,
   CalendarDays,
   CalendarCheck,
+  CalendarRange,
   Users,
   Bot,
   Cpu,
@@ -167,6 +168,8 @@ export const NAV_MODULES: NavModule[] = [
       // 因日报是 KR check-in 输入会回填进度, 此处保留一个深链, 做 OKR 的人仍可直达.
       { name: '每日推进 (日报 / 周回顾)', href: '/report', icon: Clock3, group: '目标与关键成果法 OKR' },
       { name: '日报查看',          href: '/report/view',       icon: FileText,       group: '目标与关键成果法 OKR' },
+      { name: '周报回顾',          href: '/report/weekly',     icon: CalendarRange,   group: '目标与关键成果法 OKR' },
+      { name: '月报回顾',          href: '/report/monthly',    icon: CalendarDays,    group: '目标与关键成果法 OKR' },
       // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
       { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
