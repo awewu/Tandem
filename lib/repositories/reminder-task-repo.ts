@@ -15,4 +15,5 @@ export interface ReminderTaskRepository {
   listDue(nowIso: string, filter?: { tenantId?: string; userId?: string; limit?: number; maxRetryCount?: number }): Promise<ReminderTask[]>;
   claimDue(nowIso: string, filter?: { tenantId?: string; userId?: string; limit?: number; maxRetryCount?: number }): Promise<ReminderTask[]>;
   cancelBySource(tenantId: string, sourceType: string, sourceId: string): Promise<number>;
+  cancelBySourceIdsForUser(tenantId: string, sourceType: string, sourceIds: string[], userId: string): Promise<number>;
 }

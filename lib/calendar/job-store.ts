@@ -154,6 +154,15 @@ class CalendarJobStore {
   async markEmailSent(id: string): Promise<void> {
     await this.update(id, { emailSent: true });
   }
+
+  async repairCompletedNotificationStep(id: string): Promise<CalendarJob | null> {
+    const job = await this.get(id);
+    if (job?.status !== 'completed') return job;
+    const emailStep = job.steps.find((step) => step.key === 'sending_emails');
+    if (emailStep?.status !== 'in_progress') return job;
+    await this.markStep(id, 'sending_emails', 'done', '已移交后台投递，不影响日程创建');
+    return this.get(id);
+  }
 }
 
 // Singleton wrapper on globalThis to survive Next.js dev HMR. Data itself is

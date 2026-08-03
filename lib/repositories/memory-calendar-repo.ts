@@ -19,6 +19,28 @@ export class InMemoryCalendarEventRepository implements CalendarEventRepository 
     Object.assign(event, patch);
     return event;
   }
+  async removeAttendeeFromEvents(eventIds: string[], userId: string, attendeeEmail?: string): Promise<CalendarEvent[]> {
+    const ids = new Set(eventIds);
+    const email = attendeeEmail?.trim().toLowerCase();
+    const updated: CalendarEvent[] = [];
+    for (const event of Array.from(this.data.values())) {
+      if (!ids.has(event.id)) continue;
+      const next = {
+        ...event,
+        attendees: (event.attendees ?? []).filter((attendeeId) => attendeeId !== userId),
+        attendeeEmails: email
+          ? (event.attendeeEmails ?? []).filter((value) => value.trim().toLowerCase() !== email)
+          : event.attendeeEmails ?? [],
+        externalAttendeeEmails: email
+          ? (event.externalAttendeeEmails ?? []).filter((value) => value.trim().toLowerCase() !== email)
+          : event.externalAttendeeEmails ?? [],
+        updatedAt: new Date().toISOString(),
+      };
+      this.data.set(event.id, next);
+      updated.push(next);
+    }
+    return updated.sort((a, b) => a.startAt.localeCompare(b.startAt));
+  }
   async findBySeries(seriesId: string): Promise<CalendarEvent[]> {
     return Array.from(this.data.values())
       .filter((event) => event.seriesId === seriesId)

@@ -26,7 +26,7 @@ import type { IntranetPost } from '../types/intranet-post';
 import type { Kpi } from '../types/kpi';
 
 const TENANT = 'default';
-const DEMO_PASSWORD = 'Everhot@2026'; // 10+ 大小写+数字+符号, 满足 password 策略
+const DEMO_PASSWORD = 'Everhot@2026'; // 7+ 大小写+数字, 满足 password 策略
 const DOMAIN = 'everhot.com.cn';
 const DAY = 86_400_000;
 const ago = (d: number) => new Date(Date.now() - d * DAY).toISOString();

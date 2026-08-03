@@ -157,7 +157,8 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
     if (ch.archivedAt) continue;
     // Tenant isolation: drop channels from other tenants.
     if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
-    result.push({ ...ch, unread: m.unreadCount, membership: m });
+    const reconciled = await reconcileChannelListState(ch, m);
+    result.push({ ...reconciled.channel, unread: reconciled.membership.unreadCount, membership: reconciled.membership });
   }
   // pinnedChat 置顶, 其次按最后消息时间倒序
   result.sort((a, b) => {
@@ -183,12 +184,10 @@ export async function getChannelMessages(
   options: { limit?: number; before?: string } = {}
 ): Promise<ImMessage[]> {
   const store = getStore();
-  // 下推到存储层: 频道 + 排除软删 + createdAt 游标 + 取最新 N 条 (升序返回).
-  // 旧实现把整个频道历史全量读入内存再 JS 过滤/切片 (每频道 O(N)).
-  return store.imMessages.listByChannel(channelId, {
-    limit: options.limit ?? 100,
-    before: options.before,
-  });
+  const all = await store.imMessages.list({ channelId });
+  let messages = all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (options.before) messages = messages.filter((message) => message.createdAt < options.before!);
+  return messages.slice(-(options.limit ?? 100));
 }
 
 /**
@@ -480,6 +479,109 @@ export async function markChannelRead(
 
 const RECALL_WINDOW_MS = 2 * 60 * 1000; // 2 分钟内可撤回
 
+async function reconcileChannelListState(
+  channel: ImChannel,
+  membership: ImMembership,
+): Promise<{ channel: ImChannel; membership: ImMembership }> {
+  const store = getStore();
+  const messages = await store.imMessages.list({ channelId: channel.id });
+  const orderedMessages = messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const visibleMessages = orderedMessages.filter((message) => !message.deletedAt);
+  const latestMessage = orderedMessages.at(-1);
+  const latestVisibleMessage = visibleMessages.at(-1);
+  const readAfter = membership.lastReadAt ?? membership.joinedAt;
+  const unreadMessages = visibleMessages.filter((message) => {
+    if (membership.lastReadAt ? message.createdAt <= readAfter : message.createdAt < readAfter) return false;
+    if (message.senderKind === 'user' && message.senderId === membership.userId) return false;
+    return true;
+  });
+  const unreadCount = unreadMessages.length;
+  const hasUnreadMention = unreadMessages.some((message) =>
+    message.mentions.some((mention) => mention.userId === membership.userId),
+  );
+
+  let nextMembership = membership;
+  if (
+    membership.unreadCount !== unreadCount ||
+    Boolean(membership.hasUnreadMention) !== hasUnreadMention
+  ) {
+    nextMembership = await store.imMemberships.update(membership.id, {
+      unreadCount,
+      hasUnreadMention,
+    });
+    broadcast({ type: 'unread_changed', channelId: channel.id, userId: membership.userId, unread: unreadCount });
+  }
+
+  let nextChannel = channel;
+  if (latestMessage) {
+    const expectedPreview = latestMessage.deletedAt
+      ? '一条消息已撤回'
+      : extractPreview(latestMessage.body);
+    const expectedLastMessageAt = latestMessage.createdAt;
+    if (
+      channel.lastMessagePreview !== expectedPreview ||
+      channel.lastMessageAt !== expectedLastMessageAt
+    ) {
+      nextChannel = await store.imChannels.update(channel.id, {
+        lastMessagePreview: expectedPreview,
+        lastMessageAt: expectedLastMessageAt,
+        updatedAt: new Date().toISOString(),
+      });
+      broadcast({ type: 'channel_updated', channelId: channel.id, channel: nextChannel });
+    }
+  } else if (!latestVisibleMessage && channel.lastMessagePreview) {
+    nextChannel = await store.imChannels.update(channel.id, {
+      lastMessagePreview: undefined,
+      updatedAt: new Date().toISOString(),
+    });
+    broadcast({ type: 'channel_updated', channelId: channel.id, channel: nextChannel });
+  }
+
+  return { channel: nextChannel, membership: nextMembership };
+}
+
+async function recomputeChannelUnreadState(channel: ImChannel): Promise<void> {
+  const store = getStore();
+  const messages = await store.imMessages.list({ channelId: channel.id });
+  const visibleMessages = messages
+    .filter((message) => !message.deletedAt)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  for (const userId of channel.memberIds) {
+    const membership = await store.imMemberships.get(membershipKey(channel.id, userId));
+    if (!membership) continue;
+    const readAfter = membership.lastReadAt ?? membership.joinedAt;
+    const unreadMessages = visibleMessages.filter((message) => {
+      if (membership.lastReadAt ? message.createdAt <= readAfter : message.createdAt < readAfter) return false;
+      if (message.senderKind === 'user' && message.senderId === userId) return false;
+      return true;
+    });
+    const unread = unreadMessages.length;
+    const hasUnreadMention = unreadMessages.some((message) =>
+      message.mentions.some((mention) => mention.userId === userId),
+    );
+    if (membership.unreadCount === unread && Boolean(membership.hasUnreadMention) === hasUnreadMention) {
+      continue;
+    }
+    await store.imMemberships.update(membership.id, { unreadCount: unread, hasUnreadMention });
+    broadcast({ type: 'unread_changed', channelId: channel.id, userId, unread });
+  }
+}
+
+async function refreshChannelLastMessage(channel: ImChannel, fallbackPreview: string): Promise<void> {
+  const store = getStore();
+  const messages = await store.imMessages.list({ channelId: channel.id });
+  const latest = messages
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .at(-1);
+  const updated = await store.imChannels.update(channel.id, {
+    lastMessageAt: latest?.createdAt ?? channel.lastMessageAt,
+    lastMessagePreview: latest ? (latest.deletedAt ? fallbackPreview : extractPreview(latest.body)) : fallbackPreview,
+    updatedAt: new Date().toISOString(),
+  });
+  broadcast({ type: 'channel_updated', channelId: channel.id, channel: updated });
+}
+
 /** 撤回消息 (仅本人 + 2 分钟内, owner/admin 任何时候可撤) */
 export async function recallMessage(
   messageId: string,
@@ -488,7 +590,6 @@ export async function recallMessage(
   const store = getStore();
   const msg = await store.imMessages.get(messageId);
   if (!msg) throw new Error('message not found');
-  if (msg.deletedAt) return msg;
 
   const channel = await store.imChannels.get(msg.channelId);
   if (!channel) throw new Error('channel gone');
@@ -504,6 +605,12 @@ export async function recallMessage(
   }
 
   const now = new Date().toISOString();
+  if (msg.deletedAt) {
+    await recomputeChannelUnreadState(channel);
+    await refreshChannelLastMessage(channel, '一条消息已撤回');
+    return msg;
+  }
+
   const updated = await store.imMessages.update(messageId, {
     deletedAt: now,
     body: '',
@@ -512,6 +619,9 @@ export async function recallMessage(
 
   // §Sprint1 IM 搜索: 撤回后移除向量, 防召回已撤回消息
   unindexMessage(messageId);
+
+  await recomputeChannelUnreadState(channel);
+  await refreshChannelLastMessage(channel, '一条消息已撤回');
 
   broadcast({ type: 'message_updated', channelId: channel.id, message: updated });
   return updated;

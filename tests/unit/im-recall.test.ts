@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createChannel, recallMessage, sendMessage } from '@/lib/im/service';
+import { createChannel, getChannelMessages, listMyChannels, recallMessage, sendMessage } from '@/lib/im/service';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
-import { setStore } from '@/lib/storage/repository';
+import { getStore, setStore } from '@/lib/storage/repository';
 
 beforeEach(() => {
   setStore(createInMemoryStore());
@@ -30,5 +30,75 @@ describe('IM recall', () => {
     expect(second.id).toBe(first.id);
     expect(second.deletedAt).toBe(first.deletedAt);
     expect(second.body).toBe('');
+  });
+
+  it('shows the recall placeholder and removes the recalled message from unread state', async () => {
+    const channel = await createChannel({
+      type: 'group',
+      name: '项目群',
+      memberIds: ['sender-1', 'reader-1'],
+      createdBy: 'sender-1',
+      tenantId: 'tenant-1',
+    });
+    const message = await sendMessage({
+      channelId: channel.id,
+      senderId: 'sender-1',
+      body: '这里选不了月 @[读者](reader-1:consult)',
+    });
+
+    let readerChannels = await listMyChannels('reader-1', 'tenant-1');
+    expect(readerChannels[0].unread).toBe(1);
+    expect(readerChannels[0].lastMessagePreview).toContain('这里选不了月');
+
+    await recallMessage(message.id, 'sender-1');
+
+    const messages = await getChannelMessages(channel.id);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      id: message.id,
+      body: '',
+    });
+    expect(messages[0].deletedAt).toBeDefined();
+
+    readerChannels = await listMyChannels('reader-1', 'tenant-1');
+    expect(readerChannels[0].unread).toBe(0);
+    expect(readerChannels[0].membership.hasUnreadMention).toBe(false);
+    expect(readerChannels[0].lastMessagePreview).toBe('一条消息已撤回');
+    expect(readerChannels[0].lastMessagePreview).not.toContain('这里选不了月');
+  });
+
+  it('repairs stale unread and preview state for messages recalled before the fix', async () => {
+    const channel = await createChannel({
+      type: 'group',
+      name: '项目群',
+      memberIds: ['sender-1', 'reader-1'],
+      createdBy: 'sender-1',
+      tenantId: 'tenant-1',
+    });
+    const message = await sendMessage({
+      channelId: channel.id,
+      senderId: 'sender-1',
+      body: '123 @[读者](reader-1:consult)',
+    });
+    const store = getStore();
+    await store.imMessages.update(message.id, {
+      deletedAt: new Date().toISOString(),
+      body: '',
+    });
+
+    let readerChannels = await listMyChannels('reader-1', 'tenant-1');
+    expect(readerChannels[0].unread).toBe(0);
+    expect(readerChannels[0].membership.hasUnreadMention).toBe(false);
+    expect(readerChannels[0].lastMessagePreview).toBe('一条消息已撤回');
+    expect(readerChannels[0].lastMessagePreview).not.toContain('123');
+
+    const repairedChannel = await store.imChannels.get(channel.id);
+    const repairedMembership = await store.imMemberships.get(`${channel.id}:reader-1`);
+    expect(repairedChannel?.lastMessagePreview).toBe('一条消息已撤回');
+    expect(repairedMembership?.unreadCount).toBe(0);
+    expect(repairedMembership?.hasUnreadMention).toBe(false);
+
+    readerChannels = await listMyChannels('reader-1', 'tenant-1');
+    expect(readerChannels[0].lastMessagePreview).toBe('一条消息已撤回');
   });
 });

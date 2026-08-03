@@ -42,13 +42,13 @@ function RegisterInner() {
   useEffect(() => {
     let s = 0;
     const hints: string[] = [];
+    if (password.length >= 7) s++;
+    else hints.push('至少 7 字符');
     if (password.length >= 10) s++;
-    else hints.push('至少 10 字符');
-    if (password.length >= 14) s++;
     if (/[A-Z]/.test(password) && /[a-z]/.test(password)) s++;
     else hints.push('需要大小写字母');
-    if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) s++;
-    else hints.push('需要数字 + 特殊字符');
+    if (/\d/.test(password)) s++;
+    else hints.push('需要数字');
     setStrength(s);
     setStrengthHint(hints);
   }, [password]);
@@ -131,7 +131,7 @@ function RegisterInner() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="flex-1 bg-transparent outline-none"
-                placeholder="至少 10 字符, 含大小写+数字+符号"
+                placeholder="至少 7 字符, 含大小写+数字"
               />
             </Field>
 

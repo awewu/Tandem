@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useCalendarStore, type EventInstance, fmtTime } from '@/lib/store/calendar';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -195,18 +195,19 @@ function EventPill({
     <button
       type="button"
       className={cn(
-        'w-full min-w-0 text-left transition-opacity hover:opacity-85',
+        'w-full min-w-0 text-left transition-colors hover:bg-opacity-90',
         expanded
           ? 'rounded-lg border px-2.5 py-2 shadow-soft-xs'
-          : 'rounded-md px-1 py-0.5 text-[10px] shadow-[inset_2px_0_0_rgba(255,255,255,0.45)] sm:rounded sm:px-1.5',
+          : 'rounded-md border px-1 py-0.5 text-[10px] sm:rounded sm:px-1.5',
         event.status === 'cancelled' && 'opacity-40 line-through',
         className,
       )}
       style={{
-        backgroundColor: expanded ? meta.softBg : meta.bg,
+        backgroundColor: meta.softBg,
         borderColor: meta.border,
-        color: expanded ? meta.text : 'rgb(255,255,255)',
-      }}
+        color: meta.text,
+        boxShadow: expanded ? undefined : `inset 2px 0 0 ${meta.bg}`,
+      } as CSSProperties}
       onClick={(e) => {
         e.stopPropagation();
         onClick(event);
@@ -220,7 +221,7 @@ function EventPill({
           )}
           style={{
             backgroundColor: expanded ? meta.bg : 'rgba(255,255,255,0.24)',
-            color: 'rgb(255,255,255)',
+            color: expanded ? 'rgb(255,255,255)' : meta.text,
           }}
         >
           {meta.badge}

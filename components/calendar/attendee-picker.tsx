@@ -30,6 +30,10 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
   const [search, setSearch] = useState('');
   const [options, setOptions] = useState<AttendeeOption[]>([]);
   const [totalOptions, setTotalOptions] = useState(0);
+  const [knownOptions, setKnownOptions] = useState<AttendeeOption[]>([]);
+  const [inlineOptions, setInlineOptions] = useState<AttendeeOption[]>([]);
+  const [inlineLoading, setInlineLoading] = useState(false);
+  const [inlineFocused, setInlineFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,8 +61,10 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error?.message ?? data.error ?? '联系人加载失败');
-        setOptions(Array.isArray(data.users) ? data.users : []);
-        setTotalOptions(typeof data.total === 'number' ? data.total : Array.isArray(data.users) ? data.users.length : 0);
+        const users = Array.isArray(data.users) ? data.users : [];
+        setOptions(users);
+        setKnownOptions((current) => mergeOptions(current, users));
+        setTotalOptions(typeof data.total === 'number' ? data.total : users.length);
       } catch (err) {
         if (controller.signal.aborted) return;
         setOptions([]);
@@ -74,11 +80,46 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
     };
   }, [open, search]);
 
+  useEffect(() => {
+    const keyword = inputValue.trim();
+    if (!inlineFocused || keyword.length < 2) {
+      setInlineOptions([]);
+      setInlineLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setInlineLoading(true);
+      try {
+        const params = new URLSearchParams({ limit: '8', q: keyword });
+        const res = await fetch(`/api/calendar/attendees?${params}`, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error?.message ?? data.error ?? '联系人查询失败');
+        const users = Array.isArray(data.users) ? data.users : [];
+        setInlineOptions(users);
+        setKnownOptions((current) => mergeOptions(current, users));
+      } catch {
+        if (!controller.signal.aborted) setInlineOptions([]);
+      } finally {
+        if (!controller.signal.aborted) setInlineLoading(false);
+      }
+    }, 180);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [inlineFocused, inputValue]);
+
   const optionByEmail = useMemo(() => {
     const map = new Map<string, AttendeeOption>();
+    knownOptions.forEach((option) => map.set(normalizeEmail(option.email), option));
     options.forEach((option) => map.set(normalizeEmail(option.email), option));
+    inlineOptions.forEach((option) => map.set(normalizeEmail(option.email), option));
     return map;
-  }, [options]);
+  }, [inlineOptions, knownOptions, options]);
 
   const inlinePlaceholder = selectedEmails.length > 0 ? '继续添加成员邮箱' : '请输入成员名称或邮箱';
   const canAddInlineEmail = EMAIL_PATTERN.test(normalizeEmail(inputValue));
@@ -88,11 +129,19 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
     onChange(normalizeEmails(next));
   }
 
+  function addInlineOption(option: AttendeeOption) {
+    setKnownOptions((current) => mergeOptions(current, [option]));
+    applyEmails([...selectedEmails, option.email]);
+    setInputValue('');
+    setInlineOptions([]);
+  }
+
   function addInlineEmail() {
     const email = normalizeEmail(inputValue);
     if (!EMAIL_PATTERN.test(email)) return;
     applyEmails([...selectedEmails, email]);
     setInputValue('');
+    setInlineOptions([]);
   }
 
   function removeEmail(email: string) {
@@ -122,7 +171,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
     <div className="space-y-2">
       <div className={showLabel ? 'flex items-center gap-3' : 'block'}>
         {showLabel && <div className="w-10 shrink-0 text-body font-medium text-ink-primary">成员</div>}
-        <div className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand-300/40">
+        <div className="relative min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-brand-300/40">
           <div className="flex min-h-8 flex-wrap items-center gap-1.5">
             {selectedEmails.length > 0 && (
               <div className="contents">
@@ -147,18 +196,32 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
             <input
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
+              onFocus={() => setInlineFocused(true)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ',') {
                   event.preventDefault();
+                  const firstOption = inlineOptions.find((option) => !selectedEmails.includes(normalizeEmail(option.email)));
+                  if (firstOption) {
+                    addInlineOption(firstOption);
+                    return;
+                  }
                   addInlineEmail();
+                } else if (event.key === 'Escape') {
+                  setInlineOptions([]);
                 }
               }}
-              onBlur={addInlineEmail}
+              onBlur={() => {
+                window.setTimeout(() => {
+                  setInlineFocused(false);
+                  setInlineOptions([]);
+                  addInlineEmail();
+                }, 120);
+              }}
               placeholder={inlinePlaceholder}
               className="min-w-[150px] flex-[1_0_160px] border-0 bg-transparent px-1 text-caption outline-none placeholder:text-muted-foreground"
             />
             {inputValue.trim() && !canAddInlineEmail && (
-              <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">回车添加邮箱</span>
+              <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">输入姓名或邮箱查询</span>
             )}
             <Button
               type="button"
@@ -172,6 +235,57 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
               <Contact className="h-4 w-4" />
             </Button>
           </div>
+          {inlineFocused && inputValue.trim().length >= 2 && (
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-lg border bg-background shadow-soft-lg">
+              {inlineLoading ? (
+                <div className="flex items-center gap-2 px-3 py-2 text-caption text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  正在查询人员...
+                </div>
+              ) : inlineOptions.length > 0 ? (
+                <div className="max-h-56 overflow-y-auto p-1">
+                  {inlineOptions.map((option) => {
+                    const email = normalizeEmail(option.email);
+                    const selected = selectedEmails.includes(email);
+                    return (
+                      <button
+                        key={option.id || email}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors',
+                          selected ? 'cursor-default bg-muted text-muted-foreground' : 'hover:bg-brand-50 hover:text-brand-700',
+                        )}
+                        disabled={selected}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => addInlineOption(option)}
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-medium text-brand-700">
+                          {initials(option.name || option.email)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-caption font-medium">{option.name || option.email}</span>
+                          <span className="block truncate text-[11px] text-muted-foreground">{option.email}</span>
+                        </span>
+                        {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : canAddInlineEmail ? (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-caption text-brand-700 hover:bg-brand-50"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={addInlineEmail}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  添加外部联系人：{normalizeEmail(inputValue)}
+                </button>
+              ) : (
+                <div className="px-3 py-2 text-caption text-muted-foreground">未找到匹配人员</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -329,6 +443,13 @@ function normalizeEmail(email: string): string {
 
 function normalizeEmails(emails: string[]): string[] {
   return Array.from(new Set(emails.map(normalizeEmail).filter(Boolean)));
+}
+
+function mergeOptions(current: AttendeeOption[], incoming: AttendeeOption[]): AttendeeOption[] {
+  const byEmail = new Map<string, AttendeeOption>();
+  current.forEach((option) => byEmail.set(normalizeEmail(option.email), option));
+  incoming.forEach((option) => byEmail.set(normalizeEmail(option.email), option));
+  return Array.from(byEmail.values());
 }
 
 function displayName(email: string, optionByEmail: Map<string, AttendeeOption>): string {

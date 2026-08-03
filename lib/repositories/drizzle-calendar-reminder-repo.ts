@@ -59,6 +59,13 @@ export class DrizzleCalendarReminderRepository implements CalendarReminderReposi
       .where(and(inArray(table.eventId, eventIds), eq(table.status, 'pending')));
   }
 
+  async cancelByEventIdsForUser(eventIds: string[], userId: string): Promise<void> {
+    if (eventIds.length === 0) return;
+    await db.update(table)
+      .set({ status: 'cancelled', updatedAt: new Date() })
+      .where(and(inArray(table.eventId, eventIds), eq(table.userId, userId), eq(table.status, 'pending')));
+  }
+
   async markFired(taskId: string, firedAt: string): Promise<CalendarReminderTask> {
     const [row] = await db.update(table)
       .set({ status: 'fired', firedAt: new Date(firedAt), updatedAt: new Date(firedAt) })
@@ -67,4 +74,3 @@ export class DrizzleCalendarReminderRepository implements CalendarReminderReposi
     return toDomain(row);
   }
 }
-

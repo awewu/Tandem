@@ -57,16 +57,21 @@ function SubSidebarInner() {
   const [resizingIm, setResizingIm] = useState(false);
   // Hydrate collapse pref from localStorage (client-only)
   useEffect(() => {
+    let storedOpen = true;
     try {
       const v = window.localStorage.getItem(STORAGE_KEY);
-      if (v === '0') setOpen(false);
+      storedOpen = v !== '0';
+      setOpen(storedOpen);
     } catch {
       /* no-op */
     }
     try {
       const storedWidth = Number(window.localStorage.getItem(IM_WIDTH_KEY));
       if (Number.isFinite(storedWidth)) {
-        setImWidth(Math.min(IM_SIDEBAR_MAX_WIDTH, Math.max(IM_SIDEBAR_COLLAPSED_WIDTH, storedWidth)));
+        const nextWidth = Math.min(IM_SIDEBAR_MAX_WIDTH, Math.max(IM_SIDEBAR_COLLAPSED_WIDTH, storedWidth));
+        setImWidth(storedOpen && nextWidth <= IM_SIDEBAR_COLLAPSE_THRESHOLD
+          ? IM_SIDEBAR_DEFAULT_WIDTH
+          : nextWidth);
       }
     } catch {
       /* no-op */

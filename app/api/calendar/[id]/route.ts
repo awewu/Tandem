@@ -43,8 +43,22 @@ const DELETEApiHandler = withErrorHandler(async (req: NextRequest, { params }: R
   if (auth instanceof NextResponse) return auth;
   const body = await req.json().catch(() => ({}));
   const service = createCalendarService(auth.userId);
-  const events = await service.cancelManaged(params.id, auth.userId, scopeOf(body.scope), auth.email, { notify: 'background' });
-  return NextResponse.json({ events, warnings: service.getDeliveryWarnings() });
+  const event = await service.getById(params.id);
+  if (body.action === 'leave' && body.async === true) {
+    if (!event) {
+      return NextResponse.json({ error: { message: '日程不存在' } }, { status: 404 });
+    }
+    if (event.ownerId === auth.userId) {
+      return NextResponse.json({ error: { message: '创建人不能退出自己创建的日程' } }, { status: 403 });
+    }
+    const scope = scopeOf(body.scope);
+    void service.leaveManaged(params.id, auth.userId, scope, auth.email, { sideEffects: 'background' }).catch(() => undefined);
+    return NextResponse.json({ action: 'left', accepted: true, eventId: params.id, scope }, { status: 202 });
+  }
+  const events = event?.ownerId === auth.userId && body.action !== 'leave'
+    ? await service.cancelManaged(params.id, auth.userId, scopeOf(body.scope), auth.email, { notify: 'background' })
+    : await service.leaveManaged(params.id, auth.userId, scopeOf(body.scope), auth.email, { sideEffects: 'background' });
+  return NextResponse.json({ action: event?.ownerId === auth.userId && body.action !== 'leave' ? 'cancelled' : 'left', events, warnings: service.getDeliveryWarnings() });
 });
 
 export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/calendar/[id]' });

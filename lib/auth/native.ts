@@ -240,14 +240,11 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   const mfa = await userStore.findMfaSecret(user.id);
   const requiresMfa = !!mfa;
 
-  // P0-4 (LAUNCH-200): 特权角色 (owner/admin/steward) 未启用 MFA 时强制启用门.
-  //   生产 (NODE_ENV=production) 默认开启; 可用 REQUIRE_MFA_FOR_PRIVILEGED=0 关闭 (不建议).
-  //   非生产默认关闭; REQUIRE_MFA_FOR_PRIVILEGED=1 显式开启.
+  // P0-4 (LAUNCH-200): 特权角色 (owner/admin/steward) 未启用 MFA 时可强制启用门.
+  //   初期不露出 MFA UI, 因此强制门默认关闭; 仅 REQUIRE_MFA_FOR_PRIVILEGED=1 时开启.
   const userRoles = user.roles ?? [];
   const isPrivileged = userRoles.some((r) => DATA_STEWARD_ROLES.includes(r as never));
-  const mfaForcedOn =
-    process.env.REQUIRE_MFA_FOR_PRIVILEGED === '1' ||
-    (process.env.NODE_ENV === 'production' && process.env.REQUIRE_MFA_FOR_PRIVILEGED !== '0');
+  const mfaForcedOn = process.env.REQUIRE_MFA_FOR_PRIVILEGED === '1';
   const mfaEnrollmentRequired = isPrivileged && !mfa && mfaForcedOn;
 
   const session = await issueSessionForUser(user, !requiresMfa, input.deviceInfo, mfaEnrollmentRequired, input.longSession);

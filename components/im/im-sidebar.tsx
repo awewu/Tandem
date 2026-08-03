@@ -336,7 +336,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full w-full min-w-0 flex-col">
       {/* 顶栏: 标题 + 新建 */}
       <div className="flex shrink-0 items-center justify-between px-3 pb-2 pt-1">
         <span className="text-[13px] font-semibold text-ink-primary">

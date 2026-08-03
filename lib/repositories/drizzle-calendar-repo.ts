@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, sql, asc, arrayContains } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, asc, arrayContains, inArray } from 'drizzle-orm';
 import { db, schema } from '@/lib/infra/drizzle-client';
 import type { CalendarEventRepository } from './calendar-repo';
 import type { CalendarEvent } from '@/lib/types/feishu-catchup';
@@ -121,6 +121,31 @@ export class DrizzleCalendarEventRepository implements CalendarEventRepository {
       .where(eq(t.id, id))
       .returning();
     return toDomain(row);
+  }
+
+  async removeAttendeeFromEvents(eventIds: string[], userId: string, attendeeEmail?: string): Promise<CalendarEvent[]> {
+    if (eventIds.length === 0) return [];
+    const normalizedEmail = attendeeEmail?.trim().toLowerCase();
+    const [attendees, attendeeEmails, externalAttendeeEmails] = [
+      sql<string[]>`array_remove(coalesce(${t.attendees}, ARRAY[]::text[]), ${userId})`,
+      normalizedEmail
+        ? sql<string[]>`array_remove(coalesce(${t.attendeeEmails}, ARRAY[]::text[]), ${normalizedEmail})`
+        : undefined,
+      normalizedEmail
+        ? sql<string[]>`array_remove(coalesce(${t.externalAttendeeEmails}, ARRAY[]::text[]), ${normalizedEmail})`
+        : undefined,
+    ];
+    const rows = await db
+      .update(t)
+      .set({
+        attendees,
+        attendeeEmails,
+        externalAttendeeEmails,
+        updatedAt: new Date(),
+      })
+      .where(inArray(t.id, eventIds))
+      .returning();
+    return rows.map(toDomain).sort((a, b) => a.startAt.localeCompare(b.startAt));
   }
 
   async findBySeries(seriesId: string): Promise<CalendarEvent[]> {

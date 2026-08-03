@@ -87,4 +87,23 @@ export class InMemoryReminderTaskRepository implements ReminderTaskRepository {
     }
     return count;
   }
+
+  async cancelBySourceIdsForUser(tenantId: string, sourceType: string, sourceIds: string[], userId: string): Promise<number> {
+    const ids = new Set(sourceIds);
+    let count = 0;
+    const nowIso = new Date().toISOString();
+    for (const task of Array.from(this.data.values())) {
+      if (
+        task.tenantId === tenantId &&
+        task.sourceType === sourceType &&
+        task.userId === userId &&
+        ids.has(task.sourceId) &&
+        ['pending', 'processing', 'failed'].includes(task.status)
+      ) {
+        this.data.set(task.id, { ...task, status: 'cancelled', processingAt: null, updatedAt: nowIso });
+        count += 1;
+      }
+    }
+    return count;
+  }
 }

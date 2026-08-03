@@ -33,6 +33,7 @@ import CalendarSubscriptionPanel from '@/components/calendar/subscription-panel'
 import UpcomingEvents from '@/components/calendar/upcoming-events';
 
 type ViewMode = 'month' | 'week' | 'day';
+type LeaveScope = 'single' | 'series';
 
 const CALENDAR_REQUEST_TIMEOUT_MS = 15_000;
 const CALENDAR_SYNC_TIMEOUT_MS = 45_000;
@@ -94,7 +95,7 @@ interface NeteaseCalendarSyncStatus {
 
 export default function CalendarPage() {
   const {
-    calendars, events, toggleCalendarVisibility, replaceManagedEvents, replaceOkrEvents,
+    calendars, events, toggleCalendarVisibility, replaceManagedEvents, replaceOkrEvents, deleteEvent,
   } = useCalendarStore();
   const { user } = useCurrentUser();
   const legacyCurrentUserId = useCurrentUserId();
@@ -138,6 +139,8 @@ export default function CalendarPage() {
   const [neteaseSyncError, setNeteaseSyncError] = useState('');
   const [neteaseCredentialGuideOpen, setNeteaseCredentialGuideOpen] = useState(false);
   const [neteaseSyncStatus, setNeteaseSyncStatus] = useState<NeteaseCalendarSyncStatus | null>(null);
+  const [leaveDialog, setLeaveDialog] = useState<{ event: CalendarEvent; detail: string } | null>(null);
+  const [leaveBusy, setLeaveBusy] = useState(false);
   const primaryCalendars = useMemo(() => calendars.filter((calendar) => calendar.id !== 'cal-subscribed'), [calendars]);
   const subscribedCalendar = useMemo(() => calendars.find((calendar) => calendar.id === 'cal-subscribed'), [calendars]);
   const neteaseSubscribedCalendarNames = useMemo(() => {
@@ -328,7 +331,8 @@ export default function CalendarPage() {
   const handleEventClick = (instance: EventInstance) => {
     const event = events.find((item) => item.id === instance.eventId);
     if (event?.serverManaged && event.createdBy !== user?.id) {
-      alert([
+      const isAttendee = isCurrentUserEventAttendee(event, user);
+      const detail = [
         event.title,
         `${new Date(event.startTime).toLocaleString('zh-CN')} - ${new Date(event.endTime).toLocaleString('zh-CN')}`,
         event.location,
@@ -338,13 +342,51 @@ export default function CalendarPage() {
         event.reminders?.length ? `提醒: ${describeReminder(event.reminders[0].minutesBefore)}` : '提醒: 无',
         event.recurrenceRule ? `重复: ${describeRecurrence(event.recurrenceRule)}` : '重复: 不重复',
         event.hasConflict ? '时间冲突' : '',
-      ].filter(Boolean).join('\n'));
+      ].filter(Boolean).join('\n');
+      if (isAttendee && isRecurringCalendarEvent(event)) {
+        setLeaveDialog({ event, detail });
+      } else if (isAttendee && confirm(`${detail}\n\n你是参会人，是否退出这个日程？`)) {
+        void handleLeaveEvent(event, 'single');
+      } else if (!isAttendee) {
+        alert(detail);
+      }
       return;
     }
     setEditorEventId(instance.eventId);
     setEditorDate(undefined);
     setEditorOpen(true);
   };
+
+  async function handleLeaveEvent(event: CalendarEvent, scope: LeaveScope) {
+    setLeaveBusy(true);
+    removeLeftEventLocally(event, scope);
+    setLeaveDialog(null);
+    setLeaveBusy(false);
+    try {
+      const response = await fetch(`/api/calendar/${event.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'leave', scope, async: true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '退出日程失败');
+      void refreshManagedEvents().catch(() => undefined);
+    } catch (error) {
+      void refreshManagedEvents().catch(() => undefined);
+      alert(error instanceof Error ? error.message : '退出日程失败');
+    }
+  }
+
+  function removeLeftEventLocally(event: CalendarEvent, scope: LeaveScope) {
+    if (scope === 'series' && event.seriesId) {
+      events
+        .filter((item) => item.seriesId === event.seriesId)
+        .forEach((item) => deleteEvent(item.id));
+      return;
+    }
+    deleteEvent(event.id);
+  }
 
   const handleCellClick = (date: Date) => {
     if (new Date(date).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)) return;
@@ -895,6 +937,52 @@ export default function CalendarPage() {
         onSaved={refreshManagedEvents}
       />
 
+      <Dialog open={Boolean(leaveDialog)} onOpenChange={(open) => {
+        if (!open && !leaveBusy) setLeaveDialog(null);
+      }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>退出日程</DialogTitle>
+            <DialogDescription>
+              这是一个重复日程，请选择退出范围。
+            </DialogDescription>
+          </DialogHeader>
+          {leaveDialog && (
+            <div className="space-y-4">
+              <div className="rounded-md border bg-muted/20 p-3 text-caption text-ink-secondary whitespace-pre-line">
+                {leaveDialog.detail}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLeaveDialog(null)}
+                  disabled={leaveBusy}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleLeaveEvent(leaveDialog.event, 'single')}
+                  disabled={leaveBusy}
+                >
+                  仅退出本次
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-danger hover:bg-danger/90 text-white"
+                  onClick={() => void handleLeaveEvent(leaveDialog.event, 'series')}
+                  disabled={leaveBusy}
+                >
+                  {leaveBusy ? '退出中...' : '退出整个重复日程'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={imReminderOpen} onOpenChange={(open) => {
         setImReminderOpen(open);
         if (!open) {
@@ -1132,10 +1220,15 @@ export default function CalendarPage() {
 }
 
 function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, sourceKind: 'own' | 'subscribed'): CalendarEvent[] {
+  const meetingSeriesIds = new Set(
+    events
+      .filter((event) => event.seriesId && isApiMeetingEvent(event))
+      .map((event) => String(event.seriesId)),
+  );
   return events.map((event) => {
     const attendeeEmails = Array.isArray(event.attendeeEmails) ? event.attendeeEmails : [];
     const attendeeUsers = Array.isArray(event.attendeeUsers) ? event.attendeeUsers : [];
-    const isMeeting = attendeeEmails.length > 0 || attendeeUsers.length > 0 || Boolean(event.meetingUrl);
+    const isMeeting = isApiMeetingEvent(event) || Boolean(event.seriesId && meetingSeriesIds.has(String(event.seriesId)));
     const mappedSourceKind = sourceKind === 'own' && isNeteaseSubscribedEvent(event) ? 'subscribed' : sourceKind;
     const mappedCalendarId = mappedSourceKind === 'subscribed'
       ? 'cal-subscribed'
@@ -1178,6 +1271,12 @@ function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, so
       serverManaged: true,
     };
   });
+}
+
+function isApiMeetingEvent(event: Record<string, any>): boolean {
+  const attendeeEmails = Array.isArray(event.attendeeEmails) ? event.attendeeEmails : [];
+  const attendeeUsers = Array.isArray(event.attendeeUsers) ? event.attendeeUsers : [];
+  return attendeeEmails.length > 0 || attendeeUsers.length > 0 || Boolean(event.meetingUrl);
 }
 
 function isNeteaseSubscribedEvent(event: Record<string, any>): boolean {
@@ -1233,6 +1332,28 @@ function formatPerson(name: string | undefined, email: string): string {
   const trimmedName = name?.trim();
   const trimmedEmail = email.trim();
   return trimmedName && trimmedName !== trimmedEmail ? `${trimmedName} (${trimmedEmail})` : trimmedEmail;
+}
+
+function isCurrentUserEventAttendee(
+  event: CalendarEvent,
+  user: { id?: string | null; email?: string | null } | null | undefined,
+): boolean {
+  const userId = user?.id ?? '';
+  const email = normalizeCalendarEmail(user?.email);
+  return Boolean(
+    (userId && (event.attendeeUsers ?? []).some((person) => person.id === userId)) ||
+    (email && (event.attendeeEmails ?? []).some((attendeeEmail) => normalizeCalendarEmail(attendeeEmail) === email)) ||
+    (email && (event.attendees ?? []).some((attendee) => normalizeCalendarEmail(attendee) === email)) ||
+    (userId && (event.attendees ?? []).includes(userId)),
+  );
+}
+
+function normalizeCalendarEmail(email?: string | null): string {
+  return email?.trim().toLowerCase() ?? '';
+}
+
+function isRecurringCalendarEvent(event: CalendarEvent): boolean {
+  return Boolean(event.seriesId || event.recurrenceRule || event.recurrence);
 }
 
 function formatNeteaseSyncStatusText(status: NeteaseCalendarSyncStatus | null, syncing: boolean): string {
@@ -1299,6 +1420,7 @@ function activityActionLabel(action: string): string {
     'event.created': '创建日程',
     'event.updated': '修改日程',
     'event.cancelled': '取消日程',
+    'event.left': '退出日程',
     'subscription.created': '创建订阅',
     'subscription.cancelled': '取消订阅',
     'subscription.approved': '同意详情',

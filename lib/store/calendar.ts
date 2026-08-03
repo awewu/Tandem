@@ -213,6 +213,14 @@ function mergeDefaultCalendars(calendars: TandemCalendar[] | undefined): TandemC
   return Array.from(byId.values());
 }
 
+function uniqueEventsById(events: CalendarEvent[]): CalendarEvent[] {
+  const byId = new Map<string, CalendarEvent>();
+  for (const event of events) {
+    if (!byId.has(event.id)) byId.set(event.id, event);
+  }
+  return Array.from(byId.values());
+}
+
 // ═══════════════════════════════════════════════════════════
 // 重复事件展开引擎
 // ═══════════════════════════════════════════════════════════
@@ -448,7 +456,7 @@ export const useCalendarStore = create<CalendarStore>()(
         set((state) => ({
           events: [
             ...state.events.filter((event) => !event.serverManaged),
-            ...managedEvents.map((event) => ({ ...event, serverManaged: true })),
+            ...uniqueEventsById(managedEvents).map((event) => ({ ...event, serverManaged: true })),
           ],
         })),
       replaceOkrEvents: (okrEvents) =>
@@ -477,7 +485,11 @@ export const useCalendarStore = create<CalendarStore>()(
         );
         const instances: EventInstance[] = [];
         for (const ev of events) {
-          instances.push(...expandRecurrence(ev, start, end));
+          if (ev.serverManaged) {
+            if (ev.endTime >= start && ev.startTime <= end) instances.push(toInstance(ev, ev.startTime));
+          } else {
+            instances.push(...expandRecurrence(ev, start, end));
+          }
         }
         return instances.sort((a, b) => a.startTime - b.startTime);
       },

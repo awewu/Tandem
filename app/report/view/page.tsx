@@ -1253,20 +1253,53 @@ function DatePanel({
   const year = panelDate.getFullYear();
   const month = panelDate.getMonth();
   const reportDaySet = new Set(reports.map((report) => reportDateKey(report)));
+  const selectMonthOffset = (offset: number) => {
+    onSelectDate(dateKey(addMonthsClamped(panelDate, offset)));
+  };
+  const selectYearOffset = (offset: number) => {
+    onSelectDate(dateKey(new Date(year + offset, panelDate.getMonth(), 1)));
+  };
   return (
     <aside className="hidden xl:block">
       <div className="sticky top-4 rounded-lg bg-surface-1 p-5 shadow-soft-sm ring-1 ring-border">
         {tab === 'monthly' ? (
-          <MonthGrid year={year} reports={reports} selectedDateKey={selectedDateKey} onSelectDate={onSelectDate} />
+          <MonthGrid
+            year={year}
+            reports={reports}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={onSelectDate}
+            onSelectYearOffset={selectYearOffset}
+          />
         ) : tab === 'weekly' ? (
-          <WeekList year={year} month={month} reports={reports} selectedDateKey={selectedDateKey} onSelectDate={onSelectDate} />
+          <WeekList
+            year={year}
+            month={month}
+            reports={reports}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={onSelectDate}
+            onSelectMonthOffset={selectMonthOffset}
+          />
         ) : (
           <>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-[15px] font-semibold text-ink-primary">{year} 年 {String(month + 1).padStart(2, '0')} 月</h3>
-              <div className="flex items-center gap-2 text-ink-tertiary">
-                <ChevronDown className="h-4 w-4 rotate-180" />
-                <ChevronDown className="h-4 w-4" />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="上个月"
+                  onClick={() => selectMonthOffset(-1)}
+                  className="rounded-md p-1 text-ink-tertiary transition hover:bg-surface-2 hover:text-ink-primary"
+                >
+                  <ChevronDown className="h-4 w-4 rotate-180" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="下个月"
+                  onClick={() => selectMonthOffset(1)}
+                  className="rounded-md p-1 text-ink-tertiary transition hover:bg-surface-2 hover:text-ink-primary"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-7 gap-2 text-center text-[12px] text-ink-tertiary">
@@ -1314,12 +1347,14 @@ function WeekList({
   reports,
   selectedDateKey,
   onSelectDate,
+  onSelectMonthOffset,
 }: {
   year: number;
   month: number;
   reports: VisibleReport[];
   selectedDateKey: string | null;
   onSelectDate: (dateKey: string) => void;
+  onSelectMonthOffset: (offset: number) => void;
 }) {
   const weeks = monthWeeks(year, month);
   const submittedWeeks = new Set(reports.map((report) => weekKey(reportDateOf(report))));
@@ -1328,9 +1363,23 @@ function WeekList({
     <>
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-[15px] font-semibold text-ink-primary">{year} 年 {String(month + 1).padStart(2, '0')} 月</h3>
-        <div className="flex items-center gap-2 text-ink-tertiary">
-          <ChevronDown className="h-4 w-4 rotate-180" />
-          <ChevronDown className="h-4 w-4" />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="上个月"
+            onClick={() => onSelectMonthOffset(-1)}
+            className="rounded-md p-1 text-ink-tertiary transition hover:bg-surface-2 hover:text-ink-primary"
+          >
+            <ChevronDown className="h-4 w-4 rotate-180" />
+          </button>
+          <button
+            type="button"
+            aria-label="下个月"
+            onClick={() => onSelectMonthOffset(1)}
+            className="rounded-md p-1 text-ink-tertiary transition hover:bg-surface-2 hover:text-ink-primary"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
         </div>
       </div>
       <div className="space-y-3">
@@ -1361,11 +1410,13 @@ function MonthGrid({
   reports,
   selectedDateKey,
   onSelectDate,
+  onSelectYearOffset,
 }: {
   year: number;
   reports: VisibleReport[];
   selectedDateKey: string | null;
   onSelectDate: (dateKey: string) => void;
+  onSelectYearOffset: (offset: number) => void;
 }) {
   const submittedMonths = new Set(reports.map((report) => {
     const reportDate = reportDateOf(report);
@@ -1375,9 +1426,23 @@ function MonthGrid({
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <ChevronLeft className="h-4 w-4 text-ink-tertiary" />
+        <button
+          type="button"
+          aria-label="上一年"
+          onClick={() => onSelectYearOffset(-1)}
+          className="rounded-md p-1 text-ink-tertiary transition hover:bg-surface-2 hover:text-ink-primary"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
         <h3 className="text-[15px] font-semibold text-ink-primary">{year}</h3>
-        <ChevronRight className="h-4 w-4 text-ink-tertiary" />
+        <button
+          type="button"
+          aria-label="下一年"
+          onClick={() => onSelectYearOffset(1)}
+          className="rounded-md p-1 text-ink-tertiary transition hover:bg-surface-2 hover:text-ink-primary"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
       <div className="grid grid-cols-3 gap-3 text-center text-[13px]">
         {Array.from({ length: 12 }, (_, index) => {
@@ -1750,6 +1815,13 @@ function dateKey(value: Date): string {
 function parseDateKey(key: string): Date {
   const [year, month, day] = key.split('-').map(Number);
   return new Date(year, month - 1, day);
+}
+
+function addMonthsClamped(value: Date, offset: number): Date {
+  const targetYear = value.getFullYear();
+  const targetMonth = value.getMonth() + offset;
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  return new Date(targetYear, targetMonth, Math.min(value.getDate(), lastDay));
 }
 
 function reportDateOf(report: Pick<VisibleReport, 'createdAt' | 'reportDate'>): Date {

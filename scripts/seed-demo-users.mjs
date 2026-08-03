@@ -67,7 +67,7 @@ function genId(prefix) {
 }
 
 // ---------- 用户清单 ----------
-const PASSWORD = 'Demo1234!@#'; // 满足 lib/auth/password.ts 策略 (10+ chars, 大小写+数字+符号)
+const PASSWORD = 'Demo1234!@#'; // 满足 lib/auth/password.ts 策略 (7+ chars, 大小写+数字)
 
 const USERS = [
   { email: 'employee@tandem.local', name: '张伟 (员工)',     roles: ['employee'] },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Mic, MicOff, Square } from 'lucide-react';
+import { Captions, CaptionsOff, Loader2, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -219,9 +219,9 @@ export function ImVoiceComposerButton({
         else void startRecording();
       }}
       className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all',
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-all',
         active
-          ? 'scale-110 bg-[rgb(var(--brand-500))] text-white shadow-soft-lg shadow-[rgb(var(--brand-500))]/30'
+          ? 'bg-[rgb(var(--brand-500))] text-white shadow-soft-lg shadow-[rgb(var(--brand-500))]/30'
           : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 dark:bg-white/10 dark:text-white/75 dark:hover:bg-white/15',
         buttonDisabled && 'cursor-not-allowed opacity-50',
         sttConfigured === false && 'text-danger hover:text-danger',
@@ -229,13 +229,13 @@ export function ImVoiceComposerButton({
       )}
     >
       {transcribing ? (
-        <Loader2 className="h-4.5 w-4.5 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" />
       ) : active ? (
-        <Square className="h-4.5 w-4.5" />
+        <Square className="h-4 w-4" />
       ) : error ? (
-        <MicOff className="h-4.5 w-4.5" />
+        <CaptionsOff className="h-4 w-4" />
       ) : (
-        <Mic className="h-4.5 w-4.5" />
+        <Captions className="h-4 w-4" />
       )}
     </button>
   );

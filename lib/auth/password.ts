@@ -8,9 +8,10 @@
  *
  * 默认使用 Node 内置 scrypt, 部署时可切换.
  *
- * 密码策略 (参考等保二级):
- *   - 至少 10 字符
- *   - 必须包含: 大写字母 + 小写字母 + 数字 + 特殊字符
+ * 密码策略:
+ *   - 至少 7 字符
+ *   - 必须包含: 大写字母 + 小写字母 + 数字
+ *   - 允许特殊字符, 但不强制
  *   - 禁用常见弱密码 (top 10000)
  *   - 不可与最近 5 次密码重复 (历史 hash)
  */
@@ -38,11 +39,10 @@ export function evaluatePassword(password: string, userInfo?: { email?: string; 
   const errors: string[] = [];
   const suggestions: string[] = [];
 
-  if (password.length < 10) errors.push('至少 10 字符');
+  if (password.length < 7) errors.push('至少 7 字符');
   if (!/[A-Z]/.test(password)) errors.push('需要大写字母');
   if (!/[a-z]/.test(password)) errors.push('需要小写字母');
   if (!/[0-9]/.test(password)) errors.push('需要数字');
-  if (!/[^A-Za-z0-9]/.test(password)) errors.push('需要特殊字符 (如 !@#$%)');
 
   if (COMMON_WEAK_PASSWORDS.has(password.toLowerCase())) {
     errors.push('该密码在常见弱密码字典内');
@@ -66,12 +66,12 @@ export function evaluatePassword(password: string, userInfo?: { email?: string; 
     Number(/[0-9]/.test(password)) +
     Number(/[^A-Za-z0-9]/.test(password));
   let score = 0;
+  if (password.length >= 7) score++;
   if (password.length >= 10) score++;
-  if (password.length >= 14) score++;
   if (variety >= 3) score++;
-  if (variety === 4 && password.length >= 12) score++;
+  if (variety === 4 && password.length >= 10) score++;
 
-  if (score < 3) suggestions.push('建议: 14 字符以上, 大小写+数字+符号都用');
+  if (score < 3) suggestions.push('建议: 10 字符以上, 可加入特殊字符提高强度');
 
   return {
     ok: errors.length === 0,

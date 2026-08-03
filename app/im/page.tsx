@@ -2235,7 +2235,9 @@ function MessageRow({
   const readReceiptLabel = readerCount === totalReaders
     ? '全部已读'
     : `${readerCount}/${totalReaders} 已读`;
-  const readReceiptSummaryRef = useRef<HTMLElement>(null);
+  const readReceiptSummaryRef = useRef<HTMLButtonElement>(null);
+  const readReceiptContainerRef = useRef<HTMLDivElement>(null);
+  const [readReceiptOpen, setReadReceiptOpen] = useState(false);
   const [readReceiptDirection, setReadReceiptDirection] = useState<ImPopupDirection>('up');
   const updateReadReceiptDirection = useCallback(() => {
     const trigger = readReceiptSummaryRef.current;
@@ -2248,6 +2250,26 @@ function MessageRow({
       panelHeight: 184,
     }));
   }, []);
+  useEffect(() => {
+    setReadReceiptOpen(false);
+  }, [msg.id]);
+  useEffect(() => {
+    if (!readReceiptOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const container = readReceiptContainerRef.current;
+      if (!container || container.contains(event.target as Node)) return;
+      setReadReceiptOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setReadReceiptOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [readReceiptOpen]);
   // Day 4: recallable 用 Date.now(), SSR 和 CSR 时间不同会 hydration mismatch
   // → useState + useEffect 只在客户端 mount 后计算
   const [recallable, setRecallable] = useState(false);
@@ -2482,26 +2504,34 @@ function MessageRow({
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
         {msg.senderId === meId && totalReaders > 0 && (
-          <details className={`group/read relative mt-1 text-[10px] text-ink-tertiary ${isMe ? 'self-end text-right' : ''}`}>
-            <summary
+          <div ref={readReceiptContainerRef} className={`relative mt-1 text-[10px] text-ink-tertiary ${isMe ? 'self-end text-right' : ''}`}>
+            <button
+              type="button"
               ref={readReceiptSummaryRef}
-              onClick={updateReadReceiptDirection}
+              onClick={() => {
+                updateReadReceiptDirection();
+                setReadReceiptOpen((open) => !open);
+              }}
               className={`inline-flex cursor-pointer list-none items-center gap-1 rounded-full px-1.5 py-0.5 transition hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-brand-200 [&::-webkit-details-marker]:hidden ${isMe ? 'justify-end' : ''}`}
               aria-label={`${readReceiptLabel}，展开查看已读和未读人员`}
+              aria-expanded={readReceiptOpen}
             >
               <UsersRound className="h-3 w-3" />
               {readReceiptLabel}
-            </summary>
-            <div
-              className={`absolute z-30 w-56 rounded-lg border border-hairline bg-surface-1 p-2 text-left shadow-soft-lg ${
-                readReceiptDirection === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
-              } ${isMe ? 'right-0' : 'left-0'}`}
-            >
-              <ReadReceiptPeopleList title={`已读 ${readers.length}`} people={readers} nameOf={nameOf} emptyText="暂无已读" />
-              <div className="my-1.5 h-px bg-hairline" />
-              <ReadReceiptPeopleList title={`未读 ${unreadMembers.length}`} people={unreadMembers} nameOf={nameOf} emptyText="全部已读" />
-            </div>
-          </details>
+            </button>
+            {readReceiptOpen && (
+              <div
+                data-im-read-receipt-panel="true"
+                className={`absolute z-30 w-56 rounded-lg border border-hairline bg-surface-1 p-2 text-left shadow-soft-lg ${
+                  readReceiptDirection === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
+                } ${isMe ? 'right-0' : 'left-0'}`}
+              >
+                <ReadReceiptPeopleList title={`已读 ${readers.length}`} people={readers} nameOf={nameOf} emptyText="暂无已读" />
+                <div className="my-1.5 h-px bg-hairline" />
+                <ReadReceiptPeopleList title={`未读 ${unreadMembers.length}`} people={unreadMembers} nameOf={nameOf} emptyText="全部已读" />
+              </div>
+            )}
+          </div>
         )}
         {/* spawned 状态 chip — 永久可见, 移到气泡下方独立行 (不再嵌进气泡). 比 inline link 更克制 */}
         {(msg.spawnedDecisionCardId || msg.spawnedPromotionId) && (

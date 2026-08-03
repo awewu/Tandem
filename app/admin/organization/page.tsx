@@ -509,7 +509,7 @@ function PasswordDialog({
     if (open) { setPwd(''); setConfirm(''); setShow(false); setErr(null); }
   }, [open]);
   const mismatch = confirm.length > 0 && pwd !== confirm;
-  const tooShort = pwd.length > 0 && pwd.length < 10;
+  const tooShort = pwd.length > 0 && pwd.length < 7;
   async function submit() {
     setErr(null);
     if (pwd !== confirm) { setErr('两次输入的密码不一致'); return; }
@@ -536,8 +536,8 @@ function PasswordDialog({
           <div>
             <label className="text-caption font-medium mb-1 block">新密码 *</label>
             <Input type={show ? 'text' : 'password'} value={pwd} onChange={(e) => setPwd(e.target.value)}
-              placeholder="至少 10 位，含大小写字母、数字、特殊字符" autoComplete="new-password" />
-            {tooShort && <p className="text-footnote text-danger mt-1">密码至少 10 位</p>}
+              placeholder="至少 7 位，含大小写字母、数字，可含特殊字符" autoComplete="new-password" />
+            {tooShort && <p className="text-footnote text-danger mt-1">密码至少 7 位</p>}
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">确认新密码 *</label>
@@ -556,7 +556,7 @@ function PasswordDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>取消</Button>
-          <Button onClick={submit} disabled={saving || pwd.length < 10 || pwd !== confirm}>
+          <Button onClick={submit} disabled={saving || pwd.length < 7 || pwd !== confirm}>
             {saving ? '保存中...' : '重置密码'}
           </Button>
         </DialogFooter>

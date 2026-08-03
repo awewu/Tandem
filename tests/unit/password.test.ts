@@ -3,16 +3,16 @@ import { evaluatePassword } from '@/lib/auth/password';
 
 describe('evaluatePassword · 密码强度策略', () => {
   it('rejects too short', () => {
-    const r = evaluatePassword('Ab1!');
+    const r = evaluatePassword('Ab1234');
     expect(r.ok).toBe(false);
-    expect(r.errors).toContain('至少 10 字符');
+    expect(r.errors).toContain('至少 7 字符');
   });
 
-  it('requires uppercase / lowercase / digit / special', () => {
+  it('requires uppercase / lowercase / digit', () => {
     expect(evaluatePassword('alllowercase1!').errors).toContain('需要大写字母');
     expect(evaluatePassword('ALLUPPERCASE1!').errors).toContain('需要小写字母');
     expect(evaluatePassword('NoDigitsHere!@').errors).toContain('需要数字');
-    expect(evaluatePassword('NoSpecial1234A').errors).toContain('需要特殊字符 (如 !@#$%)');
+    expect(evaluatePassword('NoSpecial1234A').ok).toBe(true);
   });
 
   it('rejects common weak passwords (dictionary entry "tandem123")', () => {
@@ -31,9 +31,12 @@ describe('evaluatePassword · 密码强度策略', () => {
     expect(r.errors).toContain('密码不可包含邮箱前缀');
   });
 
-  it('accepts a strong password', () => {
-    const r = evaluatePassword('Strong#Pass2026Q3$Coffee');
+  it('accepts a policy-compliant password without special chars', () => {
+    const r = evaluatePassword('Rheem2025');
     expect(r.ok).toBe(true);
-    expect(r.score).toBeGreaterThanOrEqual(3);
+  });
+
+  it('accepts exactly 7 chars with uppercase, lowercase, and digit', () => {
+    expect(evaluatePassword('Abc1234').ok).toBe(true);
   });
 });

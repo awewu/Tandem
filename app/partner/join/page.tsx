@@ -161,7 +161,7 @@ export default function PartnerJoinPage() {
                 <Input type="email" placeholder="work@company.com" value={invEmail} onChange={e => setInvEmail(e.target.value)} required />
               </Field>
               <Field label="密码">
-                <Input type="password" placeholder="8位以上，含数字与字母" value={invPassword} onChange={e => setInvPassword(e.target.value)} required />
+                <Input type="password" placeholder="至少7位，含大小写字母与数字" value={invPassword} onChange={e => setInvPassword(e.target.value)} required />
               </Field>
               {error && <p className="text-footnote text-destructive">{error}</p>}
               <Button type="submit" className="w-full bg-brand-600 hover:bg-brand-700" disabled={busy}>

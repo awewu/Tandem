@@ -4,6 +4,7 @@ export type CalendarActivityAction =
   | 'event.created'
   | 'event.updated'
   | 'event.cancelled'
+  | 'event.left'
   | 'subscription.created'
   | 'subscription.cancelled'
   | 'subscription.approved'

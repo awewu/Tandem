@@ -119,4 +119,38 @@ describe('calendar upcoming events hydration', () => {
     expect(state.events.find((item) => item.calendarId === 'cal-okr')?.title).toBe('新的 OKR Check-in');
     expect(state.events.some((item) => item.id === event.id)).toBe(true);
   });
+
+  it('does not expand server-managed recurring instances again on the client', () => {
+    useCalendarStore.setState({
+      calendars: [calendar],
+      events: [{
+        ...event,
+        id: 'server-weekly-1',
+        serverManaged: true,
+        recurrence: { frequency: 'weekly', interval: 1 },
+        recurrenceRule: { frequency: 'weekly', interval: 1, end: { type: 'count', count: 5 } },
+      }],
+    });
+
+    const instances = useCalendarStore.getState().getEventsInRange(
+      NOW,
+      NOW + 30 * 24 * 60 * 60 * 1000,
+    );
+
+    expect(instances).toHaveLength(1);
+    expect(instances[0].eventId).toBe('server-weekly-1');
+  });
+
+  it('deduplicates managed events returned by own and subscribed calendar refreshes', () => {
+    useCalendarStore.setState({ calendars: [calendar], events: [] });
+
+    useCalendarStore.getState().replaceManagedEvents([
+      { ...event, id: 'shared-server-event', calendarId: 'cal-personal', serverManaged: true },
+      { ...event, id: 'shared-server-event', calendarId: 'cal-subscribed', serverManaged: true },
+    ]);
+
+    const state = useCalendarStore.getState();
+    expect(state.events.filter((item) => item.id === 'shared-server-event')).toHaveLength(1);
+    expect(state.events.find((item) => item.id === 'shared-server-event')?.calendarId).toBe('cal-personal');
+  });
 });

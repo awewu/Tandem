@@ -31,6 +31,16 @@ export class InMemoryCalendarReminderRepository implements CalendarReminderRepos
     }
   }
 
+  async cancelByEventIdsForUser(eventIds: string[], userId: string): Promise<void> {
+    const ids = new Set(eventIds);
+    for (const task of Array.from(this.data.values())) {
+      if (ids.has(task.eventId) && task.userId === userId && task.status === 'pending') {
+        task.status = 'cancelled';
+        task.updatedAt = new Date().toISOString();
+      }
+    }
+  }
+
   async markFired(id: string, firedAt: string): Promise<CalendarReminderTask> {
     const task = this.data.get(id);
     if (!task) throw new Error(`CalendarReminder ${id} not found`);

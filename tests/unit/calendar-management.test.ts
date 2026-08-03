@@ -260,6 +260,129 @@ describe('CalendarService', () => {
     });
   });
 
+  it('lets an attendee leave selected and future instances without cancelling the organizer event', async () => {
+    const { service, ctx } = createService();
+    const events = await service.createManaged({
+      title: '参与人退出测试',
+      startAt: '2026-07-17T13:00:00+08:00',
+      endAt: '2026-07-17T14:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+      recurrence: { frequency: 'daily', interval: 1, end: { type: 'count', count: 3 } },
+    });
+
+    const left = await service.leaveManaged(events[1].id, 'user-2', 'future', 'colleague@example.com');
+
+    expect(left).toHaveLength(2);
+    expect((await ctx.calendarRepo.findById(events[0].id))?.attendees).toEqual(['user-2']);
+    expect((await ctx.calendarRepo.findById(events[1].id))?.attendees).toEqual([]);
+    expect((await ctx.calendarRepo.findById(events[2].id))?.attendeeEmails).toEqual([]);
+    expect((await service.listForUser('owner-1', 'tenant-1')).map((event) => event.status)).toEqual([
+      'confirmed',
+      'confirmed',
+      'confirmed',
+    ]);
+    expect((await service.listForUser('user-2', 'tenant-1')).map((event) => event.id)).toEqual([events[0].id]);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'pending' })).toHaveLength(1);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'cancelled' })).toHaveLength(2);
+    expect(await ctx.reminderTaskRepo.list({ userId: 'user-2', status: 'cancelled' })).toHaveLength(2);
+    await expect(service.leaveManaged(events[0].id, 'stranger', 'single', 'stranger@example.com'))
+      .rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const activities = await listCalendarActivities({
+      tenantId: 'tenant-1',
+      viewerId: 'owner-1',
+      viewerEmail: 'owner@example.com',
+    });
+    expect(activities.items.find((item) => item.action === 'event.left')).toMatchObject({
+      action: 'event.left',
+      eventTitle: '参与人退出测试',
+      actorId: 'user-2',
+      scope: 'future',
+    });
+  });
+
+  it('lets an attendee leave only one recurring instance', async () => {
+    const { service, ctx } = createService();
+    const events = await service.createManaged({
+      title: '仅退出本次测试',
+      startAt: '2026-07-17T13:00:00+08:00',
+      endAt: '2026-07-17T14:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+      recurrence: { frequency: 'daily', interval: 1, end: { type: 'count', count: 3 } },
+    });
+
+    const left = await service.leaveManaged(events[1].id, 'user-2', 'single', 'colleague@example.com');
+
+    expect(left).toHaveLength(1);
+    expect((await ctx.calendarRepo.findById(events[0].id))?.attendees).toEqual(['user-2']);
+    expect((await ctx.calendarRepo.findById(events[1].id))?.attendees).toEqual([]);
+    expect((await ctx.calendarRepo.findById(events[2].id))?.attendees).toEqual(['user-2']);
+    expect((await service.listForUser('owner-1', 'tenant-1')).map((event) => event.id)).toEqual(events.map((event) => event.id));
+    expect((await service.listForUser('user-2', 'tenant-1')).map((event) => event.id)).toEqual([events[0].id, events[2].id]);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'pending' })).toHaveLength(2);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'cancelled' })).toHaveLength(1);
+  });
+
+  it('lets an attendee leave the whole recurring series', async () => {
+    const { service, ctx } = createService();
+    const events = await service.createManaged({
+      title: '退出整个重复日程测试',
+      startAt: '2026-07-17T13:00:00+08:00',
+      endAt: '2026-07-17T14:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+      recurrence: { frequency: 'daily', interval: 1, end: { type: 'count', count: 3 } },
+    });
+
+    const left = await service.leaveManaged(events[1].id, 'user-2', 'series', 'colleague@example.com');
+
+    expect(left).toHaveLength(3);
+    expect((await service.listForUser('owner-1', 'tenant-1')).map((event) => event.status)).toEqual([
+      'confirmed',
+      'confirmed',
+      'confirmed',
+    ]);
+    expect(await service.listForUser('user-2', 'tenant-1')).toHaveLength(0);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'pending' })).toHaveLength(0);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'cancelled' })).toHaveLength(3);
+    expect(await ctx.reminderTaskRepo.list({ userId: 'user-2', status: 'cancelled' })).toHaveLength(3);
+    expect((await ctx.calendarRepo.findById(events[0].id))?.attendeeEmails).toEqual([]);
+    expect((await ctx.calendarRepo.findById(events[2].id))?.attendeeEmails).toEqual([]);
+  });
+
+  it('does not block attendee series leave on reminder cleanup', async () => {
+    const { service, ctx } = createService();
+    const events = await service.createManaged({
+      title: '退出不等待提醒清理',
+      startAt: '2026-07-17T13:00:00+08:00',
+      endAt: '2026-07-17T14:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+      recurrence: { frequency: 'daily', interval: 1, end: { type: 'count', count: 3 } },
+    });
+    ctx.calendarReminderRepo.cancelByEventIdsForUser = async () => new Promise(() => undefined);
+
+    const left = await service.leaveManaged(events[0].id, 'user-2', 'series', 'colleague@example.com', { sideEffects: 'background' });
+
+    expect(left).toHaveLength(3);
+    expect(left.every((event) => !event.attendees.includes('user-2'))).toBe(true);
+    expect(await service.listForUser('user-2', 'tenant-1')).toHaveLength(0);
+  });
+
   it('marks overlapping visible events as conflicts without treating adjacent events as conflicts', async () => {
     const { service } = createService();
     const base = {
@@ -463,6 +586,29 @@ describe('CalendarService', () => {
     expect(updated[1].seriesId).toBe(updated[0].seriesId);
   });
 
+  it('limits open-ended weekly recurrence materialization to the next year', async () => {
+    const { service } = createService();
+
+    const events = await service.createManaged({
+      title: '每周例会',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T10:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      recurrence: {
+        frequency: 'weekly',
+        interval: 1,
+        weekdays: [5],
+        end: { type: 'never' },
+      },
+    });
+
+    expect(events.length).toBeGreaterThanOrEqual(52);
+    expect(events.length).toBeLessThan(60);
+    expect(events.length).not.toBe(366);
+  });
+
   it('does not retroactively join an external attendee who registers later', async () => {
     const users = [{ id: 'owner-1', email: 'owner@example.com', name: 'Owner' }];
     const { service } = createService(new Date('2026-07-16T02:00:00.000Z'), users);
@@ -555,16 +701,46 @@ describe('CalendarService', () => {
     const completedBeforeEmail = await store.get(job.id);
     expect(completedBeforeEmail?.status).toBe('completed');
     expect(completedBeforeEmail?.emailSent).toBe(false);
-    expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('in_progress');
+    expect(completedBeforeEmail?.completedSteps).toBe(completedBeforeEmail?.totalSteps);
+    expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
+    expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已移交后台投递，不影响日程创建');
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0].to).toEqual(['colleague@example.com', 'outside@example.net']);
 
     resolveEmail({ ok: true });
 
-    const sentJob = await waitForCalendarJob(job.id, (item) =>
-      item.steps.find((step) => step.key === 'sending_emails')?.status === 'done'
-    );
-    expect(sentJob.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
+    const sentJob = await waitForCalendarJob(job.id, (item) => item.emailSent);
+    expect(sentJob.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已批量发送给 2 个收件人');
+  });
+
+  it('repairs legacy completed async jobs whose email step is still spinning', async () => {
+    const { getCalendarJobStore } = await import('@/lib/calendar/job-store');
+    const store = getCalendarJobStore();
+    const job = await store.create({
+      title: '旧邮件进度修复',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T10:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      ownerName: 'Owner',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+    });
+
+    await store.markStep(job.id, 'validating', 'done');
+    await store.markStep(job.id, 'creating_events', 'done', '已创建 366 个日程实例');
+    await store.markStep(job.id, 'creating_reminders', 'done', '已为 366 个日程生成提醒');
+    await store.markStep(job.id, 'sending_emails', 'in_progress', '后台投递中，不影响日程创建');
+    await store.markStep(job.id, 'finalizing', 'done');
+    await store.update(job.id, { status: 'completed' });
+
+    const repaired = await store.repairCompletedNotificationStep(job.id);
+
+    expect(repaired?.status).toBe('completed');
+    expect(repaired?.completedSteps).toBe(repaired?.totalSteps);
+    expect(repaired?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
+    expect(repaired?.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已移交后台投递，不影响日程创建');
   });
 
   it('does not fail async calendar creation when generic reminder storage is unavailable', async () => {

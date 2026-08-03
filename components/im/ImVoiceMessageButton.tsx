@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Mic, Square, X } from 'lucide-react';
+import { AudioLines, Loader2, Square, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -248,7 +248,7 @@ export function ImVoiceMessageButton({ channelId, disabled, className, onSent }:
         className,
       )}
     >
-      {phase === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+      {phase === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <AudioLines className="h-4 w-4" />}
     </button>
   );
 }

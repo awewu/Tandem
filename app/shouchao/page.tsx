@@ -170,9 +170,11 @@ export default function ShouchaoPage() {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [renameNotebookTarget, setRenameNotebookTarget] = useState<Pick<Notebook, 'id' | 'name' | 'icon'> | null>(null);
+  const [deleteNotebookTarget, setDeleteNotebookTarget] = useState<Pick<Notebook, 'id' | 'name' | 'icon'> | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deletingNotebook, setDeletingNotebook] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const { user } = useCurrentUser();
@@ -447,6 +449,28 @@ export default function ShouchaoPage() {
     } catch {
       showToast('err', '修改分组名称失败');
       return false;
+    }
+  }
+
+  async function deleteNotebook(notebook: Pick<Notebook, 'id' | 'name' | 'icon'>) {
+    if (deletingNotebook) return;
+    setDeletingNotebook(true);
+    try {
+      const r = await fetch(`/api/shouchao/notebooks/${notebook.id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('delete notebook failed');
+      setNotebooks((prev) => prev.filter((nb) => nb.id !== notebook.id));
+      setNotes((prev) =>
+        prev.map((note) => (note.notebookId === notebook.id ? { ...note, notebookId: undefined } : note)),
+      );
+      setRenameNotebookTarget((current) => (current?.id === notebook.id ? null : current));
+      setDeleteNotebookTarget(null);
+      if (notebookFilter === notebook.id) setNotebookFilter('unfiled');
+      void loadNotebooks();
+      showToast('ok', '已删除分组，笔记已移到未分组');
+    } catch {
+      showToast('err', '删除分组失败');
+    } finally {
+      setDeletingNotebook(false);
     }
   }
 
@@ -1775,6 +1799,21 @@ export default function ShouchaoPage() {
           notebook={renameNotebookTarget}
           onClose={() => setRenameNotebookTarget(null)}
           onRename={(name) => renameNotebook(renameNotebookTarget, name)}
+          onDelete={() => {
+            setDeleteNotebookTarget(renameNotebookTarget);
+            setRenameNotebookTarget(null);
+          }}
+        />
+      )}
+
+      {deleteNotebookTarget && (
+        <DeleteGroupDialog
+          notebookName={deleteNotebookTarget.name}
+          deleting={deletingNotebook}
+          onClose={() => {
+            if (!deletingNotebook) setDeleteNotebookTarget(null);
+          }}
+          onConfirm={() => deleteNotebook(deleteNotebookTarget)}
         />
       )}
 
@@ -2491,10 +2530,12 @@ function RenameGroupDialog({
   notebook,
   onClose,
   onRename,
+  onDelete,
 }: {
   notebook: Pick<Notebook, 'id' | 'name' | 'icon'>;
   onClose: () => void;
   onRename: (name: string) => Promise<boolean>;
+  onDelete: () => void;
 }) {
   const [name, setName] = useState(notebook.name);
   const [busy, setBusy] = useState(false);
@@ -2544,24 +2585,99 @@ function RenameGroupDialog({
           }}
           className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
         />
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={onDelete}
             disabled={busy}
-            className="rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 disabled:opacity-50 surface-interactive"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-2 text-caption font-medium text-danger hover:bg-danger/5 disabled:opacity-50 surface-interactive"
           >
-            取消
+            <Trash2 className="h-4 w-4" />
+            删除
           </button>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={busy || !name.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 disabled:opacity-50 surface-interactive"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            保存
-          </button>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 disabled:opacity-50 surface-interactive"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={busy || !name.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 disabled:opacity-50 surface-interactive"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              保存
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteGroupDialog({
+  notebookName,
+  deleting,
+  onClose,
+  onConfirm,
+}: {
+  notebookName: string;
+  deleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const displayName = notebookName.trim() || '未命名分组';
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface-1 shadow-soft-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger">
+              <Trash2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-headline font-bold text-ink-primary">删除分组</h2>
+              <p className="mt-0.5 truncate text-footnote text-ink-tertiary">{displayName}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <p className="text-caption leading-relaxed text-ink-secondary">
+            删除后分组会从列表移除，分组里的笔记会保留，并自动回到未分组。
+          </p>
+
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={deleting}
+              className="rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 disabled:opacity-50 surface-interactive"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void onConfirm()}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-danger px-4 py-2 text-caption font-semibold text-white hover:opacity-90 disabled:opacity-60 surface-interactive"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? '删除中...' : '确认删除'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

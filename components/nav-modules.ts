@@ -43,6 +43,7 @@ import {
   Mail,
   Inbox,
   Send,
+  KeyRound,
   LayoutGrid,
   Palette,
   Lock,
@@ -597,6 +598,7 @@ export const NAV_MODULES: NavModule[] = [
     pathPrefixes: ['/settings'],
     items: [
       { name: '个人设置',     href: '/settings',               icon: Settings },
+      { name: '账号安全',     href: '/settings/security',      icon: KeyRound },
       { name: '外观与品牌',   href: '/settings/appearance',    icon: Palette },
       { name: '邮箱配置',     href: '/settings/email',         icon: Mail },
       { name: '§13 数据自助', href: '/settings/privacy',       icon: Lock },

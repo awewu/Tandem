@@ -646,8 +646,9 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
 
     const startWeekday = weekdayOfDateInput(startDate);
     setHasRecurrence(true);
-    setRecurEndType(value === 'custom' ? 'date' : 'never');
+    setRecurEndType(value === 'custom' ? 'date' : 'count');
     setRecurEndDate((current) => current || defaultRecurrenceEndDate(startDate));
+    setRecurCount((current) => Math.max(1, Math.min(current || 10, 10)));
     if (value === 'daily') {
       setRecurFreq('daily');
       setRecurInterval(1);
@@ -931,7 +932,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
                     <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="date">某天</SelectItem>
-                      <SelectItem value="never">永不结束</SelectItem>
+                      <SelectItem value="never">未来一年</SelectItem>
                       <SelectItem value="count">指定次数</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1103,7 +1104,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               <X className="h-4 w-4 mr-1" />
               取消
             </Button>
-            <Button type="button" size="sm" onClick={handleSave} disabled={saving || deleting || jobStatus?.status === 'completed'} className="bg-info/80 hover:bg-info/70 text-white">              {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '已创建' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
+            <Button type="button" size="sm" onClick={jobStatus?.status === 'completed' ? onClose : handleSave} disabled={saving || deleting} className="bg-info/80 hover:bg-info/70 text-white">              {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '完成' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
             </Button>
           </div>
         </div>

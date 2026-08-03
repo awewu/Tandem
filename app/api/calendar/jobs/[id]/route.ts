@@ -18,13 +18,15 @@ const GETApiHandler = withErrorHandler(async (_req: NextRequest, { params }: Rou
   await boot();
   const auth = requireAuth(_req);
   if (auth instanceof NextResponse) return auth;
-  const job = await getCalendarJobStore().get(params.id);
+  const store = getCalendarJobStore();
+  let job = await store.get(params.id);
   if (!job) {
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'job not found' } }, { status: 404 });
   }
   if (job.input.ownerId !== auth.userId) {
     return NextResponse.json({ error: { code: 'FORBIDDEN', message: 'job does not belong to you' } }, { status: 403 });
   }
+  job = await store.repairCompletedNotificationStep(params.id) ?? job;
   if (job.status === 'pending') {
     const svc = createCalendarService(auth.userId);
     void svc.resumeCreateJob(params.id).catch((err) => {

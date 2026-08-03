@@ -7,6 +7,7 @@
  * Items:
  *   - Email + roles header (read-only)
  *   - 设置 → /settings
+ *   - 账号安全 → /settings/security
  *   - 主题: light / dark / system (writes .dark class + localStorage)
  *   - 外观 → /settings/appearance
  *   - 退出登录 → POST /api/auth/logout → redirect to /login
@@ -15,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Settings, LogOut, Moon, Sun, Monitor, Palette } from 'lucide-react';
+import { Settings, LogOut, Moon, Sun, Monitor, Palette, KeyRound } from 'lucide-react';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import { cn } from '@/lib/utils';
 
@@ -168,6 +169,13 @@ export function UserMenu() {
           <div className="py-1">
             <MenuItem href="/settings" icon={Settings} onClick={() => setOpen(false)}>
               设置
+            </MenuItem>
+            <MenuItem
+              href="/settings/security"
+              icon={KeyRound}
+              onClick={() => setOpen(false)}
+            >
+              账号安全
             </MenuItem>
             <MenuItem
               href="/settings/appearance"

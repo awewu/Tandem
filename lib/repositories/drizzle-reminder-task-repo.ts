@@ -155,6 +155,21 @@ export class DrizzleReminderTaskRepository implements ReminderTaskRepository {
       .returning();
     return rows.length;
   }
+
+  async cancelBySourceIdsForUser(tenantId: string, sourceType: string, sourceIds: string[], userId: string): Promise<number> {
+    if (sourceIds.length === 0) return 0;
+    const rows = await db.update(table)
+      .set({ status: 'cancelled', processingAt: null, updatedAt: new Date() })
+      .where(and(
+        eq(table.tenantId, tenantId),
+        eq(table.sourceType, sourceType),
+        inArray(table.sourceId, sourceIds),
+        eq(table.userId, userId),
+        inArray(table.status, ['pending', 'processing', 'failed']),
+      ))
+      .returning();
+    return rows.length;
+  }
 }
 
 function toNullableDate(value: string | null | undefined): Date | null | undefined {

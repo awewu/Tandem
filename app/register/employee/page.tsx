@@ -90,7 +90,7 @@ export default function EmployeeSsoRegisterPage() {
               <Field label="密码">
                 <Input
                   type="password"
-                  placeholder="8 位以上，含大小写与数字"
+                  placeholder="至少 7 位，含大小写与数字"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required

@@ -326,7 +326,7 @@ export class CalendarService {
       const emailStep = emailJob?.steps.find((s) => s.key === 'sending_emails');
       let shouldDeliverEmailInBackground = false;
       if (emailStep?.status !== 'done' && !emailJob?.emailSent) {
-        await store.markStep(jobId, 'sending_emails', 'in_progress', '后台投递中，不影响日程创建');
+        await store.markStep(jobId, 'sending_emails', 'done', '已移交后台投递，不影响日程创建');
         shouldDeliverEmailInBackground = true;
       } else if (emailJob?.emailSent && emailStep?.status !== 'done') {
         await store.markStep(jobId, 'sending_emails', 'done', '邮件已发送');
@@ -427,13 +427,13 @@ export class CalendarService {
         }
       }
 
-      await store.markEmailSent(jobId);
       await store.markStep(
         jobId,
         'sending_emails',
         'done',
         recipientEmails.length > 0 ? `已批量发送给 ${recipientEmails.length} 个收件人` : '无收件人，跳过邮件',
       );
+      await store.markEmailSent(jobId);
       const latest = await store.get(jobId);
       if (latest?.result) {
         await store.update(jobId, {
@@ -678,6 +678,60 @@ export class CalendarService {
     return cancelled;
   }
 
+  async leaveManaged(
+    id: string,
+    actorId: string,
+    scope: CalendarMutationScope,
+    actorEmail?: string,
+    options: { sideEffects?: 'await' | 'background' } = {},
+  ): Promise<CalendarEvent[]> {
+    this.deliveryWarnings.length = 0;
+    const anchor = await this.ctx.calendarRepo.findById(id);
+    if (!anchor) throw new NotFoundError('CalendarEvent', id);
+    if (anchor.ownerId === actorId) throw new ForbiddenError('Organizer cannot leave own event');
+
+    const normalizedActorEmail = normalizeEmail(actorEmail ?? '');
+    const isAttendee = anchor.attendees.includes(actorId) ||
+      (!!normalizedActorEmail && (anchor.attendeeEmails ?? []).some((email) => normalizeEmail(email) === normalizedActorEmail));
+    if (!isAttendee) throw new ForbiddenError('Only attendees can leave this event');
+
+    const targets = await this.selectLeaveTargets(anchor, scope);
+    const eventIds = targets.map((event) => event.id);
+    const updated = await this.ctx.calendarRepo.removeAttendeeFromEvents(eventIds, actorId, normalizedActorEmail || undefined);
+
+    const runSideEffects = async () => {
+      await this.ctx.calendarReminderRepo.cancelByEventIdsForUser(eventIds, actorId);
+      await this.ctx.reminderTaskRepo.cancelBySourceIdsForUser(anchor.tenantId, 'calendar_event', eventIds, actorId);
+      await recordCalendarActivity({
+        tenantId: anchor.tenantId,
+        actorId,
+        actorEmail,
+        action: 'event.left',
+        targetType: 'event',
+        targetId: updated[0]?.id ?? anchor.id,
+        eventId: updated[0]?.id ?? anchor.id,
+        eventTitle: updated[0]?.title ?? anchor.title,
+        scope,
+        targetUserId: anchor.ownerId,
+        attendeeEmails: uniqueEmails([actorEmail ?? '', ...(anchor.attendeeEmails ?? [])]),
+        metadata: {
+          eventIds,
+          leftUserId: actorId,
+          leftUserEmail: normalizedActorEmail || undefined,
+        },
+      });
+    };
+    if (options.sideEffects === 'background') {
+      void runSideEffects().catch((error) => {
+        this.deliveryWarnings.push(error instanceof Error ? error.message : 'calendar leave cleanup failed');
+      });
+    } else {
+      await runSideEffects();
+    }
+
+    return updated;
+  }
+
   async listForUser(userId: string, tenantId: string, range?: { from: Date; to: Date }): Promise<CalendarViewEvent[]> {
     const all = await this.ctx.calendarRepo.list({ tenantId });
     const users = await this.deps.listUsers?.(tenantId) ?? [];
@@ -776,6 +830,14 @@ export class CalendarService {
     if (scope === 'future') return series.filter((event) => event.startAt >= anchor.startAt);
     const now = this.deps.now?.() ?? new Date();
     return series.filter((event) => new Date(event.endAt) >= now);
+  }
+
+  private async selectLeaveTargets(anchor: CalendarEvent, scope: CalendarMutationScope): Promise<CalendarEvent[]> {
+    if (scope === 'single' || !anchor.seriesId) return [anchor];
+    const series = (await this.ctx.calendarRepo.findBySeries(anchor.seriesId)).filter((event) => event.status !== 'cancelled');
+    return scope === 'future'
+      ? series.filter((event) => event.startAt >= anchor.startAt)
+      : series;
   }
 
   private async createReminderTasks(event: CalendarEvent, nowIso: string, preserveFired = false): Promise<void> {
@@ -944,7 +1006,9 @@ function materializeRecurrence(start: Date, rule?: CalendarRecurrenceRule | null
   if (!rule) return [start];
   const occurrences: Date[] = [];
   const maxCount = rule.end.type === 'count' ? rule.end.count : 366;
-  const endAt = rule.end.type === 'date' ? new Date(`${rule.end.date}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
+  const defaultEnd = new Date(start);
+  defaultEnd.setFullYear(defaultEnd.getFullYear() + 1);
+  const endAt = rule.end.type === 'date' ? new Date(`${rule.end.date}T23:59:59.999`).getTime() : defaultEnd.getTime();
 
   if (rule.frequency === 'monthly') {
     for (let index = 0; index < maxCount; index += 1) {
