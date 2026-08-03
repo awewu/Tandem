@@ -29,8 +29,7 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: 'originalText 必填' }, { status: 400 });
   }
 
-  const { createDefaultRouter } = await import('@/lib/taf');
-  const router = createDefaultRouter();
+  const { governedChat } = await import('@/lib/governance/governed-chat');
 
   const systemPrompt = `
 你是 Tandem 企业邮件助手。根据用户收到的邮件，生成专业、得体的回复草稿。
@@ -52,22 +51,30 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
 原邮件正文:
 ${text}`;
 
-  try {
-    const response = await router.chat({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    });
+  const gc = await governedChat({
+    actorUserId: auth.userId,
+    intent: `邮件回复草稿(${tone}): ${subject || '(无主题)'}`,
+    basePersonaPrompt: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+    agentKind: 'persona',
+    scenario: 'persona_dialogue',
+    maxTokens: 600,
+    outputGuardSource: 'mail.ai_reply',
+    metadata: { userId: auth.userId, feature: 'mail_ai_reply' },
+  }).catch(() => null);
 
-    const draft = typeof response.message.content === 'string'
-      ? response.message.content
-      : '';
-
-    return NextResponse.json({ ok: true, draft: draft.trim() });
-  } catch {
+  if (!gc) {
     return NextResponse.json({ ok: false, error: 'AI 生成失败' }, { status: 500 });
   }
+
+  if (!gc.ok) {
+    return NextResponse.json(
+      { ok: false, error: gc.blocked?.reasons?.join('; ') || 'AI 回复被企业治理拦截，请人工撰写' },
+      { status: 200 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, draft: (gc.answer ?? '').trim() });
 });
 
 export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/ai-reply' });

@@ -42,8 +42,8 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: 'body 必填' }, { status: 400 });
   }
 
-  const { createDefaultRouter } = await import('@/lib/taf');
-  const router = createDefaultRouter();
+  const { getRouter } = await import('@/lib/boot');
+  const router = getRouter();
 
   const systemPrompt = `
 你是 Tandem 企业邮件审校官。对即将发送的邮件进行多维质量检查。
@@ -69,11 +69,16 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
 `;
 
   try {
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: 发信前只读审校 (judge, 不产出对外内容), 走中央 TAF 路由计量
     const response = await router.chat({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `主题: ${subject}\n\n正文:\n${text}` },
       ],
+      scenario: 'high_frequency',
+      responseFormat: 'json',
+      maxTokens: 700,
+      metadata: { userId: auth.userId, feature: 'mail_ai_review' },
     });
 
     const content = response.message.content;

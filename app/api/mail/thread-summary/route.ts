@@ -37,8 +37,8 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: 'emails 必填且至少一条' }, { status: 400 });
   }
 
-  const { createDefaultRouter } = await import('@/lib/taf');
-  const router = createDefaultRouter();
+  const { getRouter } = await import('@/lib/boot');
+  const router = getRouter();
 
   const systemPrompt = `
 你是 Tandem 邮件链摘要助手。将多封往来邮件整理为结构化摘要。
@@ -59,11 +59,16 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   ).join('\n\n---\n\n');
 
   try {
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: 只读邮件链摘要 (内部, 不产出对外内容), 走中央 TAF 路由计量
     const response = await router.chat({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `请为以下邮件链生成结构化摘要:\n\n${emailChain}` },
       ],
+      scenario: 'high_frequency',
+      responseFormat: 'json',
+      maxTokens: 800,
+      metadata: { userId: auth.userId, feature: 'mail_thread_summary' },
     });
 
     const content = response.message.content;
