@@ -45,17 +45,26 @@ async function GETApiHandler() {
     const { stdout, stderr, code } = await runHermes(['mcp', 'list'], 10000);
     if (code !== 0 && !stdout) {
       return Response.json(
-        { ok: false, servers: [], error: stderr || `exit ${code}` },
+        { ok: false, servers: [], raw: stderr, error: stderr || `exit ${code}` },
         { status: 502 }
       );
     }
     // "No MCP servers configured." → empty list, not error
     const empty = /no mcp servers configured/i.test(stdout);
     const servers = empty ? [] : parseList(stdout);
-    return Response.json({ ok: true, servers, count: servers.length, empty });
+    return Response.json({ ok: true, servers, count: servers.length, empty, raw: stdout });
   } catch (err: any) {
+    const message = err?.message || 'Failed';
+    if (err?.code === 'ENOENT' || /spawn hermes ENOENT/i.test(message)) {
+      return Response.json({
+        ok: false,
+        servers: [],
+        raw: '',
+        error: 'Hermes CLI is not installed or not on PATH. Install Hermes CLI or configure PATH to enable `hermes mcp list`.',
+      });
+    }
     return Response.json(
-      { ok: false, servers: [], error: err?.message || 'Failed' },
+      { ok: false, servers: [], raw: '', error: message },
       { status: 500 }
     );
   }
