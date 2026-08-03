@@ -102,17 +102,50 @@ interface MonthlyStats {
   byKr: OkrProgressItem[];
 }
 
+interface ActionItem {
+  action: string;
+  owner: string;
+  deadline: string;
+  priority: 'high' | 'medium' | 'low';
+  relatedKpi?: string;
+  relatedKr?: string;
+}
+
+interface TrendPoint {
+  date: string;
+  value: number;
+}
+
+interface KpiTrendItem {
+  kpiId: string;
+  title: string;
+  bscPerspective: string;
+  points: TrendPoint[];
+  target: number;
+  unit?: string;
+}
+
+interface KrTrendItem {
+  krId: string;
+  krTitle: string;
+  points: TrendPoint[];
+  target: number;
+}
+
 interface MonthlyRecapResult {
   summary: string;
   kpiHighlights: string[];
   okrProgress: string[];
   problemAnalysis: string[];
   futurePlan: string[];
+  actionItems: ActionItem[];
 }
 
 interface MonthlyRecapResponse extends MonthlyRecapResult {
   stats: MonthlyStats;
   kpiReview: KpiReviewSummary;
+  kpiTrends: KpiTrendItem[];
+  krTrends: KrTrendItem[];
   checkIns: EnrichedCheckIn[];
   source: 'llm' | 'fallback';
   model?: string;
@@ -128,7 +161,17 @@ const SYSTEM_PROMPT = `你是企业 OKR + KPI 月报教练。员工把过去一�
   "kpiHighlights": ["KPI 达标或超额完成的亮点，例如：营收完成率 92%，超过预期进度"],
   "okrProgress": ["OKR 关键进展，例如：核心可用性 SLA 推进 15%，达成本月阶段目标"],
   "problemAnalysis": ["进度落后、信心下滑或 KPI 未达预期的分析"],
-  "futurePlan": ["下月建议的 2-4 个重点行动 + KPI 达标路径"]
+  "futurePlan": ["下月建议的 2-4 个重点行动 + KPI 达标路径"],
+  "actionItems": [
+    {
+      "action": "具体行动描述",
+      "owner": "负责人姓名或角色",
+      "deadline": "YYYY-MM-DD",
+      "priority": "high|medium|low",
+      "relatedKpi": "关联 KPI 名称（可选）",
+      "relatedKr": "关联 KR 名称（可选）"
+    }
+  ]
 }
 
 要求：
@@ -138,7 +181,8 @@ const SYSTEM_PROMPT = `你是企业 OKR + KPI 月报教练。员工把过去一�
 4. kpiHighlights 聚焦 KPI 达标情况，okrProgress 聚焦 OKR 推进，两者不要重复。
 5. problemAnalysis 要分析根因而非罗列现象。
 6. futurePlan 要结合 KPI 缺口和 OKR 进度给出可执行建议。
-7. 如果一个月没有任何 check-in 且无 KPI 数据，summary 直接说"本月无填报记录"。`;
+7. actionItems 是结构化行动清单，每条必须有 action/owner/deadline/priority。priority 只有 high/medium/low 三个值。deadline 为具体日期字符串。
+8. 如果一个月没有任何 check-in 且无 KPI 数据，summary 直接说"本月无填报记录"。`;
 
 const BSC_LABELS: Record<string, string> = {
   financial: '财务经营',
@@ -212,6 +256,9 @@ async function POSTApiHandler(req: NextRequest) {
   // 4. KPI 板块回顾
   const kpiReview = await computeKpiReview(store, auth.tenantId ?? 'default', ownerId, rangeFrom, rangeTo);
 
+  // 4b. 趋势数据 (KPI 快照时间序列 + KR 进度时间序列)
+  const { kpiTrends, krTrends } = await computeTrends(store, auth.tenantId ?? 'default', ownerId, rangeFrom, rangeTo, allCheckIns, krCache);
+
   // 5. LLM 流式调用 (SSE)
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -234,7 +281,7 @@ async function POSTApiHandler(req: NextRequest) {
       try {
         const router = getRouter();
         if (router.listProviders().length === 0) {
-          send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, rangeFrom, rangeTo, 'no_provider_registered') });
+          send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, kpiTrends, krTrends, rangeFrom, rangeTo, 'no_provider_registered') });
           safeClose();
           return;
         }
@@ -246,7 +293,7 @@ async function POSTApiHandler(req: NextRequest) {
         ];
 
         // 先推 stats + kpiReview 给前端立刻渲染
-        send({ type: 'stats', stats, kpiReview, checkIns: enriched, rangeFrom, rangeTo });
+        send({ type: 'stats', stats, kpiReview, kpiTrends, krTrends, checkIns: enriched, rangeFrom, rangeTo });
 
         let buffer = '';
         try {
@@ -268,14 +315,14 @@ async function POSTApiHandler(req: NextRequest) {
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, rangeFrom, rangeTo, `llm_stream_error: ${msg}`) });
+          send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, kpiTrends, krTrends, rangeFrom, rangeTo, `llm_stream_error: ${msg}`) });
           safeClose();
           return;
         }
 
         const parsed = parseLlmJson(buffer);
         if (!parsed) {
-          send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, rangeFrom, rangeTo, 'llm_json_parse_failed') });
+          send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, kpiTrends, krTrends, rangeFrom, rangeTo, 'llm_json_parse_failed') });
           safeClose();
           return;
         }
@@ -286,6 +333,8 @@ async function POSTApiHandler(req: NextRequest) {
           ...parsed,
           stats,
           kpiReview,
+          kpiTrends,
+          krTrends,
           checkIns: enriched,
           source: 'llm',
           model: modelUsed,
@@ -296,7 +345,7 @@ async function POSTApiHandler(req: NextRequest) {
         safeClose();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, rangeFrom, rangeTo, `llm_error: ${msg}`) });
+        send({ type: 'done', result: buildFallback(enriched, stats, kpiReview, kpiTrends, krTrends, rangeFrom, rangeTo, `llm_error: ${msg}`) });
         safeClose();
       }
     },
@@ -535,12 +584,26 @@ function parseLlmJson(text: string): MonthlyRecapResult | null {
       return null;
     }
     const trim = (arr: unknown[]) => arr.map(String).slice(0, 5);
+    const rawActions: unknown[] = Array.isArray(obj.actionItems) ? obj.actionItems : [];
+    const actionItems: ActionItem[] = rawActions
+      .filter((a): a is Record<string, unknown> => typeof a === 'object' && a !== null)
+      .map((a) => ({
+        action: String(a.action ?? ''),
+        owner: String(a.owner ?? '负责人待定'),
+        deadline: String(a.deadline ?? ''),
+        priority: (['high', 'medium', 'low'].includes(String(a.priority)) ? String(a.priority) : 'medium') as ActionItem['priority'],
+        relatedKpi: a.relatedKpi ? String(a.relatedKpi) : undefined,
+        relatedKr: a.relatedKr ? String(a.relatedKr) : undefined,
+      }))
+      .filter((a) => a.action.length > 0)
+      .slice(0, 8);
     return {
       summary: obj.summary,
       kpiHighlights: trim(obj.kpiHighlights),
       okrProgress: trim(obj.okrProgress),
       problemAnalysis: trim(obj.problemAnalysis),
       futurePlan: trim(obj.futurePlan),
+      actionItems,
     };
   } catch {
     return null;
@@ -551,6 +614,8 @@ function buildFallback(
   enriched: EnrichedCheckIn[],
   stats: MonthlyStats,
   kpiReview: KpiReviewSummary,
+  kpiTrends: KpiTrendItem[],
+  krTrends: KrTrendItem[],
   rangeFrom: string,
   rangeTo: string,
   reason: string,
@@ -562,8 +627,11 @@ function buildFallback(
       okrProgress: [],
       problemAnalysis: [],
       futurePlan: [],
+      actionItems: [],
       stats,
       kpiReview,
+      kpiTrends,
+      krTrends,
       checkIns: enriched,
       source: 'fallback',
       reason,
@@ -623,18 +691,108 @@ function buildFallback(
     futurePlan.push(`${k.title}：需补齐 ${gap}% 才能达标`);
   }
 
+  // 降级行动项: 从 futurePlan + KPI 缺口生成
+  const nextMonth = new Date(rangeTo);
+  nextMonth.setDate(nextMonth.getDate() + 30);
+  const defaultDeadline = nextMonth.toISOString().slice(0, 10);
+  const actionItems: ActionItem[] = [];
+  for (const k of kpiReview.items.filter((k) => k.color !== 'green').slice(0, 3)) {
+    const gap = Math.round((1 - k.completion) * 100);
+    actionItems.push({
+      action: `${k.title}：补齐 ${gap}% 缺口至达标线`,
+      owner: 'KPI 负责人',
+      deadline: defaultDeadline,
+      priority: k.color === 'red' ? 'high' : 'medium',
+      relatedKpi: k.title,
+    });
+  }
+  for (const k of stats.byKr.filter((k) => k.finalConfidence !== 'on-track').slice(0, 2)) {
+    actionItems.push({
+      action: `${k.krTitle}：跟进信心偏移，排查原因并制定追赶计划`,
+      owner: 'KR 负责人',
+      deadline: defaultDeadline,
+      priority: k.finalConfidence === 'behind' ? 'high' : 'medium',
+      relatedKr: k.krTitle,
+    });
+  }
+
   return {
     summary: `（降级模式）本月共 ${stats.totalCheckIns} 条 check-in，覆盖 ${stats.krsTouched} 个 KR，累计进度增量 ${stats.progressIncrement}。KPI 板块：${kpiReview.greenCount} 达标 / ${kpiReview.yellowCount} 关注 / ${kpiReview.redCount} 未达。`,
     kpiHighlights,
     okrProgress,
     problemAnalysis: problems,
     futurePlan: futurePlan.slice(0, 5),
+    actionItems: actionItems.slice(0, 5),
     stats,
     kpiReview,
+    kpiTrends,
+    krTrends,
     checkIns: enriched,
     source: 'fallback',
     reason,
     rangeFrom,
     rangeTo,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Trends — KPI 快照时间序列 + KR 进度时间序列
+// ---------------------------------------------------------------------------
+
+async function computeTrends(
+  store: ReturnType<typeof getStore>,
+  tenantId: string,
+  assigneeId: string,
+  rangeFrom: string,
+  rangeTo: string,
+  allCheckIns: CheckIn[],
+  krCache: Map<string, KeyResult | null>,
+): Promise<{ kpiTrends: KpiTrendItem[]; krTrends: KrTrendItem[] }> {
+  // KPI 趋势: 取该用户相关 KPI 的全部快照 (不限月内, 展示完整历史趋势)
+  const cycles = (await withTenantScope(store.kpiCycles, tenantId).list())
+    .filter((c: KpiCycle) => c.status === 'active');
+  const activeCycleIds = new Set(cycles.map((c) => c.id));
+  const allKpis = (await withTenantScope(store.kpis, tenantId).list()).filter(
+    (k: Kpi) => activeCycleIds.has(k.cycleId) && (k.assigneeId === assigneeId || k.level === 'department'),
+  );
+  const kpiIdSet = new Set(allKpis.map((k) => k.id));
+  const allSnapshots = (await store.kpiSnapshots.list()) as KpiSnapshot[];
+  const relevantSnapshots = allSnapshots
+    .filter((s) => kpiIdSet.has(s.kpiId))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  const kpiTrends: KpiTrendItem[] = allKpis.map((kpi) => ({
+    kpiId: kpi.id,
+    title: kpi.title,
+    bscPerspective: kpi.bscPerspective ?? 'financial',
+    target: kpi.targetValue,
+    unit: kpi.unit,
+    points: relevantSnapshots
+      .filter((s) => s.kpiId === kpi.id)
+      .map((s) => ({ date: s.date, value: s.cumulativeValue })),
+  })).filter((t) => t.points.length >= 2);
+
+  // KR 趋势: 从 check-in 记录提取进度时间序列
+  const mineCheckIns = allCheckIns.filter(
+    (c) => c.authorId === assigneeId && c.scope === 'kr' && c.createdAt >= rangeFrom && c.createdAt <= rangeTo,
+  );
+  const byKr = new Map<string, { date: string; value: number }[]>();
+  for (const c of mineCheckIns) {
+    const arr = byKr.get(c.scopeId) ?? [];
+    arr.push({ date: c.createdAt.slice(0, 10), value: c.progressAfter });
+    byKr.set(c.scopeId, arr);
+  }
+  const krTrends: KrTrendItem[] = [];
+  for (const [krId, points] of Array.from(byKr)) {
+    if (points.length < 2) continue;
+    const kr = krCache.get(krId);
+    krTrends.push({
+      krId,
+      krTitle: kr?.title ?? '(已删除的 KR)',
+      target: kr?.targetValue ?? 0,
+      points: points.sort((a, b) => (a.date < b.date ? -1 : 1)),
+    });
+  }
+
+  return { kpiTrends, krTrends };
 }

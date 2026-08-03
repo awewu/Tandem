@@ -46,6 +46,11 @@ import {
   BookOpen,
   ArrowUpRight,
   ArrowDownRight,
+  LineChart,
+  ClipboardList,
+  User,
+  Clock,
+  Flag,
 } from 'lucide-react';
 
 interface EnrichedCheckIn {
@@ -113,14 +118,47 @@ interface KpiReviewSummary {
   items: KpiReviewItem[];
 }
 
+interface ActionItem {
+  action: string;
+  owner: string;
+  deadline: string;
+  priority: 'high' | 'medium' | 'low';
+  relatedKpi?: string;
+  relatedKr?: string;
+}
+
+interface TrendPoint {
+  date: string;
+  value: number;
+}
+
+interface KpiTrendItem {
+  kpiId: string;
+  title: string;
+  bscPerspective: string;
+  points: TrendPoint[];
+  target: number;
+  unit?: string;
+}
+
+interface KrTrendItem {
+  krId: string;
+  krTitle: string;
+  points: TrendPoint[];
+  target: number;
+}
+
 interface MonthlyRecapResponse {
   summary: string;
   kpiHighlights: string[];
   okrProgress: string[];
   problemAnalysis: string[];
   futurePlan: string[];
+  actionItems: ActionItem[];
   stats: MonthlyStats;
   kpiReview: KpiReviewSummary;
+  kpiTrends: KpiTrendItem[];
+  krTrends: KrTrendItem[];
   checkIns: EnrichedCheckIn[];
   source: 'llm' | 'fallback';
   model?: string;
@@ -192,13 +230,15 @@ export default function MonthlyRecapPage() {
             if (!payload) continue;
             try {
               const ev = JSON.parse(payload) as
-                | { type: 'stats'; stats: MonthlyStats; kpiReview: KpiReviewSummary; checkIns: EnrichedCheckIn[]; rangeFrom: string; rangeTo: string }
+                | { type: 'stats'; stats: MonthlyStats; kpiReview: KpiReviewSummary; kpiTrends: KpiTrendItem[]; krTrends: KrTrendItem[]; checkIns: EnrichedCheckIn[]; rangeFrom: string; rangeTo: string }
                 | { type: 'delta'; content: string }
                 | { type: 'done'; result: MonthlyRecapResponse };
               if (ev.type === 'stats') {
                 partial = {
                   stats: ev.stats,
                   kpiReview: ev.kpiReview,
+                  kpiTrends: ev.kpiTrends ?? [],
+                  krTrends: ev.krTrends ?? [],
                   checkIns: ev.checkIns,
                   rangeFrom: ev.rangeFrom,
                   rangeTo: ev.rangeTo,
@@ -207,6 +247,7 @@ export default function MonthlyRecapPage() {
                   okrProgress: [],
                   problemAnalysis: [],
                   futurePlan: [],
+                  actionItems: [],
                   source: 'llm',
                 };
                 setData(partial as MonthlyRecapResponse);
@@ -315,6 +356,50 @@ export default function MonthlyRecapPage() {
         </div>
       ) : data ? (
         <>
+          {/* 0. 封面摘要区 */}
+          <Card className="border-border bg-surface-2/30">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-footnote text-muted-foreground">
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    月度管理报告
+                  </div>
+                  <h2 className="text-headline font-bold tracking-tight">
+                    {data.rangeFrom.slice(0, 10)} ~ {data.rangeTo.slice(0, 10)}
+                  </h2>
+                  <div className="flex items-center gap-3 text-caption text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {selectedAssignee}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      生成于 {new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {data.source === 'llm' ? (
+                      <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/30">
+                        AI 生成 · {data.model ?? 'unknown'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-warning/5 text-warning border-warning/20">
+                        降级模式
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                {data.summary && (
+                  <div className="flex-1 min-w-[280px] max-w-md">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">执行摘要</div>
+                    <p className="text-caption text-ink-primary leading-relaxed border-l-2 border-primary/30 pl-3">
+                      {data.summary}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 1. OKR 硬统计 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <StatCard label="check-in 次数" value={String(data.stats.totalCheckIns)} sub={`${data.rangeFrom.slice(5, 10)} → ${data.rangeTo.slice(5, 10)}`} />
@@ -473,6 +558,50 @@ export default function MonthlyRecapPage() {
             </CardContent>
           </Card>
 
+          {/* 3b. 行动项清单 */}
+          {data.actionItems && data.actionItems.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote font-semibold text-ink-primary bg-surface-2/50">
+                  <ClipboardList className="h-3.5 w-3.5 text-primary" />
+                  行动项清单
+                  <Badge variant="outline" className="ml-auto text-[10px] bg-surface-1">
+                    {data.actionItems.length} 项
+                  </Badge>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-caption">
+                    <thead>
+                      <tr className="border-b text-footnote text-muted-foreground">
+                        <th className="text-left px-3 py-2 font-medium">行动</th>
+                        <th className="text-left px-3 py-2 font-medium">负责人</th>
+                        <th className="text-left px-3 py-2 font-medium">截止日</th>
+                        <th className="text-left px-3 py-2 font-medium">优先级</th>
+                        <th className="text-left px-3 py-2 font-medium">关联</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {data.actionItems.map((item, i) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-3 py-2 font-medium">{item.action}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.owner}</td>
+                          <td className="px-3 py-2 tabular-nums text-muted-foreground">{item.deadline}</td>
+                          <td className="px-3 py-2">
+                            <PriorityPill priority={item.priority} />
+                          </td>
+                          <td className="px-3 py-2 text-[10px] text-muted-foreground">
+                            {item.relatedKpi && <div>{item.relatedKpi}</div>}
+                            {item.relatedKr && <div>{item.relatedKr}</div>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* 4. OKR 进展推进汇报 — KR 维度汇总 */}
           {data.stats.byKr.length > 0 && (
             <Card>
@@ -516,6 +645,62 @@ export default function MonthlyRecapPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 4b. KPI 趋势图 */}
+          {data.kpiTrends && data.kpiTrends.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote font-semibold text-ink-primary bg-surface-2/50">
+                  <LineChart className="h-3.5 w-3.5 text-info" />
+                  KPI 趋势图
+                  <Badge variant="outline" className="ml-auto text-[10px] bg-surface-1">
+                    {data.kpiTrends.length} 个 KPI
+                  </Badge>
+                </div>
+                <div className="px-5 py-4 space-y-4">
+                  {data.kpiTrends.map((t) => (
+                    <div key={t.kpiId} className="space-y-1">
+                      <div className="flex items-center gap-2 text-footnote">
+                        <span className="font-medium text-ink-secondary">{t.title}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          目标 {t.target} {t.unit ?? ''}
+                        </span>
+                      </div>
+                      <TrendLine points={t.points} target={t.target} unit={t.unit} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 4c. OKR 进度趋势图 */}
+          {data.krTrends && data.krTrends.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote font-semibold text-ink-primary bg-surface-2/50">
+                  <TrendingUp className="h-3.5 w-3.5 text-success" />
+                  OKR 进度趋势图
+                  <Badge variant="outline" className="ml-auto text-[10px] bg-surface-1">
+                    {data.krTrends.length} 个 KR
+                  </Badge>
+                </div>
+                <div className="px-5 py-4 space-y-4">
+                  {data.krTrends.map((t) => (
+                    <div key={t.krId} className="space-y-1">
+                      <div className="flex items-center gap-2 text-footnote">
+                        <span className="font-medium text-ink-secondary">{t.krTitle}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          目标 {t.target}
+                        </span>
+                      </div>
+                      <TrendLine points={t.points} target={t.target} />
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -641,5 +826,80 @@ function DetailLine({ label, text, color }: { label: string; text: string; color
       <span className={cn('font-semibold shrink-0', color)}>{label}:</span>
       <span className="whitespace-pre-wrap">{text}</span>
     </p>
+  );
+}
+
+function PriorityPill({ priority }: { priority: 'high' | 'medium' | 'low' }) {
+  const cls =
+    priority === 'high'
+      ? 'bg-danger/10 text-danger border-danger/30'
+      : priority === 'medium'
+        ? 'bg-warning/10 text-warning border-warning/30'
+        : 'bg-muted text-muted-foreground border-border';
+  const label = priority === 'high' ? '高' : priority === 'medium' ? '中' : '低';
+  return (
+    <span className={cn('inline-flex items-center px-1.5 py-0 rounded border text-[10px] font-medium', cls)}>
+      <Flag className="h-2.5 w-2.5 mr-0.5" />
+      {label}
+    </span>
+  );
+}
+
+function TrendLine({ points, target, unit }: { points: TrendPoint[]; target: number; unit?: string }) {
+  const width = 320;
+  const height = 48;
+  const padX = 4;
+  const padY = 6;
+
+  if (points.length < 2) {
+    return <div className="text-[10px] text-muted-foreground italic">数据点不足</div>;
+  }
+
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values, target);
+  const max = Math.max(...values, target);
+  const range = max - min || 1;
+  const innerW = width - padX * 2;
+  const innerH = height - padY * 2;
+  const step = innerW / (points.length - 1);
+
+  const coords = points.map((p, i) => {
+    const x = padX + step * i;
+    const y = padY + innerH - ((p.value - min) / range) * innerH;
+    return { x, y, ...p };
+  });
+
+  const path = coords
+    .map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+    .join(' ');
+
+  const area = `${path} L${coords[coords.length - 1].x.toFixed(1)},${(padY + innerH).toFixed(1)} L${coords[0].x.toFixed(1)},${(padY + innerH).toFixed(1)} Z`;
+  const targetY = padY + innerH - ((target - min) / range) * innerH;
+
+  const lastVal = values[values.length - 1];
+  const firstVal = values[0];
+  const isUp = lastVal >= firstVal;
+  const lastCoord = coords[coords.length - 1];
+
+  return (
+    <div className="flex items-center gap-3">
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`trend ${points.length} points`}>
+        <path d={area} className="fill-sky-500/10" stroke="none" />
+        <path d={path} className="stroke-sky-500" fill="none" strokeWidth={1.5} />
+        {targetY >= padY && targetY <= padY + innerH && (
+          <line x1={padX} x2={width - padX} y1={targetY} y2={targetY} className="stroke-zinc-400" strokeWidth={1} strokeDasharray="3 2" />
+        )}
+        <circle cx={lastCoord.x} cy={lastCoord.y} r={2.5} className="fill-sky-500" stroke="white" strokeWidth={1} />
+      </svg>
+      <div className="flex flex-col text-[10px] tabular-nums">
+        <span className="text-muted-foreground">{firstVal} →</span>
+        <span className={cn('font-bold', isUp ? 'text-success' : 'text-danger')}>
+          {lastVal} {unit ?? ''}
+        </span>
+        <span className={cn('text-[9px]', isUp ? 'text-success' : 'text-danger')}>
+          {isUp ? '↑' : '↓'} {Math.abs(lastVal - firstVal).toFixed(1)}
+        </span>
+      </div>
+    </div>
   );
 }
