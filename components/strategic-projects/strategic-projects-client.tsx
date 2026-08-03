@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Bot,
@@ -1239,7 +1239,35 @@ export function StrategicProjectDetail({
     | { type: 'tasks'; tasks: Array<{ milestoneId: string; taskId: string; title: string }> }
     | null
   >(null);
-  const milestoneScrollerRef = useRef<HTMLElement | null>(null);
+  const milestoneScrollerRef = useRef<HTMLDivElement | null>(null);
+  const milestoneTopScrollerRef = useRef<HTMLDivElement | null>(null);
+  const syncingMilestoneScrollRef = useRef(false);
+  const [milestoneScrollState, setMilestoneScrollState] = useState({
+    scrollWidth: 0,
+  });
+
+  const updateMilestoneScrollState = useCallback(() => {
+    const scroller = milestoneScrollerRef.current;
+    if (!scroller) return;
+    setMilestoneScrollState({
+      scrollWidth: scroller.scrollWidth,
+    });
+  }, []);
+
+  const syncMilestoneScroller = useCallback((source: 'top' | 'content') => {
+    const topScroller = milestoneTopScrollerRef.current;
+    const contentScroller = milestoneScrollerRef.current;
+    if (!topScroller || !contentScroller || syncingMilestoneScrollRef.current) return;
+    syncingMilestoneScrollRef.current = true;
+    if (source === 'top') {
+      contentScroller.scrollLeft = topScroller.scrollLeft;
+    } else {
+      topScroller.scrollLeft = contentScroller.scrollLeft;
+    }
+    window.requestAnimationFrame(() => {
+      syncingMilestoneScrollRef.current = false;
+    });
+  }, []);
 
   useEffect(() => {
     if (!openMilestoneMenuId) return;
@@ -1323,6 +1351,19 @@ export function StrategicProjectDetail({
       return next.size === current.size ? current : next;
     });
   }, [filteredTaskIds]);
+
+  useEffect(() => {
+    if (detailViewMode !== 'card') return;
+    const scroller = milestoneScrollerRef.current;
+    if (!scroller) return;
+    updateMilestoneScrollState();
+    scroller.addEventListener('scroll', updateMilestoneScrollState, { passive: true });
+    window.addEventListener('resize', updateMilestoneScrollState);
+    return () => {
+      scroller.removeEventListener('scroll', updateMilestoneScrollState);
+      window.removeEventListener('resize', updateMilestoneScrollState);
+    };
+  }, [detailViewMode, filteredTaskRows.length, project?.id, project?.milestones.length, updateMilestoneScrollState]);
 
   if (!project) {
     return (
@@ -1411,6 +1452,7 @@ export function StrategicProjectDetail({
     const paddingLeft = Number.parseFloat(window.getComputedStyle(scroller).paddingLeft) || 0;
     const nextLeft = scroller.scrollLeft + elementRect.left - scrollerRect.left - paddingLeft;
     scroller.scrollTo({ left: Math.max(0, nextLeft), behavior: 'smooth' });
+    window.requestAnimationFrame(updateMilestoneScrollState);
   }
 
   function exportFilteredTasks() {
@@ -1587,8 +1629,23 @@ export function StrategicProjectDetail({
       </section>
 
       {detailViewMode === 'card' ? (
-        <section ref={milestoneScrollerRef} className="snap-x snap-mandatory overflow-x-auto scroll-smooth px-6 py-4">
-          <div className="flex min-w-max gap-3">
+        <section>
+          <div className="sticky top-0 z-20 border-b border-border bg-[rgb(var(--surface-2))] px-6 py-2">
+            <div
+              aria-label="里程碑横向滚动条"
+              ref={milestoneTopScrollerRef}
+              className="overflow-x-scroll overflow-y-hidden"
+              onScroll={() => syncMilestoneScroller('top')}
+            >
+              <div className="h-1" style={{ width: Math.max(milestoneScrollState.scrollWidth, 1) }} />
+            </div>
+          </div>
+          <div
+            ref={milestoneScrollerRef}
+            className="snap-x snap-mandatory overflow-x-auto scroll-smooth px-6 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onScroll={() => syncMilestoneScroller('content')}
+          >
+            <div className="flex min-w-max gap-3">
             {project.milestones.map((milestone) => {
               const visibleRows = visibleTasksByMilestoneId.get(milestone.id) ?? [];
               return (
@@ -1684,6 +1741,7 @@ export function StrategicProjectDetail({
                 <Plus className="h-4 w-4" />
                 创建里程碑
               </button>
+            </div>
             </div>
           </div>
         </section>
