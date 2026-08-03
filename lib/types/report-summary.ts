@@ -61,6 +61,15 @@ export interface ReportSummary {
   problemAnalysis?: string;
   /** 月报专属: 未来规划 (下月重点行动 + KPI 达标路径) */
   futurePlan?: string;
+  /** 月报专属: 结构化行动项清单 (负责人 + 截止日 + 优先级) */
+  actionItems?: Array<{
+    action: string;
+    owner: string;
+    deadline: string;
+    priority: 'high' | 'medium' | 'low';
+    relatedKpi?: string;
+    relatedKr?: string;
+  }>;
   visibility: 'private' | 'selected' | 'public';
   viewerIds: string[];
   status: 'published';
