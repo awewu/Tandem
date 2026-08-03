@@ -109,12 +109,27 @@ export default function ImportOpportunitiesPage() {
     URL.revokeObjectURL(url);
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setRaw(String(reader.result || ''));
-    reader.readAsText(file, 'utf-8');
+    const name = file.name.toLowerCase();
+    try {
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        // 真正的 Excel 二进制 (ZIP) 不能按文本读, 用 SheetJS 解析首个工作表 → TSV
+        const buf = await file.arrayBuffer();
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '', raw: false }) as unknown[][];
+        setRaw(matrix.map((r) => (Array.isArray(r) ? r.map((c) => String(c ?? '')).join('\t') : '')).join('\n'));
+      } else {
+        setRaw(await file.text());
+      }
+    } catch {
+      setError('文件解析失败，请确认是 .xlsx / .xls / .csv，或直接从 Excel 复制粘贴到下方文本框');
+    } finally {
+      e.target.value = '';
+    }
   }
 
   async function handleImport() {
@@ -151,7 +166,7 @@ export default function ImportOpportunitiesPage() {
           批量导入商机
         </h1>
         <p className="text-body text-ink-secondary mt-1">
-          从 Excel 复制粘贴或上传 CSV，系统逐行自动查重后导入。前两列（客户名称、项目名称）必填。
+          从 Excel 复制粘贴，或上传 Excel(.xlsx/.xls)/CSV 文件，系统逐行自动查重后导入。前两列（客户名称、项目名称）必填。
         </p>
       </div>
 
@@ -164,9 +179,9 @@ export default function ImportOpportunitiesPage() {
                 <Download className="w-4 h-4 mr-1" /> 下载模板
               </Button>
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                <Upload className="w-4 h-4 mr-1" /> 上传 CSV
+                <Upload className="w-4 h-4 mr-1" /> 上传 Excel/CSV
               </Button>
-              <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="hidden" onChange={onFile} />
             </div>
           </div>
         </CardHeader>
