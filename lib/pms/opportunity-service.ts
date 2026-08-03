@@ -6,7 +6,7 @@
 import { nanoid } from 'nanoid';
 import { db } from '../infra/drizzle-client';
 import { pmsOpportunities, pmsDuplicateChecks } from '../infra/drizzle-schema';
-import { eq, and, desc, isNull, inArray } from 'drizzle-orm';
+import { eq, and, desc, isNull, inArray, ilike, or, count, type SQL } from 'drizzle-orm';
 import { checkDuplicate } from './duplicate-check';
 
 function mapOpportunity(row: typeof pmsOpportunities.$inferSelect) {
@@ -340,16 +340,14 @@ export async function getOpportunity(
   return mapOpportunity(row);
 }
 
-/**
- * 列表查询商机
- */
-export async function listOpportunities(filters: {
+export interface OpportunityListFilters {
   tenantId: string;
   orgId?: string;
   dealerOrgId?: string;
   projectId?: string;
   /** true = 仅返回未归属任何工程项目的商机线索 (projectId 为空). 与 projectId 互斥. */
   unassigned?: boolean;
+  query?: string;
   stage?: string;
   status?: string;
   /** 审核态过滤: 'approved' | 'pending_review' | 'rejected' */
@@ -358,13 +356,33 @@ export async function listOpportunities(filters: {
   offset?: number;
   /** 外部经销商可见 org 集合. 传入且非空 → 强制 orgId ∈ 集合. 内部角色传 undefined = 全通. */
   visibleOrgIds?: string[];
-}): Promise<ReturnType<typeof mapOpportunity>[]> {
-  const conditions = [eq(pmsOpportunities.tenantId, filters.tenantId)];
+}
+
+export interface OpportunityListPage {
+  opportunities: ReturnType<typeof mapOpportunity>[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
+function buildOpportunityListConditions(filters: OpportunityListFilters): SQL[] {
+  const conditions: SQL[] = [eq(pmsOpportunities.tenantId, filters.tenantId)];
   
   if (filters.orgId) conditions.push(eq(pmsOpportunities.orgId, filters.orgId));
   if (filters.dealerOrgId) conditions.push(eq(pmsOpportunities.dealerOrgId, filters.dealerOrgId));
   if (filters.projectId) conditions.push(eq(pmsOpportunities.projectId, filters.projectId));
   if (filters.unassigned) conditions.push(isNull(pmsOpportunities.projectId));
+  if (filters.query?.trim()) {
+    const pattern = `%${filters.query.trim().slice(0, 100)}%`;
+    conditions.push(or(
+      ilike(pmsOpportunities.customerName, pattern),
+      ilike(pmsOpportunities.projectName, pattern),
+      ilike(pmsOpportunities.contactName, pattern),
+      ilike(pmsOpportunities.region, pattern),
+      ilike(pmsOpportunities.leadSource, pattern),
+    )!);
+  }
   if (filters.stage) conditions.push(eq(pmsOpportunities.stage, filters.stage));
   if (filters.status) conditions.push(eq(pmsOpportunities.status, filters.status));
   if (filters.reviewStatus) conditions.push(eq(pmsOpportunities.reviewStatus, filters.reviewStatus));
@@ -376,6 +394,14 @@ export async function listOpportunities(filters: {
   
   // 只查询未归档的
   conditions.push(isNull(pmsOpportunities.archivedAt));
+  return conditions;
+}
+
+/**
+ * 列表查询商机
+ */
+export async function listOpportunities(filters: OpportunityListFilters): Promise<ReturnType<typeof mapOpportunity>[]> {
+  const conditions = buildOpportunityListConditions(filters);
   
   const rows = await db
     .select()
@@ -384,8 +410,41 @@ export async function listOpportunities(filters: {
     .orderBy(desc(pmsOpportunities.createdAt))
     .limit(filters.limit || 50)
     .offset(filters.offset || 0);
-  
+
   return rows.map(mapOpportunity);
+}
+
+/**
+ * 分页查询商机，并返回总数
+ */
+export async function listOpportunitiesPage(filters: OpportunityListFilters): Promise<OpportunityListPage> {
+  const limit = Math.max(1, Math.min(100, filters.limit || 20));
+  const offset = Math.max(0, filters.offset || 0);
+  const conditions = buildOpportunityListConditions(filters);
+  const where = and(...conditions);
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(pmsOpportunities)
+      .where(where)
+      .orderBy(desc(pmsOpportunities.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ total: count() })
+      .from(pmsOpportunities)
+      .where(where),
+  ]);
+  const total = Number(totalRows[0]?.total ?? 0);
+
+  return {
+    opportunities: rows.map(mapOpportunity),
+    total,
+    limit,
+    offset,
+    hasMore: offset + rows.length < total,
+  };
 }
 
 /**

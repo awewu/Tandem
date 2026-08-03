@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import { createOpportunity } from '@/lib/pms/opportunity-service';
+import { resolveDealerOrgId } from '@/lib/pms/dealer-resolver';
 
 const MAX_ROWS = 500;
 
@@ -31,6 +32,10 @@ interface ImportRow {
   region?: string;
   channel?: string;
   dealerOrgId?: string;
+  dealerOrgName?: string;
+  dealerOrgCode?: string;
+  dealerOrg?: string;
+  归属经销商?: string;
 }
 
 interface RowResult {
@@ -79,15 +84,20 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const rowDealer = (row.dealerOrgId || '').trim() || defaultDealerOrgId;
-      // orgId 归属: 外部经销商强制落自身 org; 内部需 dealerOrgId
-      const orgId = auth.isInternal ? rowDealer : (auth.orgId || rowDealer);
-      const dealerOrgId = auth.isInternal ? rowDealer : (auth.orgId || rowDealer);
-
+      const dealerRef = row.dealerOrgId || row.dealerOrgCode || row.dealerOrgName || row.dealerOrg || row['归属经销商'] || defaultDealerOrgId;
+      const rowDealer = auth.isInternal
+        ? await resolveDealerOrgId(auth, dealerRef, {
+          dealerName: row.dealerOrgName || row.dealerOrg || row['归属经销商'],
+          dealerCode: row.dealerOrgCode,
+        })
+        : (auth.orgId || String(dealerRef || '').trim());
       if (auth.isInternal && !rowDealer) {
-        results.push({ ...base, message: '内部导入需填写归属经销商编码 (行内或默认值)' });
+        results.push({ ...base, message: '内部导入需填写有效的归属经销商名称、编码或ID (行内或默认值)' });
         continue;
       }
+      const resolvedRowDealer = rowDealer!;
+      const resolvedOrgId = auth.isInternal ? resolvedRowDealer : (auth.orgId || resolvedRowDealer);
+      const resolvedDealerOrgId = auth.isInternal ? resolvedRowDealer : (auth.orgId || resolvedRowDealer);
 
       const amountRaw = row.estimatedAmount;
       const estimatedAmount =
@@ -102,8 +112,8 @@ export async function POST(req: NextRequest) {
       try {
         const result = await createOpportunity({
           tenantId: auth.tenantId,
-          orgId,
-          dealerOrgId,
+          orgId: resolvedOrgId,
+          dealerOrgId: resolvedDealerOrgId,
           reporterId: auth.userId,
           customerName,
           projectName,

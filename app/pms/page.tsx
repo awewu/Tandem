@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 import { Plus, Search, Filter, Upload, Download } from 'lucide-react';
+import {
+  analyzeOpportunityImportRows,
+  importOpportunityRows,
+  preflightOpportunityImportRows,
+  type ImportProgress,
+  type ImportPreflight,
+  type ImportResult,
+  type ImportRow,
+} from '@/lib/pms/opportunity-import-client';
 
 interface Opportunity {
   id: string;
@@ -35,28 +45,14 @@ interface Opportunity {
   competitors?: string[];
 }
 
-type ImportRow = Partial<{
-  customerName: string;
-  projectName: string;
-  customerPhone: string;
-  customerAddress: string;
-  contactName: string;
-  contactTitle: string;
-  leadSource: string;
-  customerIndustry: string;
-  region: string;
-  channel: string;
-  productLine: string;
-  estimatedAmount: number;
-  stage: string;
-  dealerOrgName: string;
-}>;
-
-interface ImportResult {
+interface OpportunityPageInfo {
   total: number;
-  success: number;
-  failed: Array<{ row: number; reason: string }>;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
 }
+
+const OPPORTUNITY_PAGE_SIZE = 20;
 
 const STAGE_LABELS: Record<string, string> = {
   initial_contact: '初步接触',
@@ -77,6 +73,8 @@ const STAGE_LABELS: Record<string, string> = {
   closed: '已结案',
   lost: '丢单',
 };
+
+const STAGE_FILTER_OPTIONS = Object.keys(STAGE_LABELS);
 
 const STAGE_VALUE_BY_LABEL: Record<string, string> = Object.fromEntries(
   Object.entries(STAGE_LABELS).map(([value, label]) => [label, value]),
@@ -108,6 +106,29 @@ function stageLabel(stage: string): string {
 
 function stageBadgeClass(stage: string): string {
   return STAGE_BADGE_CLASSES[stage] ?? 'border-border bg-surface-2 text-ink-secondary';
+}
+
+function formatImportIssue(issue: { row: number; reason: string }): string {
+  return issue.row > 0 ? `第 ${issue.row} 行: ${issue.reason}` : `整体: ${issue.reason}`;
+}
+
+function importRowValues(row: ImportRow | undefined) {
+  return [
+    row?.customerName || '',
+    row?.projectName || '',
+    row?.customerPhone || '',
+    row?.customerAddress || '',
+    row?.contactName || '',
+    row?.contactTitle || '',
+    row?.leadSource || '',
+    row?.customerIndustry || '',
+    row?.region || '',
+    row?.channel || '',
+    row?.productLine || '',
+    row?.estimatedAmount ?? '',
+    row?.stage ? stageLabel(row.stage) : '',
+    row?.dealerOrgName || '',
+  ];
 }
 
 const IMPORT_HEADERS = [
@@ -288,37 +309,129 @@ async function downloadImportTemplate() {
   URL.revokeObjectURL(url);
 }
 
+async function downloadImportIssueReport(result: ImportResult, rows: ImportRow[]) {
+  const issues = [
+    ...result.notices.map((issue) => ({ status: '撞单跳过', ...issue })),
+    ...result.failed.map((issue) => ({ status: '导入失败', ...issue })),
+  ];
+  if (issues.length === 0) return;
+
+  const XLSX = await import('xlsx');
+  const sheetRows = [
+    ['处理状态', 'Excel行号', '原因', ...IMPORT_HEADERS],
+    ...issues.map((issue) => [
+      issue.status,
+      issue.row > 0 ? issue.row : '',
+      issue.reason,
+      ...importRowValues(issue.row > 0 ? rows[issue.row - 2] : undefined),
+    ]),
+  ];
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+  worksheet['!cols'] = [
+    { wch: 12 },
+    { wch: 10 },
+    { wch: 48 },
+    ...IMPORT_HEADERS.map((header) => ({ wch: Math.max(header.length + 4, 16) })),
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, '异常明细');
+  const output = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([output], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '商机导入异常明细.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function PMSPage() {
   const router = useRouter();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInfo, setPageInfo] = useState<OpportunityPageInfo>({
+    total: 0,
+    limit: OPPORTUNITY_PAGE_SIZE,
+    offset: 0,
+    hasMore: false,
+  });
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importRows, setImportRows] = useState<ImportRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const [databasePreflight, setDatabasePreflight] = useState<ImportPreflight | null>(null);
+  const [preflightChecking, setPreflightChecking] = useState(false);
+  const [preflightPage, setPreflightPage] = useState(1);
+  const localImportPreflight = useMemo(() => analyzeOpportunityImportRows(importRows), [importRows]);
+  const importPreflight = databasePreflight || localImportPreflight;
+  const duplicatePageSize = 3;
+  const duplicatePageCount = Math.max(1, Math.ceil(importPreflight.duplicateGroups.length / duplicatePageSize));
+  const visibleDuplicateGroups = importPreflight.duplicateGroups.slice(
+    (preflightPage - 1) * duplicatePageSize,
+    preflightPage * duplicatePageSize,
+  );
+  const importCompleted = !!importResult && !importing;
 
-  const stageOptions = Array.from(new Set(opportunities.map((o) => o.stage).filter(Boolean)));
-  const q = query.trim().toLowerCase();
-  const filteredOpps = opportunities.filter((o) => {
-    if (stageFilter !== 'all' && o.stage !== stageFilter) return false;
-    if (!q) return true;
-    return [o.customerName, o.projectName, o.contactName, o.region, o.leadSource]
-      .filter(Boolean)
-      .some((v) => v!.toLowerCase().includes(q));
-  });
+  const totalPages = Math.max(1, Math.ceil(pageInfo.total / (pageInfo.limit || OPPORTUNITY_PAGE_SIZE)));
+  const pageStart = pageInfo.total === 0 ? 0 : pageInfo.offset + 1;
+  const pageEnd = Math.min(pageInfo.offset + opportunities.length, pageInfo.total);
+  const hasActiveFilters = !!appliedQuery || stageFilter !== 'all';
 
   useEffect(() => {
-    loadOpportunities();
-  }, []);
+    const timer = window.setTimeout(() => {
+      setCurrentPage(1);
+      setAppliedQuery(query.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
-  async function loadOpportunities() {
+  useEffect(() => {
+    void loadOpportunities(currentPage);
+  }, [currentPage, stageFilter, appliedQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDatabasePreflight(null);
+    setPreflightPage(1);
+    if (localImportPreflight.importable === 0) {
+      setPreflightChecking(false);
+      return;
+    }
+    setPreflightChecking(true);
+    preflightOpportunityImportRows(importRows)
+      .then((result) => {
+        if (!cancelled) setDatabasePreflight(result);
+      })
+      .catch(() => {
+        if (!cancelled) setDatabasePreflight(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPreflightChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [importRows, localImportPreflight.importable]);
+
+  async function loadOpportunities(page = currentPage) {
     try {
       setLoading(true);
-      const res = await fetch('/api/pms/opportunities', {
+      setError(null);
+      const url = new URL('/api/pms/opportunities', window.location.origin);
+      url.searchParams.set('limit', String(OPPORTUNITY_PAGE_SIZE));
+      url.searchParams.set('offset', String((Math.max(1, page) - 1) * OPPORTUNITY_PAGE_SIZE));
+      if (appliedQuery) url.searchParams.set('q', appliedQuery);
+      if (stageFilter !== 'all') url.searchParams.set('stage', stageFilter);
+      const res = await fetch(url.toString(), {
         credentials: 'include',
         cache: 'no-store',
       });
@@ -327,6 +440,12 @@ export default function PMSPage() {
       
       const data = await res.json();
       setOpportunities(data.opportunities || []);
+      setPageInfo(data.page || {
+        total: data.opportunities?.length || 0,
+        limit: OPPORTUNITY_PAGE_SIZE,
+        offset: (Math.max(1, page) - 1) * OPPORTUNITY_PAGE_SIZE,
+        hasMore: false,
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -338,12 +457,18 @@ export default function PMSPage() {
     setImportText(text);
     setImportRows(rowsToImportRows(parseDelimitedRows(text)));
     setImportResult(null);
+    setImportProgress(null);
+    setDatabasePreflight(null);
+    setPreflightPage(1);
   }
 
   function openImportDialog() {
     setImportText('');
     setImportRows([]);
     setImportResult(null);
+    setImportProgress(null);
+    setDatabasePreflight(null);
+    setPreflightPage(1);
     setImportOpen(true);
   }
 
@@ -364,33 +489,30 @@ export default function PMSPage() {
   }
 
   async function submitImport() {
-    const rows = importRows.filter((r) => r.customerName || r.projectName);
-    const failed: ImportResult['failed'] = [];
-    let success = 0;
     setImporting(true);
     setImportResult(null);
-    try {
-      for (let index = 0; index < rows.length; index++) {
-        const row = rows[index];
-        if (!row.customerName || !row.projectName) {
-          failed.push({ row: index + 2, reason: '客户名称和项目名称必填' });
-          continue;
-        }
-        const res = await fetch('/api/pms/opportunities', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(row),
-        });
-        if (res.ok) {
-          success++;
-          continue;
-        }
-        const data = await res.json().catch(() => null);
-        failed.push({ row: index + 2, reason: data?.error || '导入失败' });
+    setImportProgress(importPreflight.importable > 0
+      ? {
+        total: importPreflight.importable,
+        processed: 0,
+        batchIndex: 0,
+        batchCount: Math.ceil(importPreflight.importable / 500),
       }
-      setImportResult({ total: rows.length, success, failed });
+      : null);
+    try {
+      const result = await importOpportunityRows(importRows, fetch, {
+        onProgress: setImportProgress,
+      });
+      setImportResult(result);
       await loadOpportunities();
+    } catch (err: any) {
+      setImportResult({
+        total: importPreflight.total,
+        success: 0,
+        duplicate: 0,
+        failed: [{ row: 0, reason: err?.message || '导入失败' }],
+        notices: [],
+      });
     } finally {
       setImporting(false);
     }
@@ -416,7 +538,7 @@ export default function PMSPage() {
           </CardHeader>
           <CardContent>
             <p className="text-ink-secondary">{error}</p>
-            <Button onClick={loadOpportunities} className="mt-4">
+            <Button onClick={() => void loadOpportunities(currentPage)} className="mt-4">
               重试
             </Button>
           </CardContent>
@@ -470,11 +592,14 @@ export default function PMSPage() {
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
               <select
                 value={stageFilter}
-                onChange={(e) => setStageFilter(e.target.value)}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setStageFilter(e.target.value);
+                }}
                 className="pl-9 pr-8 py-2 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface-1 text-ink-primary"
               >
                 <option value="all">全部阶段</option>
-                {stageOptions.map((s) => (
+                {STAGE_FILTER_OPTIONS.map((s) => (
                   <option key={s} value={s}>{stageLabel(s)}</option>
                 ))}
               </select>
@@ -487,23 +612,19 @@ export default function PMSPage() {
         {opportunities.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-ink-secondary">暂无商机</p>
-              <Button
-                onClick={() => router.push('/pms/opportunities/new')}
-                className="mt-4 bg-brand-500 hover:bg-brand-600"
-              >
-                创建第一个商机
-              </Button>
-            </CardContent>
-          </Card>
-        ) : filteredOpps.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-ink-secondary">没有符合条件的商机</p>
+              <p className="text-ink-secondary">{hasActiveFilters ? '没有符合条件的商机' : '暂无商机'}</p>
+              {!hasActiveFilters && (
+                <Button
+                  onClick={() => router.push('/pms/opportunities/new')}
+                  className="mt-4 bg-brand-500 hover:bg-brand-600"
+                >
+                  创建第一个商机
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
-          filteredOpps.map((opp) => (
+          opportunities.map((opp) => (
             <Card
               key={opp.id}
               className="cursor-pointer hover:shadow-soft-sm transition-shadow"
@@ -561,12 +682,43 @@ export default function PMSPage() {
         )}
       </div>
 
+      {!loading && pageInfo.total > 0 && (
+        <div className="mt-5 flex flex-col gap-2 text-caption text-ink-secondary md:flex-row md:items-center md:justify-between">
+          <span>
+            共 {pageInfo.total} 条，显示 {pageStart}-{pageEnd} 条 · 每页 {pageInfo.limit || OPPORTUNITY_PAGE_SIZE} 条
+          </span>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={loading || currentPage <= 1}
+            >
+              上一页
+            </Button>
+            <span className="min-w-16 text-center">
+              {currentPage}/{totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={loading || currentPage >= totalPages || !pageInfo.hasMore}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>批量导入商机</DialogTitle>
             <DialogDescription>
-              支持上传 Excel / CSV，也可以从 Excel 复制表格后粘贴。必填列为客户名称、项目名称；内部代报时需填写归属经销商ID。
+              支持上传 Excel / CSV，也可以从 Excel 复制表格后粘贴。必填列为客户名称、项目名称；内部代报时填写归属经销商名称、编码或ID。
             </DialogDescription>
           </DialogHeader>
 
@@ -619,29 +771,108 @@ export default function PMSPage() {
               </div>
             </div>
 
-            {importResult && (
-              <div className={`rounded-lg border px-3 py-2 text-caption ${importResult.failed.length > 0 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-success/30 bg-success/10 text-success'}`}>
-                已处理 {importResult.total} 条，成功 {importResult.success} 条，失败 {importResult.failed.length} 条。
-                {importResult.failed.length > 0 && (
-                  <div className="mt-1 text-ink-secondary">
-                    {importResult.failed.slice(0, 3).map((f) => `第 ${f.row} 行: ${f.reason}`).join('；')}
+            {importPreflight.total > 0 && (
+              <div className={`rounded-lg border px-3 py-2 text-caption ${importPreflight.duplicate > 0 || importPreflight.failed > 0 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-success/30 bg-success/10 text-success'}`}>
+                已读取 {importPreflight.total} 条，可导入 {importPreflight.importable} 条，撞单跳过 {importPreflight.duplicate} 条，缺必填 {importPreflight.failed} 条。
+                {preflightChecking && <span className="ml-2 text-ink-secondary">正在和数据库比对...</span>}
+                {importPreflight.duplicateGroups.length > 0 && (
+                  <div className="mt-2 grid gap-2 text-ink-secondary">
+                    {visibleDuplicateGroups.map((group, index) => {
+                      const rows = group.rows.slice(0, 8).join('、');
+                      const suffix = group.rows.length > 8 ? ' 等' : '';
+                      return (
+                        <div key={`${group.type}-${group.rows[0]}-${index}`} className="rounded-md bg-surface-1 px-2 py-1">
+                          {group.reason}: 第 {rows}{suffix} 行
+                        </div>
+                      );
+                    })}
+                    {duplicatePageCount > 1 && (
+                      <div className="flex items-center justify-between pt-1">
+                        <span>第 {preflightPage} / {duplicatePageCount} 页</span>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPreflightPage((page) => Math.max(1, page - 1))}
+                            disabled={preflightPage <= 1}
+                          >
+                            上一页
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPreflightPage((page) => Math.min(duplicatePageCount, page + 1))}
+                            disabled={preflightPage >= duplicatePageCount}
+                          >
+                            下一页
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                )}
+              </div>
+            )}
+
+            {(importing || importProgress) && (
+              <div className="grid gap-2 rounded-lg border border-border bg-surface-1 px-3 py-2">
+                <div className="flex items-center justify-between text-caption text-ink-secondary">
+                  <span>
+                    已处理 {importProgress?.processed ?? 0} / {importProgress?.total ?? 0} 条
+                  </span>
+                  <span>
+                    第 {importProgress?.batchIndex ?? 0} / {importProgress?.batchCount ?? 0} 批
+                  </span>
+                </div>
+                <Progress
+                  value={importProgress?.total ? Math.round(((importProgress.processed / importProgress.total) * 100)) : 0}
+                  className="h-2"
+                />
+              </div>
+            )}
+
+            {importResult && (
+              <div className={`rounded-lg border px-3 py-2 text-caption ${importResult.failed.length > 0 || importResult.duplicate > 0 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-success/30 bg-success/10 text-success'}`}>
+                <div className="font-medium">导入完成</div>
+                <div className="mt-1">
+                  已处理 {importResult.total} 条，成功 {importResult.success} 条，撞单跳过 {importResult.duplicate} 条，失败 {importResult.failed.length} 条。
+                </div>
+                {(importResult.notices.length > 0 || importResult.failed.length > 0) && (
+                  <div className="mt-1 text-ink-secondary">
+                    {[...importResult.notices, ...importResult.failed].slice(0, 3).map(formatImportIssue).join('；')}
+                  </div>
+                )}
+                {(importResult.notices.length > 0 || importResult.failed.length > 0) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => void downloadImportIssueReport(importResult, importRows)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    下载异常明细
+                  </Button>
                 )}
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importing}>
+            <Button variant={importCompleted ? 'default' : 'outline'} onClick={() => setImportOpen(false)} disabled={importing}>
               关闭
             </Button>
-            <Button
-              onClick={submitImport}
-              disabled={importing || importRows.length === 0}
-              className="bg-brand-500 hover:bg-brand-600"
-            >
-              {importing ? '导入中...' : importRows.length > 0 ? `导入 ${importRows.length} 条` : '导入'}
-            </Button>
+            {!importCompleted && (
+              <Button
+                onClick={submitImport}
+                disabled={importing || preflightChecking || importRows.length === 0 || importPreflight.importable === 0}
+                className="bg-brand-500 hover:bg-brand-600"
+              >
+                {importing ? '导入中...' : preflightChecking ? '比对中...' : importPreflight.importable > 0 ? `导入 ${importPreflight.importable} 条` : '导入'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

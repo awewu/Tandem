@@ -4,51 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
-import { createDownstreamOrg } from '@/lib/auth/organizations';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
-import { getStore } from '@/lib/storage/repository';
 import {
   createOpportunity,
-  listOpportunities,
+  listOpportunitiesPage,
   updateOpportunity,
 } from '@/lib/pms/opportunity-service';
-
-function normalizeDealerRef(value: unknown): string {
-  return String(value ?? '').trim().toLowerCase();
-}
-
-async function resolveDealerOrgId(
-  auth: PmsAuthResult,
-  ref: unknown,
-  options: { dealerName?: unknown; dealerSource?: unknown } = {},
-): Promise<string | null> {
-  const targets = [ref, options.dealerName]
-    .map(normalizeDealerRef)
-    .filter(Boolean);
-  if (targets.length === 0) return null;
-  const orgs = await getStore().organizations.list({ tenantId: auth.tenantId });
-  const matched = orgs.find((org) => (
-    org.status === 'active' &&
-    org.type !== 'anchor' &&
-    (
-      targets.includes(normalizeDealerRef(org.id)) ||
-      targets.includes(normalizeDealerRef(org.name))
-    )
-  ));
-  if (matched) return matched.id;
-
-  if (options.dealerSource !== 'ys') return null;
-  const name = String(options.dealerName || ref || '').trim();
-  if (!name) return null;
-  const created = await createDownstreamOrg({
-    name,
-    type: 'downstream',
-    category: 'dealer',
-    createdBy: auth.userId,
-    tenantId: auth.tenantId,
-  });
-  return created.id;
-}
+import { resolveDealerOrgId } from '@/lib/pms/dealer-resolver';
 
 /**
  * GET /api/pms/opportunities - 列表查询
@@ -66,19 +28,30 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
+    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '20', 10) || 20));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
     
-    const opportunities = await listOpportunities({
+    const page = await listOpportunitiesPage({
       tenantId: auth.tenantId,
       orgId: searchParams.get('orgId') || undefined,
       dealerOrgId: searchParams.get('dealerOrgId') || undefined,
       stage: searchParams.get('stage') || undefined,
       status: searchParams.get('status') || undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
-      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0,
+      query: searchParams.get('q') || searchParams.get('query') || undefined,
+      limit,
+      offset,
       visibleOrgIds: auth.isInternal ? undefined : auth.visibleOrgIds,
     });
     
-    return NextResponse.json({ opportunities });
+    return NextResponse.json({
+      opportunities: page.opportunities,
+      page: {
+        total: page.total,
+        limit: page.limit,
+        offset: page.offset,
+        hasMore: page.hasMore,
+      },
+    });
   } catch (error: any) {
     console.error('List opportunities error:', error);
     return NextResponse.json(
@@ -116,6 +89,7 @@ export async function POST(req: NextRequest) {
     const resolvedDealerOrgId = auth.isInternal
       ? await resolveDealerOrgId(auth, dealerRef, {
         dealerName: body.dealerOrgName,
+        dealerCode: body.dealerOrgCode,
         dealerSource: body.dealerOrgSource,
       })
       : null;
