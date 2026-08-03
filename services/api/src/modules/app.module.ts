@@ -19,6 +19,7 @@ import { CrmModule } from './crm/crm.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
 import { DesignModule } from './design/design.module';
 import { BimModule } from './bim/bim.module';
+import { ContractsModule } from './contracts/contracts.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { DispatchModule } from './dispatch/dispatch.module';
 import { EntitlementModule } from './entitlement/entitlement.module';
@@ -33,6 +34,8 @@ import { NotificationModule } from './notification/notification.module';
 import { ProductCatalogModule } from './product-catalog/product-catalog.module';
 import { QuoteModule } from './quote/quote.module';
 import { SiteMaterialsModule } from './site-materials/site-materials.module';
+import { SystemPacksModule } from './system-packs/system-packs.module';
+import { ReactCandidateModule } from './react-candidate/react-candidate.module';
 import { TenantModule } from './tenant/tenant.module';
 import { WechatPublishingModule } from './wechat-publishing/wechat-publishing.module';
 import { WorkflowModule } from './workflow/workflow.module';
@@ -94,6 +97,9 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     DesignModule,
     BimModule,
     DeliveryModule,
+    ContractsModule,
+    SystemPacksModule,
+    ReactCandidateModule,
     GrowthModule,
     EntitlementModule,
   ],

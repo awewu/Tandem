@@ -30,6 +30,14 @@ const NESTJS_MIGRATED_PREFIXES = [
   '/api/v2/product-catalog',
   '/api/v2/file-artifact',
   '/api/v2/growth',
+  '/api/v2/contracts',
+  '/api/v2/system-packs',
+  '/api/v2/audit',
+  '/api/v2/analytics',
+  '/api/v2/governance',
+  '/api/v2/health',
+  '/api/v2/devices',
+  '/api/v2/projects',
 ];
 
 // P1 架构收敛（2026-07-06）：默认把【全部】 /api/v2/** 反向代理到 NestJS 单一真相源。

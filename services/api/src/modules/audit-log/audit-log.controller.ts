@@ -14,3 +14,15 @@ export class AuditLogController {
     return this.auditLog.list(req.user, query);
   }
 }
+
+@Controller('audit')
+export class AuditEventsController {
+  constructor(private readonly auditLog: AuditLogService) {}
+
+  @Get('events')
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('system.audit.read')
+  events(@Req() req: any, @Query() query: AuditLogQuery) {
+    return this.auditLog.list(req.user, query);
+  }
+}
