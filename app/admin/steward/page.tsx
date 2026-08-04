@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 import {
   Shield,
   CheckCircle2,
@@ -168,6 +169,7 @@ function PromotionsPanel({ signerId }: { signerId: string }) {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const { nameOf } = useOwnerDirectory();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -262,6 +264,7 @@ function PromotionsPanel({ signerId }: { signerId: string }) {
             <PromotionCard
               key={p.id}
               p={p}
+              nameOf={nameOf}
               onSign={(role) => void sign(p, role)}
               onReject={() => void reject(p)}
             />
@@ -274,10 +277,12 @@ function PromotionsPanel({ signerId }: { signerId: string }) {
 
 function PromotionCard({
   p,
+  nameOf,
   onSign,
   onReject,
 }: {
   p: PromotionRequest;
+  nameOf: (id: string | null | undefined) => string;
   onSign: (role: string) => void;
   onReject: () => void;
 }) {
@@ -325,7 +330,7 @@ function PromotionCard({
             <p className="mt-1 line-clamp-2 text-footnote text-muted-foreground">{p.proposedBody}</p>
           </div>
           <div className="flex flex-col items-end gap-1 text-right text-[11px] text-muted-foreground">
-            <span>提议: {p.createdBy}</span>
+            <span>提议: {nameOf(p.createdBy)}</span>
             <span>{new Date(p.createdAt).toLocaleString()}</span>
             {slaInfo && (
               <span
@@ -362,7 +367,7 @@ function PromotionCard({
                 <span className="font-medium">{ROLE_LABEL[r] ?? r}</span>
                 {signed && (
                   <span className="ml-auto truncate text-[10px] text-muted-foreground">
-                    {signed.userId} · {new Date(signed.signedAt).toLocaleDateString()}
+                    {nameOf(signed.userId)} · {new Date(signed.signedAt).toLocaleDateString()}
                   </span>
                 )}
                 {!signed && isPending && (

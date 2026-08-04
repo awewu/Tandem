@@ -199,28 +199,6 @@ export default function AdminOrganizationsPage() {
             新建下游组织
           </Button>
 
-          {lastCode && (
-            <div className="rounded border border-success/40 bg-success/10 p-3">
-              <p className="mb-1 text-footnote text-success">
-                ⚠️ 此邀请码仅显示一次, 请立即复制并发给下游成员:
-              </p>
-              <div className="flex items-center gap-2 rounded bg-surface-1 p-2">
-                <code className="flex-1 text-headline font-bold tracking-widest">{lastCode}</code>
-                <Button size="sm" variant="outline" onClick={copyCode}>
-                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="mt-2 text-footnote text-success">
-                注册链接:{' '}
-                <code className="text-[10px]">
-                  {typeof window !== 'undefined' ? window.location.origin : ''}/register?invite={lastCode}
-                </code>
-                {lastCodeOrg && (
-                  <span className="ml-1">→ 归属「{orgs.find((o) => o.id === lastCodeOrg)?.name ?? lastCodeOrg}」</span>
-                )}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -300,6 +278,27 @@ export default function AdminOrganizationsPage() {
                         {inviting ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Ticket className="mr-1 h-3.5 w-3.5" />}
                         生成邀请码
                       </Button>
+                    </div>
+                  )}
+
+                  {lastCode && lastCodeOrg === o.id && (
+                    <div className="mt-3 rounded-md border border-success/30 bg-success/5 p-2.5">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-footnote font-medium text-success">邀请码仅显示一次</span>
+                        <Button size="sm" variant="outline" className="h-7 px-2" onClick={copyCode}>
+                          {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+                          <span className="ml-1 text-[11px]">{copied ? '已复制' : '复制'}</span>
+                        </Button>
+                      </div>
+                      <code className="block rounded border bg-surface-1 px-2.5 py-2 font-mono text-body font-semibold tracking-widest">
+                        {lastCode}
+                      </code>
+                      <p className="mt-2 truncate text-[11px] text-muted-foreground">
+                        注册链接:{' '}
+                        <code>
+                          {typeof window !== 'undefined' ? window.location.origin : ''}/register?invite={lastCode}
+                        </code>
+                      </p>
                     </div>
                   )}
                 </div>
