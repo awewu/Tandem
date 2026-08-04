@@ -13,7 +13,7 @@
  *   - 智能总结
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -424,6 +424,7 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
   const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [mgmtBusy, setMgmtBusy] = useState(false);
+  const [ownerTransferTargetId, setOwnerTransferTargetId] = useState('');
 
   const [mute, setMute] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -440,6 +441,10 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
   const isAdmin = myRole === 'owner' || myRole === 'admin';
   const isOwner = myRole === 'owner';
   const isDm = channel.type === 'dm';
+  const ownerTransferCandidates = useMemo(
+    () => members.filter((member) => member.userId !== currentUserId),
+    [members, currentUserId],
+  );
 
   const loadMembers = useCallback(async () => {
     const res = await fetch(`/api/im/channels/${channel.id}/members`);
@@ -488,6 +493,17 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
 
   useEffect(() => { void loadMembers(); }, [loadMembers]);
   useEffect(() => { if (openBoard && okrs.length === 0) void loadOkrs(); }, [openBoard, okrs.length, loadOkrs]);
+  useEffect(() => {
+    if (!ownerTransferCandidates.length) {
+      setOwnerTransferTargetId('');
+      return;
+    }
+    setOwnerTransferTargetId((current) =>
+      ownerTransferCandidates.some((member) => member.userId === current)
+        ? current
+        : ownerTransferCandidates[0]?.userId ?? '',
+    );
+  }, [ownerTransferCandidates]);
 
   async function handleSaveInfo() {
     setInfoBusy(true);
@@ -554,6 +570,11 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
         await loadMembers();
       } finally { setMgmtBusy(false); }
     }
+  }
+
+  async function handleTransferOwner() {
+    if (!ownerTransferTargetId) return;
+    await handleSetRole(ownerTransferTargetId, 'owner');
   }
 
   async function handleDissolve() {
@@ -805,6 +826,44 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
               <SectionHeader icon={Settings} label="群管理" open={openMgmt} onToggle={() => setOpenMgmt((v) => !v)} />
               {openMgmt && (
                 <div className="pb-2">
+                  {isOwner && ownerTransferCandidates.length > 0 && (
+                    <div className="mx-3 mb-2 rounded-lg border border-hairline bg-surface-2 p-2">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-ink-secondary">
+                        <Crown className="h-3.5 w-3.5 text-warning" />
+                        转让群主
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          aria-label="选择新群主"
+                          value={ownerTransferTargetId}
+                          disabled={mgmtBusy}
+                          onChange={(event) => setOwnerTransferTargetId(event.target.value)}
+                          className="h-8 min-w-0 flex-1 rounded border border-hairline bg-surface-1 px-2 text-[12px] text-ink-primary"
+                        >
+                          {ownerTransferCandidates.map((member) => {
+                            const user = orgUsers.get(member.userId);
+                            return (
+                              <option key={member.userId} value={member.userId}>
+                                {user?.name ?? member.userId}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleTransferOwner()}
+                          disabled={mgmtBusy || !ownerTransferTargetId}
+                          className="h-8 shrink-0 gap-1 text-[12px]"
+                        >
+                          {mgmtBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5" />}
+                          转让
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {isAdmin && members
                     .filter((m) => m.userId !== currentUserId)
                     .map((m) => {

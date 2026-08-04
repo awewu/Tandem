@@ -88,6 +88,59 @@ describe('handoffCalendarAndImOnUserOffboarding', () => {
     expect(otherMembership?.role).toBe('member');
   });
 
+  it('transfers by attendee email when the meeting has no internal attendee ids', async () => {
+    const calendarRepo = new InMemoryCalendarEventRepository();
+    const owner = await createUser('owner@example.com');
+    const firstActive = await createUser('first-by-email@example.com');
+    const secondActive = await createUser('second-by-email@example.com');
+    const event = await calendarRepo.create(eventDraft({
+      id: 'evt-offboard-email-fallback',
+      ownerId: owner.id,
+      attendees: [],
+      attendeeEmails: [firstActive.email, secondActive.email],
+    }));
+    const store = getStore();
+    const channel = await store.imChannels.create({
+      id: 'channel-email-fallback',
+      type: 'group',
+      name: 'Meeting email fallback',
+      topic: 'calendar:event:evt-offboard-email-fallback|2026/08/05',
+      visibility: 'private',
+      memberIds: [owner.id],
+      createdBy: owner.id,
+      tenantId: TENANT_ID,
+      autoCreated: true,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      updatedAt: '2026-08-04T00:00:00.000Z',
+    });
+    await store.imMemberships.create({
+      id: membershipKey(channel.id, owner.id),
+      channelId: channel.id,
+      userId: owner.id,
+      role: 'owner',
+      joinedAt: '2026-08-04T00:00:00.000Z',
+      unreadCount: 0,
+      muted: false,
+    });
+
+    const result = await handoffCalendarAndImOnUserOffboarding({
+      ctx: { calendarRepo },
+      departingUser: owner,
+      tenantId: TENANT_ID,
+    });
+    const updated = await calendarRepo.findById(event.id);
+    const updatedChannel = await store.imChannels.get(channel.id);
+    const successorMembership = await store.imMemberships.get(membershipKey(channel.id, firstActive.id));
+
+    expect(result.calendarTransferred).toBe(1);
+    expect(result.imTransferred).toBe(1);
+    expect(updated?.ownerId).toBe(firstActive.id);
+    expect(updated?.attendees).toEqual([]);
+    expect(updated?.attendeeEmails).toEqual([secondActive.email]);
+    expect(updatedChannel?.createdBy).toBe(firstActive.id);
+    expect(successorMembership?.role).toBe('owner');
+  });
+
   it('transfers a meeting IM group created by a departing attendee to the meeting owner', async () => {
     const calendarRepo = new InMemoryCalendarEventRepository();
     const owner = await createUser('owner@example.com');

@@ -9,7 +9,8 @@ import { InMemoryReminderTaskRepository } from '@/lib/repositories/memory-remind
 import { CalendarSubscriptionService } from '@/lib/services/calendar-subscription-service';
 import { listCalendarActivities } from '@/lib/calendar/activity-log';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
-import { setStore } from '@/lib/storage/repository';
+import { getStore, setStore } from '@/lib/storage/repository';
+import { membershipKey } from '@/lib/types/im';
 
 beforeEach(() => {
   vi.useRealTimers();
@@ -232,6 +233,114 @@ describe('CalendarService', () => {
     expect(activeReminders).toHaveLength(6);
     expect(sentEmails.at(-1)?.subject).toBe('【日程变更】每日进度同步');
     expect(sentEmails.at(-1)?.to).toEqual(['colleague@example.com']);
+  });
+
+  it('transfers selected and future instances to a meeting attendee and keeps the old owner as attendee', async () => {
+    const { service, ctx } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'user-3', email: 'second@example.com', name: 'Second' },
+      ],
+    );
+    const events = await service.createManaged({
+      title: '转交测试',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com', 'second@example.com'],
+      reminderMinutes: 10,
+      recurrence: { frequency: 'daily', interval: 1, end: { type: 'count', count: 3 } },
+    });
+
+    const updated = await service.transferOwnerManaged(events[1].id, 'owner-1', 'user-2', 'future', 'owner@example.com');
+
+    expect(updated.map((event) => event.ownerId)).toEqual(['user-2', 'user-2']);
+    expect((await ctx.calendarRepo.findById(events[0].id))?.ownerId).toBe('owner-1');
+    expect((await ctx.calendarRepo.findById(events[1].id))?.attendees).toEqual(['user-3', 'owner-1']);
+    expect((await ctx.calendarRepo.findById(events[1].id))?.attendeeEmails).toEqual(['second@example.com', 'owner@example.com']);
+    expect(await service.listForUser('owner-1', 'tenant-1')).toHaveLength(3);
+    expect(await service.listForUser('user-2', 'tenant-1')).toHaveLength(3);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'pending' })).toHaveLength(3);
+  });
+
+  it('rejects transferring a meeting to a non-attendee', async () => {
+    const { service } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'user-3', email: 'stranger@example.com', name: 'Stranger' },
+      ],
+    );
+    const [event] = await service.createManaged({
+      title: '转交校验',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 10,
+    });
+
+    await expect(service.transferOwnerManaged(event.id, 'owner-1', 'user-3', 'single', 'owner@example.com'))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('transfers the linked auto-created IM group owner with the calendar owner', async () => {
+    const { service } = createService();
+    const [event] = await service.createManaged({
+      title: 'IM 转交测试',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 10,
+    });
+    const store = getStore();
+    const channel = await store.imChannels.create({
+      id: 'channel-calendar-transfer',
+      type: 'group',
+      name: 'IM 转交测试',
+      topic: `calendar:event:${event.id}|2026/07/17`,
+      visibility: 'private',
+      memberIds: ['owner-1', 'user-2'],
+      createdBy: 'owner-1',
+      tenantId: 'tenant-1',
+      autoCreated: true,
+      createdAt: '2026-07-16T02:00:00.000Z',
+      updatedAt: '2026-07-16T02:00:00.000Z',
+    });
+    await store.imMemberships.create({
+      id: membershipKey(channel.id, 'owner-1'),
+      channelId: channel.id,
+      userId: 'owner-1',
+      role: 'owner',
+      joinedAt: '2026-07-16T02:00:00.000Z',
+      unreadCount: 0,
+      muted: false,
+    });
+    await store.imMemberships.create({
+      id: membershipKey(channel.id, 'user-2'),
+      channelId: channel.id,
+      userId: 'user-2',
+      role: 'member',
+      joinedAt: '2026-07-16T02:00:00.000Z',
+      unreadCount: 0,
+      muted: false,
+    });
+
+    await service.transferOwnerManaged(event.id, 'owner-1', 'user-2', 'single', 'owner@example.com');
+
+    expect((await store.imChannels.get(channel.id))?.createdBy).toBe('user-2');
+    expect((await store.imMemberships.get(membershipKey(channel.id, 'user-2')))?.role).toBe('owner');
+    expect((await store.imMemberships.get(membershipKey(channel.id, 'owner-1')))?.role).toBe('admin');
   });
 
   it('soft-cancels the selected and future instances and cancels only pending reminders', async () => {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useCalendarStore, type CalendarEvent, type EventType, type EventStatus } from '@/lib/store/calendar';
-import type { CalendarMutationScope, CalendarRecurrenceRule, RecurrenceFrequency } from '@/lib/types/calendar-management';
+import type { CalendarMutationScope, CalendarRecurrenceRule, RecurrenceFrequency, CalendarUser } from '@/lib/types/calendar-management';
 import { fetchWithTimeout, isRequestTimeoutError } from '@/lib/http/fetch-with-timeout';
 import { AttendeePicker } from '@/components/calendar/attendee-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Trash2, Copy, X, ClipboardList, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Trash2, Copy, X, ClipboardList, CheckCircle2, AlertCircle, Loader2, Crown } from 'lucide-react';
 
 interface EventEditorProps {
   open: boolean;
@@ -178,6 +178,8 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
   const [createImReminder, setCreateImReminder] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [transferringOwner, setTransferringOwner] = useState(false);
+  const [ownerTransferUserId, setOwnerTransferUserId] = useState('');
   const [formError, setFormError] = useState('');
 
   // Async job progress state
@@ -319,6 +321,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       setRecurWeekdays(nextWeekdays);
       setMutationScope(editing.seriesId ? 'series' : 'single');
       setCreateImReminder(false);
+      setOwnerTransferUserId(firstOwnerTransferCandidate(editing)?.id ?? '');
     } else {
       const base = defaultStartDate(initialDate);
       const end = new Date(base.getTime() + 30 * 60 * 1000);
@@ -346,6 +349,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       setRecurWeekdays([base.getDay()]);
       setMutationScope('single');
       setCreateImReminder(false);
+      setOwnerTransferUserId('');
     }
     setFormError('');
     setPrepResult(null);
@@ -526,6 +530,39 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
     }
   }
 
+  async function handleTransferOwner() {
+    if (!editing?.serverManaged || !ownerTransferUserId) return;
+    const target = ownerTransferOptions.find((user) => user.id === ownerTransferUserId);
+    if (!confirm(`确认将日程发起人转交给 ${formatCalendarUserLabel(target)}？`)) return;
+    setTransferringOwner(true);
+    setFormError('');
+    try {
+      const response = await fetchWithTimeout(`/api/calendar/${editing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'transferOwner',
+          newOwnerId: ownerTransferUserId,
+          scope: mutationScope,
+        }),
+      }, CALENDAR_MUTATION_TIMEOUT_MS);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '转交失败');
+      try { await onSaved?.(); } catch { alert('日程已转交，但列表刷新失败，请刷新页面查看。'); }
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        alert(data.warnings.join('；'));
+      }
+      onClose();
+    } catch (error) {
+      setFormError(isRequestTimeoutError(error)
+        ? '转交请求超时，无法确认是否已转交。请刷新日程后再确认。'
+        : error instanceof Error ? error.message : '转交失败');
+    } finally {
+      setTransferringOwner(false);
+    }
+  }
+
   async function handleDelete() {
     if (!editing) return;
     if (confirm('确定删除此日程？')) {
@@ -579,6 +616,10 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
   }
 
   const selectedCal = calendars.find((c) => c.id === calendarId);
+  const ownerTransferOptions = useMemo(() => {
+    if (!editing?.serverManaged) return [];
+    return ownerTransferCandidates(editing);
+  }, [editing]);
   const startTimeOptions = useMemo(() => {
     const options = buildStartTimeOptions(startDate);
     return options.includes(startTime) ? options : [startTime, ...options].filter(Boolean).sort();
@@ -805,6 +846,41 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
             <div className={FORM_ROW_CLASS}>
               <Label className={FORM_LABEL_CLASS}>成员</Label>
               <div className="min-w-0 flex-1"><AttendeePicker value={attendees} onChange={setAttendees} showLabel={false} /></div>
+            </div>
+          )}
+
+          {editing?.serverManaged && type === 'meeting' && ownerTransferOptions.length > 0 && (
+            <div className={FORM_ROW_CLASS}>
+              <Label className={FORM_LABEL_CLASS}>发起人</Label>
+              <div className="min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3 py-2.5">
+                <div className="mb-2 flex min-w-0 items-center gap-2 text-caption text-ink-secondary">
+                  <Crown className="h-3.5 w-3.5 shrink-0 text-warning" />
+                  <span className="truncate">当前：{formatCalendarUserLabel(editing.organizer, editing.createdBy)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={ownerTransferUserId} onValueChange={setOwnerTransferUserId}>
+                    <SelectTrigger className="min-w-0 flex-1">
+                      <SelectValue placeholder="选择接收人" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ownerTransferOptions.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>{formatCalendarUserLabel(user)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTransferOwner}
+                    disabled={saving || deleting || transferringOwner || !ownerTransferUserId}
+                    className="shrink-0 gap-1.5"
+                  >
+                    {transferringOwner ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5" />}
+                    转交
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1073,7 +1149,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
             </div>
             {(jobStatus.status === 'partial' || jobStatus.status === 'failed') && (
               <div className="flex items-center gap-2 pt-1">
-                <Button type="button" size="sm" variant="outline" onClick={handleRetryJob} disabled={saving || deleting} className="text-caption">
+                <Button type="button" size="sm" variant="outline" onClick={handleRetryJob} disabled={saving || deleting || transferringOwner} className="text-caption">
                   {saving ? '重试中...' : '从断点重试'}
                 </Button>
                 <span className="text-[11px] text-ink-tertiary">已完成的步骤不会重复执行</span>
@@ -1087,12 +1163,12 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           <div className="flex items-center gap-1">
             {editing && (
               <>
-                <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={saving || deleting} className="gap-1.5 px-3 shadow-sm" title="删除日程">
+                <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={saving || deleting || transferringOwner} className="gap-1.5 px-3 shadow-sm" title="删除日程">
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   <span>{deleting ? '删除中...' : '删除'}</span>
                 </Button>
                 {!editing.serverManaged && (
-                  <Button type="button" variant="ghost" size="sm" onClick={handleDuplicate} disabled={saving || deleting} title="复制事件">
+                  <Button type="button" variant="ghost" size="sm" onClick={handleDuplicate} disabled={saving || deleting || transferringOwner} title="复制事件">
                     <Copy className="h-4 w-4" />
                   </Button>
                 )}
@@ -1100,12 +1176,12 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={(saving && !jobStatus) || deleting}>
+            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={(saving && !jobStatus) || deleting || transferringOwner}>
               <X className="h-4 w-4 mr-1" />
               取消
             </Button>
-            <Button type="button" size="sm" onClick={jobStatus?.status === 'completed' ? onClose : handleSave} disabled={saving || deleting} className="bg-info/80 hover:bg-info/70 text-white">
-              {deleting ? '删除中...' : jobStatus?.status === 'completed' ? '完成' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
+            <Button type="button" size="sm" onClick={jobStatus?.status === 'completed' ? onClose : handleSave} disabled={saving || deleting || transferringOwner} className="bg-info/80 hover:bg-info/70 text-white">
+              {transferringOwner ? '转交中...' : deleting ? '删除中...' : jobStatus?.status === 'completed' ? '完成' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
             </Button>
           </div>
         </div>
@@ -1113,6 +1189,31 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       </DialogContent>
     </Dialog>
   );
+}
+
+function firstOwnerTransferCandidate(event: CalendarEvent): CalendarUser | undefined {
+  return ownerTransferCandidates(event)[0];
+}
+
+function ownerTransferCandidates(event: CalendarEvent): CalendarUser[] {
+  const ownerId = event.createdBy;
+  const attendeeEmails = new Set((event.attendeeEmails ?? event.attendees ?? []).map(normalizeEmailLoose));
+  const byId = new Map<string, CalendarUser>();
+  for (const user of event.attendeeUsers ?? []) {
+    if (user.id === ownerId) continue;
+    if (attendeeEmails.size > 0 && !attendeeEmails.has(normalizeEmailLoose(user.email))) continue;
+    if (!byId.has(user.id)) byId.set(user.id, user);
+  }
+  return Array.from(byId.values());
+}
+
+function formatCalendarUserLabel(user: CalendarUser | undefined, fallback = '未知用户'): string {
+  if (!user) return fallback;
+  return user.name && user.name !== user.email ? `${user.name} (${user.email})` : user.email;
+}
+
+function normalizeEmailLoose(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 // 辅助格式化

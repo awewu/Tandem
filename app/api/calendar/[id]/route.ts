@@ -20,6 +20,16 @@ const PATCHApiHandler = withErrorHandler(async (req: NextRequest, { params }: Ro
   if (auth instanceof NextResponse) return auth;
   const body = await req.json();
   const service = createCalendarService(auth.userId);
+  if (body.action === 'transferOwner') {
+    const events = await service.transferOwnerManaged(
+      params.id,
+      auth.userId,
+      String(body.newOwnerId ?? ''),
+      scopeOf(body.scope),
+      auth.email,
+    );
+    return NextResponse.json({ action: 'owner_transferred', events, warnings: service.getDeliveryWarnings() });
+  }
   const events = await service.updateManaged(params.id, auth.userId, scopeOf(body.scope), {
     ownerEmail: auth.email,
     title: body.title,

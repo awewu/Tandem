@@ -5,6 +5,10 @@ import type { CalendarMutationScope, CalendarRecurrenceRule, CalendarUser } from
 import type { CalendarJob, CalendarJobResult } from '@/lib/calendar/job-store';
 import { getCalendarJobStore } from '@/lib/calendar/job-store';
 import { recordCalendarActivity } from '@/lib/calendar/activity-log';
+import { getStore } from '@/lib/storage/repository';
+import { transferChannelOwnerForSystem } from '@/lib/im/service';
+import { membershipKey } from '@/lib/types/im';
+import { CALENDAR_IM_TOPIC_PREFIX, eventIdFromTopic } from '@/lib/services/calendar-im-reminder-service';
 import { ReminderEngine } from './reminder-engine';
 
 export interface CreateEventCommand {
@@ -699,6 +703,80 @@ export class CalendarService {
     return cancelled;
   }
 
+  async transferOwnerManaged(
+    id: string,
+    actorId: string,
+    newOwnerId: string,
+    scope: CalendarMutationScope,
+    actorEmail?: string,
+  ): Promise<CalendarEvent[]> {
+    this.deliveryWarnings.length = 0;
+    if (!newOwnerId || newOwnerId === actorId) {
+      throw new ValidationError('newOwnerId must be another meeting attendee');
+    }
+    const anchor = await this.requireOwnedEvent(id, actorId);
+    const tenantUsers = await this.deps.listUsers?.(anchor.tenantId) ?? [];
+    const usersById = new Map(tenantUsers.map((user) => [user.id, user]));
+    const nextOwner = usersById.get(newOwnerId);
+    if (!nextOwner) throw new ValidationError('new owner must be an active tenant user');
+    if (!isEventParticipant(anchor, nextOwner)) {
+      throw new ValidationError('new owner must be a meeting attendee');
+    }
+
+    const targets = await this.selectMutationTargets(anchor, scope);
+    const nowIso = (this.deps.now?.() ?? new Date()).toISOString();
+    await this.ctx.calendarReminderRepo.cancelByEventIds(targets.map((event) => event.id));
+    await this.cancelReminderTasksForEvents(targets);
+
+    const actorUser = usersById.get(actorId);
+    const actorAttendeeEmail = normalizeEmail(actorUser?.email ?? actorEmail ?? '');
+    const nextOwnerEmail = normalizeEmail(nextOwner.email);
+    const updated: CalendarEvent[] = [];
+
+    for (const event of targets) {
+      const attendees = uniqueIds([
+        ...event.attendees.filter((userId) => userId !== newOwnerId),
+        actorId,
+      ]);
+      const attendeeEmails = uniqueEmails([
+        ...(event.attendeeEmails ?? []),
+        actorAttendeeEmail,
+      ]).filter((email) => email !== nextOwnerEmail);
+      const externalAttendeeEmails = uniqueEmails(event.externalAttendeeEmails ?? [])
+        .filter((email) => email !== nextOwnerEmail && email !== actorAttendeeEmail);
+      const next = await this.ctx.calendarRepo.update(event.id, {
+        ownerId: newOwnerId,
+        attendees,
+        attendeeEmails,
+        externalAttendeeEmails,
+        updatedAt: nowIso,
+      });
+      updated.push(next);
+      await this.createReminderTasks(next, nowIso, true);
+    }
+
+    await recordCalendarActivity({
+      tenantId: anchor.tenantId,
+      actorId,
+      actorEmail,
+      action: 'event.updated',
+      targetType: 'event',
+      targetId: updated[0]?.id ?? anchor.id,
+      eventId: updated[0]?.id ?? anchor.id,
+      eventTitle: updated[0]?.title ?? anchor.title,
+      scope,
+      targetUserId: newOwnerId,
+      attendeeEmails: updated[0]?.attendeeEmails ?? anchor.attendeeEmails ?? [],
+      metadata: {
+        eventIds: updated.map((event) => event.id),
+        ownerTransferredFrom: actorId,
+        ownerTransferredTo: newOwnerId,
+      },
+    });
+    await this.transferLinkedMeetingGroupOwners(updated, actorId, newOwnerId, anchor.tenantId);
+    return updated;
+  }
+
   async leaveManaged(
     id: string,
     actorId: string,
@@ -913,6 +991,32 @@ export class CalendarService {
     }
   }
 
+  private async transferLinkedMeetingGroupOwners(
+    events: CalendarEvent[],
+    currentOwnerId: string,
+    newOwnerId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const eventIds = new Set(events.map((event) => event.id));
+    const store = getStore();
+    const channels = await store.imChannels.list({ tenantId });
+    for (const channel of channels) {
+      if (channel.archivedAt || channel.autoCreated !== true || !channel.topic?.startsWith(CALENDAR_IM_TOPIC_PREFIX)) {
+        continue;
+      }
+      if (!eventIds.has(eventIdFromTopic(channel.topic))) continue;
+      const currentOwnerMembership = await store.imMemberships.get(membershipKey(channel.id, currentOwnerId));
+      const currentUserOwnsGroup = channel.createdBy === currentOwnerId || currentOwnerMembership?.role === 'owner';
+      if (!currentUserOwnsGroup) continue;
+      try {
+        await transferChannelOwnerForSystem(channel.id, newOwnerId);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        this.addDeliveryWarning(`日程已转交，但关联 IM 群主转让失败：${detail}`);
+      }
+    }
+  }
+
   private async sendMutationEmail(
     kind: 'updated' | 'cancelled',
     before: CalendarEvent,
@@ -1103,6 +1207,16 @@ function normalizeEmail(email: string): string {
 
 function uniqueEmails(emails: string[]): string[] {
   return Array.from(new Set(emails.map(normalizeEmail).filter((email) => EMAIL_PATTERN.test(email))));
+}
+
+function uniqueIds(ids: string[]): string[] {
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+}
+
+function isEventParticipant(event: CalendarEvent, user: CalendarUser): boolean {
+  const email = normalizeEmail(user.email);
+  return event.attendees.includes(user.id) ||
+    (event.attendeeEmails ?? []).some((attendeeEmail) => normalizeEmail(attendeeEmail) === email);
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

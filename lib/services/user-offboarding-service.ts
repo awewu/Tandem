@@ -33,6 +33,9 @@ export async function handoffCalendarAndImOnUserOffboarding(input: {
       .filter((user) => user.disabled !== true)
       .map((user) => [user.id, user]),
   );
+  const activeUsersByEmail = new Map(
+    Array.from(activeUsersById.values()).map((user) => [normalizeEmail(user.email), user]),
+  );
   const result: UserOffboardingHandoffResult = {
     calendarTransferred: 0,
     calendarSkipped: 0,
@@ -50,7 +53,7 @@ export async function handoffCalendarAndImOnUserOffboarding(input: {
   for (const event of events) {
     if (!ACTIVE_EVENT_STATUSES.has(event.status)) continue;
 
-    const successorId = pickEarliestEligibleAttendee(event, activeUsersById);
+    const successorId = pickEarliestEligibleAttendee(event, activeUsersById, activeUsersByEmail);
     if (!successorId) {
       result.calendarSkipped += 1;
       result.skippedEvents.push({ eventId: event.id, reason: 'no_eligible_attendee' });
@@ -84,6 +87,7 @@ export async function handoffCalendarAndImOnUserOffboarding(input: {
     departingUserId: input.departingUser.id,
     transferredOwnerByEventId,
     activeUsersById,
+    activeUsersByEmail,
   });
   result.imTransferred = imHandoff.imTransferred;
   result.imSkipped = imHandoff.imSkipped;
@@ -95,9 +99,14 @@ export async function handoffCalendarAndImOnUserOffboarding(input: {
 function pickEarliestEligibleAttendee(
   event: CalendarEvent,
   activeUsersById: Map<string, AuthUser>,
+  activeUsersByEmail: Map<string, AuthUser>,
 ): string | null {
   for (const attendeeId of event.attendees) {
     if (activeUsersById.has(attendeeId)) return attendeeId;
+  }
+  for (const attendeeEmail of event.attendeeEmails ?? []) {
+    const user = activeUsersByEmail.get(normalizeEmail(attendeeEmail));
+    if (user) return user.id;
   }
   return null;
 }
@@ -121,6 +130,7 @@ async function handoffLinkedMeetingChannels(input: {
   departingUserId: string;
   transferredOwnerByEventId: Map<string, string>;
   activeUsersById: Map<string, AuthUser>;
+  activeUsersByEmail: Map<string, AuthUser>;
 }): Promise<Pick<UserOffboardingHandoffResult, 'imTransferred' | 'imSkipped' | 'skippedChannels'>> {
   const result: Pick<UserOffboardingHandoffResult, 'imTransferred' | 'imSkipped' | 'skippedChannels'> = {
     imTransferred: 0,
@@ -144,7 +154,7 @@ async function handoffLinkedMeetingChannels(input: {
     if (!event || (event.tenantId ?? 'default') !== input.tenantId) continue;
     const newOwnerId =
       input.transferredOwnerByEventId.get(eventId) ??
-      pickLinkedChannelSuccessor(event, channel, input.departingUserId, input.activeUsersById);
+      pickLinkedChannelSuccessor(event, channel, input.departingUserId, input.activeUsersById, input.activeUsersByEmail);
     if (!newOwnerId) {
       continue;
     }
@@ -168,12 +178,13 @@ function pickLinkedChannelSuccessor(
   channel: ImChannel,
   departingUserId: string,
   activeUsersById: Map<string, AuthUser>,
+  activeUsersByEmail: Map<string, AuthUser>,
 ): string | null {
   if (event?.ownerId && event.ownerId !== departingUserId && activeUsersById.has(event.ownerId)) {
     return event.ownerId;
   }
   if (event) {
-    const attendee = pickEarliestEligibleAttendee(event, activeUsersById);
+    const attendee = pickEarliestEligibleAttendee(event, activeUsersById, activeUsersByEmail);
     if (attendee) return attendee;
   }
   return channel.memberIds.find((userId) => userId !== departingUserId && activeUsersById.has(userId)) ?? null;
