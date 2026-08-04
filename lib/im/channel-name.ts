@@ -32,3 +32,8 @@ export function displayImChannelTopic(channel: ImChannel): string | undefined {
 function stripWrappingQuotes(value: string): string {
   return value.replace(/^["'“”]+|["'“”]+$/g, '');
 }
+
+export function getDmPeerId(channel: Pick<ImChannel, 'memberIds'>, currentUserId: string | null | undefined): string | null {
+  if (!currentUserId) return null;
+  return channel.memberIds.find((memberId) => memberId !== currentUserId) ?? null;
+}

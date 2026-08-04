@@ -26,9 +26,10 @@ function createService(
     { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
     { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
   ],
-  emailResult: { ok: boolean; error?: string } | ((message: { to: string[]; subject: string; text: string }) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>) = { ok: true },
+  emailResult: { ok: boolean; error?: string } | ((message: { to: string[]; subject: string; text: string; senderUserId?: string; senderEmail?: string }) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>) = { ok: true },
+  senderCheckResult: { ok: boolean; error?: string } | ((message: { to: string[]; subject: string; text: string; senderUserId?: string; senderEmail?: string }) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>) = { ok: true },
 ) {
-  const sentEmails: Array<{ to: string[]; subject: string; text: string }> = [];
+  const sentEmails: Array<{ to: string[]; subject: string; text: string; senderUserId?: string; senderEmail?: string }> = [];
   const ctx = {
     calendarRepo: new InMemoryCalendarEventRepository(),
     notificationRepo: new InMemoryNotificationRepository(),
@@ -40,6 +41,9 @@ function createService(
   const service = new CalendarService(ctx, {
     now: () => now,
     listUsers: async () => users,
+    checkEmailSender: async (message) => (
+      typeof senderCheckResult === 'function' ? await senderCheckResult(message) : senderCheckResult
+    ),
     sendEmail: async (message) => {
       sentEmails.push(message);
       return typeof emailResult === 'function' ? await emailResult(message) : emailResult;
@@ -133,6 +137,10 @@ describe('CalendarService', () => {
       'outside@example.net',
     ]);
     expect(sentEmails[0].subject).toBe('【日程通知】项目同步会');
+    expect(sentEmails[0]).toMatchObject({
+      senderUserId: 'owner-1',
+      senderEmail: 'owner@example.com',
+    });
 
     const activities = await listCalendarActivities({
       tenantId: 'tenant-1',
@@ -704,6 +712,9 @@ describe('CalendarService', () => {
     expect(completedBeforeEmail?.completedSteps).toBe(completedBeforeEmail?.totalSteps);
     expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
     expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已移交后台投递，不影响日程创建');
+    for (let attempt = 0; attempt < 20 && sentEmails.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0].to).toEqual(['colleague@example.com', 'outside@example.net']);
 
@@ -711,6 +722,40 @@ describe('CalendarService', () => {
 
     const sentJob = await waitForCalendarJob(job.id, (item) => item.emailSent);
     expect(sentJob.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已批量发送给 2 个收件人');
+  });
+
+  it('surfaces a warning and skips async email delivery when the organizer has no mailbox configured', async () => {
+    const missingMailbox = '发起人 owner@example.com 未配置邮箱，日程已保存但邮件通知未发送；请先到「设置 - 邮箱」绑定并验证邮箱。';
+    const { service, sentEmails } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      undefined,
+      { ok: true },
+      { ok: false, error: missingMailbox },
+    );
+    const { getCalendarJobStore } = await import('@/lib/calendar/job-store');
+    const store = getCalendarJobStore();
+
+    const job = await store.create({
+      title: '无邮箱配置提示',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T10:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      ownerName: 'Owner',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+    });
+
+    await service.createManagedAsync(job);
+
+    const finalJob = await store.get(job.id);
+    expect(finalJob?.status).toBe('completed');
+    expect(finalJob?.emailSent).toBe(false);
+    expect(finalJob?.result?.warnings).toEqual([missingMailbox]);
+    expect(finalJob?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('failed');
+    expect(finalJob?.steps.find((step) => step.key === 'sending_emails')?.detail).toBe(missingMailbox);
+    expect(sentEmails).toHaveLength(0);
   });
 
   it('repairs legacy completed async jobs whose email step is still spinning', async () => {

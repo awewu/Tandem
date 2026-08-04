@@ -55,6 +55,7 @@ interface SendEmailInput {
   html?: string;
   cc?: string | string[];
   bcc?: string | string[];
+  from?: string;
   replyTo?: string;
   attachments?: AttachmentInput[];
   /** 已解析的个人或全局 SMTP 凭据 (优先级高于 env). */
@@ -106,7 +107,9 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; m
       return { ok: false, error: 'SMTP not configured' };
     }
 
-    const fromAddress = input.smtp
+    const fromAddress = input.from
+      ? input.from
+      : input.smtp
       ? input.smtp.user
       : (process.env.SMTP_FROM ?? `Tandem <${process.env.SMTP_USER}>`);
 

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { shouldSearchCalendarAttendeesInline } from '@/lib/calendar/attendee-directory';
 
 interface AttendeePickerProps {
   value: string[];
@@ -82,7 +83,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
 
   useEffect(() => {
     const keyword = inputValue.trim();
-    if (!inlineFocused || keyword.length < 2) {
+    if (!inlineFocused || !shouldSearchCalendarAttendeesInline(keyword)) {
       setInlineOptions([]);
       setInlineLoading(false);
       return;
@@ -235,7 +236,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
               <Contact className="h-4 w-4" />
             </Button>
           </div>
-          {inlineFocused && inputValue.trim().length >= 2 && (
+          {inlineFocused && shouldSearchCalendarAttendeesInline(inputValue) && (
             <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-lg border bg-background shadow-soft-lg">
               {inlineLoading ? (
                 <div className="flex items-center gap-2 px-3 py-2 text-caption text-muted-foreground">

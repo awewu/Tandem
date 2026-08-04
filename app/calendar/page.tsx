@@ -426,7 +426,9 @@ export default function CalendarPage() {
     } catch (error) {
       setImReminderMeetings([]);
       setImReminderEventId('');
-      setImReminderError(error instanceof Error ? error.message : '可提醒会议读取失败');
+      setImReminderError(isRequestTimeoutError(error)
+        ? '可提醒会议读取超时，请稍后重试。'
+        : error instanceof Error ? error.message : '可提醒会议读取失败');
     } finally {
       setImReminderLoading(false);
     }
@@ -456,7 +458,9 @@ export default function CalendarPage() {
         reused: data.reused === true,
       });
     } catch (error) {
-      setImReminderError(error instanceof Error ? error.message : 'IM 提醒发送失败');
+      setImReminderError(isRequestTimeoutError(error)
+        ? 'IM 提醒发送超时，请稍后到 IM 查看会议群是否已创建，或稍后重试。'
+        : error instanceof Error ? error.message : 'IM 提醒发送失败');
     } finally {
       setImReminderSending(false);
     }

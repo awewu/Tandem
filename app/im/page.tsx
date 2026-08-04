@@ -27,7 +27,7 @@ import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
 import { cn } from '@/lib/utils';
 import { MessageReactions } from '@/components/im/message-reactions';
-import type { ImAttachment, ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
+import { extractPreview, type ImAttachment, type ImChannel, type ImMembership, type ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { usePersonNameResolver } from '@/lib/org/people-source';
 import { useToast } from '@/hooks/use-toast';
@@ -45,7 +45,7 @@ import {
   reconcilePendingPersonMentionRanges,
   type PendingPersonMention,
 } from '@/lib/im/composer-text';
-import { displayImChannelName, displayImChannelTopic } from '@/lib/im/channel-name';
+import { displayImChannelName, displayImChannelTopic, getDmPeerId } from '@/lib/im/channel-name';
 import { chooseImPopupDirection, formatImMessageTimestamp, formatImDateDivider, shouldShowImDateDivider, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
 import {
   Hash,
@@ -63,6 +63,7 @@ import {
   Search,
   Pin,
   Forward,
+  Quote,
   Trash2,
   Settings,
   Smile,
@@ -108,6 +109,15 @@ function shortUserId(id: string): string {
 function initialsOf(value: string): string {
   const chars = Array.from(value.trim().replace(/\s+/g, ''));
   return (chars.slice(0, 2).join('') || '?').toUpperCase();
+}
+
+function messageQuotePreview(message: Message): string {
+  if (message.deletedAt) return '引用的消息已撤回';
+  const text = extractPreview(message.body, 72);
+  if (text) return text;
+  const attachmentCount = message.attachments?.length ?? 0;
+  if (attachmentCount > 0) return attachmentCount === 1 ? '[附件]' : `[附件] ${attachmentCount} 个文件`;
+  return '引用的消息';
 }
 
 // §#1 perf: 客户端图片压缩/缩放 helpers — 大图上传/内联前先降采样, 大幅削减 base64 负载与 DOM 字节。
@@ -241,6 +251,7 @@ function ImInner() {
   const [forwardMessageIds, setForwardMessageIds] = useState<string[] | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
   const [input, setInput] = useState('');
   const [pendingMentions, setPendingMentions] = useState<PendingPersonMention[]>([]);
   const [sending, setSending] = useState(false);
@@ -281,6 +292,10 @@ function ImInner() {
     return () => document.documentElement.classList.remove('im-chat-open');
   }, [activeId]);
 
+  useEffect(() => {
+    setQuotedMessage(null);
+  }, [activeId]);
+
   // §#5 perf: 卸载时清理已读回执 trailing 定时器, 避免泄漏。
   useEffect(() => {
     const timers = readMarkTimerRef.current;
@@ -292,14 +307,20 @@ function ImInner() {
 
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const ME = user?.id ?? 'demo-user';
+  const ME = user?.id ?? '';
   const nameOf = usePersonNameResolver();
+  const activeChannelDisplayName = useMemo(() => {
+    if (!activeChannel) return '';
+    if (activeChannel.type !== 'dm') return displayImChannelName(activeChannel);
+    const peerId = getDmPeerId(activeChannel, ME);
+    return peerId ? nameOf(peerId) : '私聊';
+  }, [activeChannel, ME, nameOf]);
   const myDisplayName = useMemo(() => {
     const name = user?.name?.trim();
     if (name) return name;
     const email = user?.email?.trim();
     if (email) return email.split('@')[0] || email;
-    return shortUserId(ME);
+    return ME ? shortUserId(ME) : '';
   }, [ME, user?.email, user?.name]);
   const myAvatarText = useMemo(() => initialsOf(myDisplayName), [myDisplayName]);
   const activeIdRef = useRef<string | null>(activeId);
@@ -377,6 +398,7 @@ function ImInner() {
     });
   }, [handleComposerTextChange, input]);
   const hasActiveUploads = sending && attachments.some((a) => a.uploadStatus === 'queued' || a.uploadStatus === 'uploading');
+  const quotedMessagesById = useMemo(() => new Map(messages.map((message) => [message.id, message])), [messages]);
 
   function isTempMessage(message: Message): boolean {
     return message.id.startsWith('temp-');
@@ -389,6 +411,7 @@ function ImInner() {
       a.channelId === b.channelId &&
       a.senderId === b.senderId &&
       (a.senderKind ?? 'user') === (b.senderKind ?? 'user') &&
+      (a.parentMessageId ?? null) === (b.parentMessageId ?? null) &&
       a.body === b.body &&
       aAttachments.length === bAttachments.length &&
       aAttachments.every((att, index) => (
@@ -493,6 +516,7 @@ function ImInner() {
   // 拉取当前频道元数据
   useEffect(() => {
     if (!activeId) { setActiveChannel(null); return; }
+    if (!ME) { setActiveChannel(null); return; }
     void fetch(`/api/im/channels?userId=${ME}`)
       .then((r) => r.json())
       .then((data) => {
@@ -618,7 +642,7 @@ function ImInner() {
 
   // -- SSE subscribe --
   useEffect(() => {
-    if (!activeId) return;
+    if (!activeId || !ME) return;
     void loadMessages(activeId);
 
     const es = new EventSource(
@@ -706,9 +730,9 @@ function ImInner() {
 
   // 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
   useEffect(() => {
-    if (!activeId) { setMembers([]); return; }
+    if (!activeId || !ME) { setMembers([]); return; }
     refreshMembers(activeId);
-  }, [activeId, refreshMembers]);
+  }, [activeId, ME, refreshMembers]);
 
   /** Day 4: 撤回消息 */
   const recallMessageHandler = useCallback(async (messageId: string) => {
@@ -886,8 +910,9 @@ function ImInner() {
     const displayText = messageBodyForSend(input);
     const mentionsForSend = pendingMentions;
     const text = encodePendingPersonMentionsForSend(displayText, mentionsForSend);
-    if ((!displayText && attachments.length === 0) || !activeId || sending) return;
+    if ((!displayText && attachments.length === 0) || !activeId || !ME || sending) return;
 
+    const quotedForSend = quotedMessage;
     const queuedAttachments = attachments;
     const placeholderAttachments: ImAttachment[] = queuedAttachments.length > 0
       ? queuedAttachments.map((a) => ({
@@ -908,6 +933,7 @@ function ImInner() {
       senderKind: sendAsAgent ? 'persona' : 'user',
       body: text,
       mentions: [],
+      parentMessageId: quotedForSend?.id,
       attachments: placeholderAttachments.length > 0 ? placeholderAttachments : undefined,
       createdAt: new Date().toISOString(),
     };
@@ -915,6 +941,7 @@ function ImInner() {
     setSending(true);
     setInput('');
     setPendingMentions([]);
+    setQuotedMessage(null);
     setMessages((prev) => [...prev, optimisticMessage]);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -928,6 +955,7 @@ function ImInner() {
         body: JSON.stringify({
           senderId: ME,
           body: text,
+          parentMessageId: quotedForSend?.id,
           attachments: placeholderAttachments.length > 0 ? placeholderAttachments : undefined,
           senderKind: sendAsAgent ? 'persona' : 'user',
         }),
@@ -937,6 +965,7 @@ function ImInner() {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setInput(displayText);
         setPendingMentions(mentionsForSend);
+        setQuotedMessage(quotedForSend);
         toast({ variant: 'destructive', title: '发送失败', description: String(err.error ?? res.statusText) });
         return;
       }
@@ -1041,10 +1070,16 @@ function ImInner() {
   const handleForward = useCallback((messageId: string) => {
     setForwardMessageIds([messageId]);
   }, []);
+  const handleQuote = useCallback((messageId: string) => {
+    const message = messages.find((item) => item.id === messageId);
+    if (!message || message.deletedAt) return;
+    setQuotedMessage(message);
+    composerRef.current?.focus();
+  }, [messages]);
 
   /** Q2 Day 2: 点通讯录中人员 → 建/找 dm 并切过去 */
   async function startDmWith(otherId: string) {
-    if (otherId === ME) return;
+    if (!ME || otherId === ME) return;
     setBusy(true);
     try {
       const res = await fetch('/api/im/dm', {
@@ -1213,13 +1248,11 @@ function ImInner() {
                 </button>
                 <ConvAvatar
                   channel={activeChannel}
-                  name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : displayImChannelName(activeChannel)}
+                  name={activeChannelDisplayName}
                 />
                 <div className="min-w-0">
                   <div className="truncate text-[14px] font-semibold text-ink-primary">
-                    {activeChannel.type === 'dm'
-                      ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊'
-                      : displayImChannelName(activeChannel)}
+                    {activeChannelDisplayName}
                   </div>
                   {displayImChannelTopic(activeChannel) && (
                     <div className="truncate text-[12px] text-ink-secondary">{displayImChannelTopic(activeChannel)}</div>
@@ -1323,6 +1356,7 @@ function ImInner() {
                   <MessageRowMemo
                     msg={m}
                     prev={prevMsg}
+                    quotedMessage={m.parentMessageId ? quotedMessagesById.get(m.parentMessageId) ?? null : null}
                     members={members}
                     meId={ME}
                     nameOf={nameOf}
@@ -1332,6 +1366,7 @@ function ImInner() {
                     onRecall={recallMessageHandler}
                     recalling={recallingIds.has(m.id)}
                     onForward={handleForward}
+                    onQuote={handleQuote}
                     onPin={togglePinHandler}
                     onMentionPersona={summonPersona}
                     onOpenMemberProfile={openMemberProfile}
@@ -1365,6 +1400,32 @@ function ImInner() {
 
             {/* 输入区 */}
             <footer className="im-composer-bar shrink-0 border-t border-hairline bg-surface-1 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] md:shadow-none">
+              {/* 引用预览条 */}
+              {quotedMessage && (
+                <div className="px-4 pt-2">
+                  <div className="flex min-w-0 items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2">
+                    <Quote className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[11px] font-medium text-ink-secondary">
+                        引用 {nameOf(quotedMessage.senderId)}
+                      </div>
+                      <div className="truncate text-[12px] text-ink-tertiary">
+                        {messageQuotePreview(quotedMessage)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setQuotedMessage(null)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-tertiary transition hover:bg-surface-3 hover:text-ink-primary"
+                      title="取消引用"
+                      aria-label="取消引用"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* 附件预览条 */}
               {attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-4 pt-2">
@@ -1541,13 +1602,13 @@ function ImInner() {
                     onTextChange={handleComposerTextChange}
                     onMentionInserted={handlePersonMentionInserted}
                     onPasteFiles={queuePastedFiles}
-                    disabled={sending}
+                    disabled={sending || !ME}
                     placeholder={sendAsAgent ? '以 AI 分身身份发言...' : '发送消息，输入 @ 选择人员（可直接粘贴图片/文件）...'}
                   />
                 </div>
                 <Button
                   onClick={sendMessage}
-                  disabled={sending || (!input.trim() && attachments.length === 0)}
+                  disabled={sending || !ME || (!input.trim() && attachments.length === 0)}
                   className="h-9 shrink-0 gap-1 rounded-lg bg-brand-600 px-3 text-[13px] text-white transition hover:bg-brand-700 disabled:!bg-brand-600 disabled:!text-white disabled:!opacity-100 sm:px-4"
                 >
                   <Send className="h-3.5 w-3.5" />
@@ -2317,6 +2378,7 @@ const MessageRowMemo = memo(MessageRow);
 function MessageRow({
   msg,
   prev,
+  quotedMessage,
   members,
   isPinned,
   meId,
@@ -2326,6 +2388,7 @@ function MessageRow({
   onRecall,
   recalling,
   onForward,
+  onQuote,
   onPin,
   onMentionPersona,
   onOpenMemberProfile,
@@ -2333,6 +2396,7 @@ function MessageRow({
 }: {
   msg: Message;
   prev: Message | null;
+  quotedMessage: Message | null;
   members: ImMembership[];
   isPinned: boolean;
   meId: string;
@@ -2342,6 +2406,7 @@ function MessageRow({
   onRecall: (id: string) => void;
   recalling: boolean;
   onForward: (id: string) => void;
+  onQuote: (id: string) => void;
   onPin: (id: string) => void;
   onMentionPersona: (userId: string) => void;
   onOpenMemberProfile: (userId: string) => void;
@@ -2434,9 +2499,14 @@ function MessageRow({
 
   const isPersona = msg.senderKind === 'persona';
   const isMe = msg.senderId === meId;
+  const quotePreview = msg.parentMessageId
+    ? quotedMessage
+      ? messageQuotePreview(quotedMessage)
+      : '引用的消息'
+    : null;
   // 流式占位/正文任一存在才渲染气泡; 纯图片消息 (空正文 + 附件) 不显示空气泡
   const isStreamingBubble = isPersona && !!msg.aiTraceId?.startsWith('imtrace_cb_') && !msg.body.includes('— 🏛️ CompanyBrain');
-  const showBubble = msg.body.trim().length > 0 || isStreamingBubble;
+  const showBubble = msg.body.trim().length > 0 || isStreamingBubble || !!quotePreview;
 
   return (
     <div className={`group flex w-full min-w-0 items-start gap-2 ${showSender ? 'mt-2 mb-0.5' : 'mb-0.5'} ${isMe ? 'flex-row-reverse' : ''}`}>
@@ -2500,6 +2570,26 @@ function MessageRow({
                 : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
             }`}
           >
+            {quotePreview && (
+              <div
+                className={cn(
+                  'mb-1.5 flex max-w-full items-start gap-1.5 rounded-md border-l-2 px-2 py-1.5 text-[11px] leading-snug',
+                  isMe
+                    ? 'border-white/60 bg-white/20 text-white/85'
+                    : 'border-brand-300 bg-surface-1/80 text-ink-secondary',
+                )}
+              >
+                <Quote className="mt-0.5 h-3 w-3 shrink-0 opacity-80" />
+                <div className="min-w-0">
+                  {quotedMessage && (
+                    <div className={cn('truncate font-medium', isMe ? 'text-white' : 'text-ink-primary')}>
+                      {nameOf(quotedMessage.senderId)}
+                    </div>
+                  )}
+                  <div className="line-clamp-2 break-words">{quotePreview}</div>
+                </div>
+              </div>
+            )}
             {(() => {
               /* §P1 流式打字气泡: CompanyBrain 消息在 footer marker 出现前显示闪烁光标 */
               const isCompanyBrain = isPersona && msg.aiTraceId?.startsWith('imtrace_cb_');
@@ -2582,6 +2672,17 @@ function MessageRow({
               {isPinned ? '已顶' : '置顶'}
             </button>
             {/* §Sprint2 转发 */}
+            {!msg.deletedAt && (
+              <button
+                type="button"
+                onClick={() => onQuote(msg.id)}
+                className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-ink-secondary shadow-soft ring-1 ring-hairline transition hover:bg-surface-3 hover:shadow-soft-lg"
+                title="引用这条消息"
+              >
+                <Quote className="h-3 w-3" />
+                引用
+              </button>
+            )}
             {!msg.deletedAt && (
               <button
                 type="button"

@@ -638,10 +638,6 @@ export default function WorkflowsPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回流程中心
               </Button>
-              <Button variant="outline" onClick={() => void loadAll()} disabled={loading} className="h-12 px-5">
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                刷新
-              </Button>
             </div>
           </div>
         </section>
@@ -671,7 +667,9 @@ export default function WorkflowsPage() {
               draft={workflowDraft}
               setDraft={setWorkflowDraft}
               saving={saving}
+              loading={loading}
               onEditingChange={setModelEditing}
+              onRefresh={loadAll}
               onSubmit={saveWorkflowTemplate}
               onStatus={updateStatus}
               onEdit={(workflow) => {
@@ -738,6 +736,8 @@ export default function WorkflowsPage() {
               setBusinessId={setBusinessStartId}
               setBusinessFormData={setBusinessStartFormData}
               saving={saving}
+              loading={loading}
+              onRefresh={loadAll}
               onSubmit={saveBinding}
               onBusinessStart={startBusinessWorkflow}
               onStatus={updateStatus}
@@ -1813,7 +1813,9 @@ function ModelsTab(props: {
   draft: ReturnType<typeof initialWorkflowDraft>;
   setDraft: (draft: ReturnType<typeof initialWorkflowDraft>) => void;
   saving: boolean;
+  loading: boolean;
   onEditingChange: (editing: boolean) => void;
+  onRefresh: () => Promise<void>;
   onSubmit: (e: FormEvent) => Promise<void>;
   onStatus: (kind: 'workflow', id: string, status: WorkflowConfigStatus) => Promise<void>;
   onEdit: (workflow: WorkflowTemplate) => void;
@@ -1934,10 +1936,6 @@ function ModelsTab(props: {
           <h2 className="text-title-lg font-bold">流程模型管理</h2>
           <p className="mt-1 text-body text-ink-secondary">统一维护流程模型，按分组管理模型，并配置基础信息、表单、流程图和高级规则。</p>
         </div>
-        <Button type="button" onClick={startNewModel} className="bg-[rgb(var(--danger))] text-white hover:bg-[rgb(var(--danger))]">
-          <Plus className="mr-2 h-4 w-4" />
-          新增模型
-        </Button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[276px_minmax(0,1fr)]">
@@ -2026,17 +2024,17 @@ function ModelsTab(props: {
                 <option value="published">已发布</option>
                 <option value="disabled">已停用</option>
               </select>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="h-10 rounded-md border border-input bg-background px-3 text-body"
-                aria-label="每页条数"
-              >
-                {WORKFLOW_MODEL_PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>每页 {size} 条</option>
-                ))}
-              </select>
-              <span className="text-body text-ink-secondary">共 {filteredWorkflows.length} 个模型</span>
+              <span className="whitespace-nowrap text-body text-ink-secondary">共 {filteredWorkflows.length} 个模型</span>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" onClick={startNewModel}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  新增模型
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => void props.onRefresh()} disabled={props.loading}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${props.loading ? 'animate-spin' : ''}`} />
+                  刷新
+                </Button>
+              </div>
             </div>
 
             {filteredWorkflows.length === 0 ? (
@@ -2119,6 +2117,16 @@ function ModelsTab(props: {
                     显示 {filteredWorkflows.length === 0 ? 0 : pageStart + 1}-{Math.min(pageStart + pageSize, filteredWorkflows.length)} 条，共 {filteredWorkflows.length} 条
                   </p>
                   <div className="flex items-center justify-end gap-2">
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="h-8 rounded-md border border-input bg-background px-2 text-caption"
+                      aria-label="模型列表每页条数"
+                    >
+                      {WORKFLOW_MODEL_PAGE_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>{size} 条/页</option>
+                      ))}
+                    </select>
                     <Button
                       type="button"
                       variant="outline"
@@ -2309,6 +2317,8 @@ function BindingsTab(props: {
   setBusinessId: (value: string) => void;
   setBusinessFormData: (value: Record<string, unknown>) => void;
   saving: boolean;
+  loading: boolean;
+  onRefresh: () => Promise<void>;
   onSubmit: (e: FormEvent) => Promise<void>;
   onBusinessStart: (e: FormEvent) => Promise<void>;
   onStatus: (kind: 'binding', id: string, status: WorkflowConfigStatus) => Promise<void>;
@@ -2371,6 +2381,10 @@ function BindingsTab(props: {
             <Button type="button" variant="outline" size="sm" onClick={() => setValidationDialogOpen(true)}>
               <Play className="mr-2 h-4 w-4" />
               绑定验证
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => void props.onRefresh()} disabled={props.loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${props.loading ? 'animate-spin' : ''}`} />
+              刷新
             </Button>
           </div>
         )}
@@ -3932,36 +3946,113 @@ function BindingList(props: {
   onStatus: (kind: 'binding', id: string, status: WorkflowConfigStatus) => Promise<void>;
   actions?: ReactNode;
 }) {
-  const workflowNames = Object.fromEntries(props.workflows.map((item) => [item.id, item.name]));
-  const formNames = Object.fromEntries(props.forms.map((item) => [item.id, item.name]));
-  const sceneLabels = Object.fromEntries(BUSINESS_SCENE_PRESETS.map((item) => [item.businessType, item.label]));
-  const actionLabels = Object.fromEntries(BUSINESS_ACTION_OPTIONS.map((item) => [item.value, item.label]));
+  const workflowNames = useMemo(() => Object.fromEntries(props.workflows.map((item) => [item.id, item.name])), [props.workflows]);
+  const formNames = useMemo(() => Object.fromEntries(props.forms.map((item) => [item.id, item.name])), [props.forms]);
+  const sceneLabels = useMemo(() => Object.fromEntries(BUSINESS_SCENE_PRESETS.map((item) => [item.businessType, item.label])), []);
+  const actionLabels = useMemo(() => Object.fromEntries(BUSINESS_ACTION_OPTIONS.map((item) => [item.value, item.label])), []);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(WORKFLOW_MODEL_PAGE_SIZE_OPTIONS[0]);
+  const filteredBindings = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return props.bindings.filter((binding) => {
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'enabled' ? binding.enabled : !binding.enabled);
+      const workflowName = workflowNames[binding.workflowTemplateId] ?? '';
+      const formName = binding.formTemplateId ? formNames[binding.formTemplateId] ?? '' : '';
+      const sceneLabel = sceneLabels[binding.businessType] ?? '';
+      const actionLabel = actionLabels[binding.action] ?? '';
+      const text = `${binding.label ?? ''} ${binding.businessType} ${sceneLabel} ${binding.action} ${actionLabel} ${workflowName} ${formName}`.toLowerCase();
+      return matchStatus && (!keyword || text.includes(keyword));
+    });
+  }, [actionLabels, formNames, props.bindings, sceneLabels, search, statusFilter, workflowNames]);
+  const totalPages = Math.max(1, Math.ceil(filteredBindings.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pagedBindings = filteredBindings.slice(pageStart, pageStart + pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize, search, statusFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <SectionTitle title="业务流程绑定" description="把业务类型和动作映射到可发起的流程模型。" />
-        {props.actions}
-      </div>
-      {props.bindings.length === 0 ? <EmptyState text="暂无业务流程绑定。" /> : props.bindings.map((binding) => (
-        <Card key={binding.id} className="rounded-md">
-          <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-body font-medium text-ink-primary">{binding.label || `${sceneLabels[binding.businessType] || binding.businessType} · ${actionLabels[binding.action] || binding.action}`}</p>
-                <StatusBadge status={binding.enabled ? 'published' : 'disabled'} />
+      <SectionTitle title="业务流程绑定" description="把业务类型和动作映射到可发起的流程模型。" />
+      <div className="overflow-hidden rounded-md border border-border bg-surface-0">
+        <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
+          <label className="relative block min-w-[260px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-tertiary" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索绑定名称、业务场景、流程或表单" className="pl-9" />
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-body"
+            aria-label="业务绑定状态"
+          >
+            <option value="all">全部状态</option>
+            <option value="enabled">已启用</option>
+            <option value="disabled">已停用</option>
+          </select>
+          <span className="whitespace-nowrap text-body text-ink-secondary">共 {filteredBindings.length} 个绑定</span>
+          {props.actions}
+        </div>
+
+        {filteredBindings.length === 0 ? (
+          <div className="p-5"><EmptyState text="没有匹配的业务流程绑定。" /></div>
+        ) : (
+          <>
+            <div className="divide-y divide-border">
+              {pagedBindings.map((binding) => (
+                <div key={binding.id} className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-body font-medium text-ink-primary">{binding.label || `${sceneLabels[binding.businessType] || binding.businessType} · ${actionLabels[binding.action] || binding.action}`}</p>
+                      <StatusBadge status={binding.enabled ? 'published' : 'disabled'} />
+                    </div>
+                    <p className="mt-1 text-caption text-ink-tertiary">业务场景：{sceneLabels[binding.businessType] || binding.businessType} · 触发动作：{actionLabels[binding.action] || binding.action}</p>
+                    <p className="mt-1 text-caption text-ink-secondary">流程：{workflowNames[binding.workflowTemplateId] || binding.workflowTemplateId} · 表单：{binding.formTemplateId ? formNames[binding.formTemplateId] || binding.formTemplateId : '未绑定'}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => props.onEdit(binding)}>编辑</Button>
+                    <Button variant="outline" size="sm" onClick={() => void props.onStatus('binding', binding.id, binding.enabled ? 'disabled' : 'published')}>
+                      {binding.enabled ? '停用' : '启用'}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-caption text-ink-secondary">
+                显示 {pageStart + 1}-{Math.min(pageStart + pageSize, filteredBindings.length)} 条，共 {filteredBindings.length} 条
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-caption"
+                  aria-label="业务绑定每页条数"
+                >
+                  {WORKFLOW_MODEL_PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>{size} 条/页</option>
+                  ))}
+                </select>
+                <Button type="button" variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+                  上一页
+                </Button>
+                <span className="min-w-16 text-center text-caption text-ink-secondary">{currentPage} / {totalPages}</span>
+                <Button type="button" variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+                  下一页
+                </Button>
               </div>
-              <p className="mt-1 text-caption text-ink-tertiary">业务场景：{sceneLabels[binding.businessType] || binding.businessType} · 触发动作：{actionLabels[binding.action] || binding.action}</p>
-              <p className="mt-1 text-caption text-ink-secondary">流程：{workflowNames[binding.workflowTemplateId] || binding.workflowTemplateId} · 表单：{binding.formTemplateId ? formNames[binding.formTemplateId] || binding.formTemplateId : '未绑定'}</p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => props.onEdit(binding)}>编辑</Button>
-              <Button variant="outline" size="sm" onClick={() => void props.onStatus('binding', binding.id, binding.enabled ? 'disabled' : 'published')}>
-                {binding.enabled ? '停用' : '启用'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }

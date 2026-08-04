@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { matchesCalendarAttendeeQuery } from '@/lib/calendar/attendee-directory';
 
 async function GETApiHandler(req: NextRequest) {
   await boot();
@@ -13,7 +14,7 @@ async function GETApiHandler(req: NextRequest) {
   const limit = Number.isFinite(limitParam) ? Math.min(500, Math.max(1, Math.floor(limitParam))) : 30;
   const matchedUsers = (await getStore().auth.users.list({ tenantId: auth.tenantId }))
     .filter((user) => !user.disabled && user.id !== auth.userId)
-    .filter((user) => !query || user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query));
+    .filter((user) => matchesCalendarAttendeeQuery(user, query));
   const users = matchedUsers
     .slice(0, limit)
     .map((user) => ({ id: user.id, name: user.name, email: user.email }));

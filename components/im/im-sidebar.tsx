@@ -19,7 +19,7 @@ import ImSearchOverlay from '@/components/im/ImSearchOverlay';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import { extractPreview, type ImChannel, type ImMembership } from '@/lib/types/im';
-import { displayImChannelName } from '@/lib/im/channel-name';
+import { displayImChannelName, getDmPeerId } from '@/lib/im/channel-name';
 import { useToast } from '@/hooks/use-toast';
 import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
 
@@ -116,7 +116,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { user } = useCurrentUser();
-  const ME = user?.id ?? 'demo-user';
+  const ME = user?.id ?? '';
   const nameOf = usePersonNameResolver();
   const { toast } = useToast();
   const canManageOrgGroups = user?.permissions?.includes('organization.manage') ?? false;
@@ -144,7 +144,17 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     setShowCreate(true);
   });
 
+  const channelDisplayName = useCallback((channel: Channel, fallback = '私聊') => {
+    if (channel.type !== 'dm') return displayImChannelName(channel);
+    const peerId = getDmPeerId(channel, ME);
+    return peerId ? nameOf(peerId) : fallback;
+  }, [ME, nameOf]);
+
   const loadChannels = useCallback(async () => {
+    if (!ME) {
+      setChannels([]);
+      return;
+    }
     try {
       const res = await fetch(`/api/im/channels?userId=${ME}`, { cache: 'no-store' });
       const data = await res.json();
@@ -192,6 +202,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       };
       const channelId = payload.channelId;
       const message = payload.message;
+      if (!ME) return;
       if (!channelId || !message?.id || message.senderId === ME) return;
       if (notifiedMessageIdsRef.current.has(message.id)) return;
       notifiedMessageIdsRef.current.add(message.id);
@@ -201,9 +212,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
 
       const channel = channelsRef.current.find((item) => item.id === channelId);
       const channelName = channel
-        ? channel.type === 'dm'
-          ? (nameOf(channel.memberIds.find((m) => m !== ME)) || '私聊')
-          : displayImChannelName(channel)
+        ? channelDisplayName(channel)
         : 'IM 消息';
       const senderName = nameOf(message.senderId) || '有人';
       const preview = extractPreview(message.body ?? '') ||
@@ -233,9 +242,10 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     } catch {
       /* ignore malformed stream events */
     }
-  }, [ME, activeId, nameOf, router, toast]);
+  }, [ME, activeId, channelDisplayName, nameOf, router, toast]);
 
   useEffect(() => {
+    if (!ME) return;
     const es = new EventSource('/api/im/stream');
     const refresh = () => void loadChannels();
     let sseHealthy = true;
@@ -257,7 +267,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       clearInterval(fallback);
       es.close();
     };
-  }, [loadChannels, notifyIncomingMessage]);
+  }, [ME, loadChannels, notifyIncomingMessage]);
 
   const filteredChannels = useMemo(() => {
     let list = channels;
@@ -279,13 +289,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter((c) => {
-      const name = c.type === 'dm' ? nameOf(c.memberIds.find((m) => m !== ME)) : displayImChannelName(c);
+      const name = channelDisplayName(c);
       return (
         name.toLowerCase().includes(q) ||
         (c.lastMessagePreview ?? '').toLowerCase().includes(q)
       );
     });
-  }, [channels, search, activeFilter, ME, nameOf]);
+  }, [channels, search, activeFilter, channelDisplayName]);
 
   // 各分组未读计数
   const groupCounts = useMemo(() => ({
@@ -337,6 +347,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         <button
           type="button"
           onClick={() => setShowDm(true)}
+          disabled={!ME}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
           title="发起单聊"
         >
@@ -345,6 +356,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
+          disabled={!ME}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
           title="新建会话"
         >
@@ -354,6 +366,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowSeedOrg(true)}
+            disabled={!ME}
             className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
             title="按组织架构同步部门群"
           >
@@ -361,7 +374,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </button>
         )}
         {filteredChannels.slice(0, 12).map((c) => {
-          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '?') : displayImChannelName(c);
+          const displayName = channelDisplayName(c, '?');
           const u = unreadStyle(c);
           return (
             <button
@@ -423,6 +436,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowDm(true)}
+            disabled={!ME}
             className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
             title="发起单聊"
           >
@@ -431,6 +445,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
+            disabled={!ME}
             className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
             title="新建会话"
           >
@@ -444,6 +459,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowSeedOrg(true)}
+            disabled={!ME}
             className="flex w-full items-center gap-2 rounded-md border border-hairline bg-surface-2 px-2.5 py-2 text-left text-[12px] font-medium text-ink-primary transition-colors hover:bg-surface-3"
             title="按照 HR 组织结构自动生成体系群和部门群"
           >
@@ -528,7 +544,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </div>
         )}
         {filteredChannels.map((c) => {
-          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : displayImChannelName(c);
+          const displayName = channelDisplayName(c);
           const u = unreadStyle(c);
           const active = activeId === c.id;
 

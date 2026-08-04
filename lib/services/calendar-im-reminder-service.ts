@@ -24,15 +24,19 @@ class CalendarImReminderError extends DomainError {
 }
 
 export class CalendarImReminderService {
-  constructor(private readonly ctx: CalendarImReminderContext) {}
+  constructor(
+    private readonly ctx: CalendarImReminderContext,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
 
-  async listCandidates(actorId: string, tenantId: string): Promise<CalendarEvent[]> {
-    await this.cleanupExpiredOneTimeMeetingGroups(tenantId);
+  async listCandidates(actorId: string, tenantId: string, now = this.now()): Promise<CalendarEvent[]> {
     const events = await this.ctx.calendarRepo.list({ tenantId });
     const cancellationMarkers = await listCancellationMarkers(tenantId, events);
     return events
       .filter((event) => (event.ownerId === actorId || event.attendees.includes(actorId)))
       .filter((event) => ACTIVE_EVENT_STATUSES.has(event.status))
+      .filter((event) => !isEndedEvent(event, now))
+      .filter((event) => event.attendees.length > 0)
       .filter((event) => !cancellationMarkers.eventIds.has(event.id))
       .filter((event) => !event.seriesId || !cancellationMarkers.seriesIds.has(event.seriesId))
       .sort((a, b) => a.startAt.localeCompare(b.startAt));
@@ -43,6 +47,7 @@ export class CalendarImReminderService {
     if (!event) throw new NotFoundError('CalendarEvent', eventId);
     if ((event.tenantId ?? 'default') !== tenantId) throw new NotFoundError('CalendarEvent', eventId);
     if (!ACTIVE_EVENT_STATUSES.has(event.status)) throw new ValidationError('已取消会议不可提醒');
+    if (isEndedEvent(event, this.now())) throw new ValidationError('已结束会议不可提醒');
     if (event.ownerId !== actorId && !event.attendees.includes(actorId)) {
       throw new ForbiddenError('只能提醒自己发起或参与的会议');
     }
@@ -112,7 +117,12 @@ export class CalendarImReminderService {
 
       const eventId = eventIdFromTopic(channel.topic);
       const event = await this.ctx.calendarRepo.findById(eventId);
-      if (!event || (event.tenantId ?? 'default') !== tenantId || !isExpiredOneTimeEvent(event, now)) {
+      if (
+        event &&
+        (event.tenantId ?? 'default') === tenantId &&
+        event.status !== 'cancelled' &&
+        !isExpiredOneTimeEvent(event, now)
+      ) {
         continue;
       }
 
@@ -191,6 +201,10 @@ function formatDateRange(startIso: string, endIso: string): string {
 
 function isExpiredOneTimeEvent(event: CalendarEvent, now: Date): boolean {
   if (event.seriesId || event.recurrenceIndex != null || event.recurringRule) return false;
+  return isEndedEvent(event, now);
+}
+
+function isEndedEvent(event: CalendarEvent, now: Date): boolean {
   const endAt = new Date(event.endAt).getTime();
   return Number.isFinite(endAt) && endAt <= now.getTime();
 }

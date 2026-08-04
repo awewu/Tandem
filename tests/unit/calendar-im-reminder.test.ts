@@ -9,11 +9,11 @@ beforeEach(() => {
   setStore(createInMemoryStore());
 });
 
-function createService() {
+function createService(now = new Date('2026-07-17T00:00:00.000Z')) {
   const calendarRepo = new InMemoryCalendarEventRepository();
   return {
     calendarRepo,
-    service: new CalendarImReminderService({ calendarRepo }),
+    service: new CalendarImReminderService({ calendarRepo }, () => now),
   };
 }
 
@@ -46,7 +46,7 @@ describe('CalendarImReminderService', () => {
 
     expect(result.reused).toBe(false);
     expect(result.channel.visibility).toBe('private');
-    expect(result.channel.topic).toBe('calendar:event:evt-meeting-1');
+    expect(result.channel.topic).toMatch(/^calendar:event:evt-meeting-1\|/);
     expect(result.channel.memberIds).toEqual(['owner-1', 'attendee-1']);
     expect(result.channel.memberIds).not.toContain('external@example.com');
     expect(result.message.senderKind).toBe('system');
@@ -82,7 +82,7 @@ describe('CalendarImReminderService', () => {
     await calendarRepo.update(event.id, { attendees: ['attendee-1', 'attendee-2'] });
     const second = await service.remind(event.id, 'attendee-1', 'tenant-1');
     const store = getStore();
-    const channels = await store.imChannels.list({ tenantId: 'tenant-1', topic: 'calendar:event:evt-meeting-2' });
+    const channels = await store.imChannels.list({ tenantId: 'tenant-1', topic: first.channel.topic });
     const messages = await store.imMessages.list({ channelId: first.channel.id });
 
     expect(second.reused).toBe(true);
@@ -127,6 +127,44 @@ describe('CalendarImReminderService', () => {
 
     expect(archivedCount).toBe(1);
     expect(archivedChannel?.archivedAt).toBe('2026-07-20T03:00:00.000Z');
+    expect(visibleChannels.map((channel) => channel.id)).not.toContain(reminder.channel.id);
+  });
+
+  it('archives an auto-created meeting group after the calendar event is cancelled', async () => {
+    const { calendarRepo, service } = createService();
+    const event = await calendarRepo.create({
+      id: 'evt-cancelled-with-group',
+      title: '取消会议',
+      description: null,
+      startAt: '2026-08-12T01:00:00.000Z',
+      endAt: '2026-08-12T01:30:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    const reminder = await service.remind(event.id, 'owner-1', 'tenant-1');
+
+    await calendarRepo.update(event.id, { status: 'cancelled' });
+    const archivedCount = await service.cleanupExpiredOneTimeMeetingGroups(
+      'tenant-1',
+      new Date('2026-08-04T00:00:00.000Z'),
+    );
+    const archivedChannel = await getStore().imChannels.get(reminder.channel.id);
+    const visibleChannels = await listMyChannels('owner-1', 'tenant-1');
+
+    expect(archivedCount).toBe(1);
+    expect(archivedChannel?.archivedAt).toBe('2026-08-04T00:00:00.000Z');
     expect(visibleChannels.map((channel) => channel.id)).not.toContain(reminder.channel.id);
   });
 
@@ -247,6 +285,141 @@ describe('CalendarImReminderService', () => {
     await expect(service.remind(event.id, 'owner-1', 'tenant-1')).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       message: '该会议暂无可提醒的系统内参会人',
+    });
+  });
+
+  it('excludes ended meetings and meetings without internal attendees from IM reminder candidates', async () => {
+    const { calendarRepo, service } = createService(new Date('2026-08-04T00:00:00.000Z'));
+    await calendarRepo.create({
+      id: 'evt-ended',
+      title: '历史会议',
+      description: null,
+      startAt: '2026-07-24T02:00:00.000Z',
+      endAt: '2026-07-24T03:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    await calendarRepo.create({
+      id: 'evt-no-internal-attendee',
+      title: '无人可提醒会议',
+      description: null,
+      startAt: '2026-08-05T02:00:00.000Z',
+      endAt: '2026-08-05T03:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: [],
+      attendeeEmails: ['external@example.com'],
+      externalAttendeeEmails: ['external@example.com'],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    await calendarRepo.create({
+      id: 'evt-upcoming',
+      title: '可提醒会议',
+      description: null,
+      startAt: '2026-08-05T04:00:00.000Z',
+      endAt: '2026-08-05T05:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+
+    const candidates = await service.listCandidates('owner-1', 'tenant-1');
+
+    expect(candidates.map((event) => event.id)).toEqual(['evt-upcoming']);
+  });
+
+  it('does not block candidate loading on expired meeting group cleanup', async () => {
+    const { calendarRepo, service } = createService(new Date('2026-08-04T00:00:00.000Z'));
+    await calendarRepo.create({
+      id: 'evt-upcoming-fast-list',
+      title: '快速候选会议',
+      description: null,
+      startAt: '2026-08-05T04:00:00.000Z',
+      endAt: '2026-08-05T05:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    service.cleanupExpiredOneTimeMeetingGroups = async () => new Promise<number>(() => undefined);
+
+    const result = await Promise.race([
+      service.listCandidates('owner-1', 'tenant-1'),
+      new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 25)),
+    ]);
+
+    expect(result).not.toBe('timeout');
+    expect(Array.isArray(result) ? result.map((event) => event.id) : []).toEqual(['evt-upcoming-fast-list']);
+  });
+
+  it('rejects ended meetings even when the event id is posted directly', async () => {
+    const { calendarRepo, service } = createService(new Date('2026-08-04T00:00:00.000Z'));
+    const event = await calendarRepo.create({
+      id: 'evt-ended-posted',
+      title: '直接提交的历史会议',
+      description: null,
+      startAt: '2026-07-24T02:00:00.000Z',
+      endAt: '2026-07-24T03:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+
+    await expect(service.remind(event.id, 'owner-1', 'tenant-1')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: '已结束会议不可提醒',
     });
   });
 

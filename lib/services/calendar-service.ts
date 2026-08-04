@@ -32,11 +32,14 @@ export interface CalendarEmailMessage {
   to: string[];
   subject: string;
   text: string;
+  senderUserId?: string;
+  senderEmail?: string;
 }
 
 export interface CalendarServiceDependencies {
   now?: () => Date;
   listUsers?: (tenantId: string) => Promise<CalendarUser[]>;
+  checkEmailSender?: (message: CalendarEmailMessage) => Promise<{ ok: boolean; error?: string }>;
   sendEmail?: (message: CalendarEmailMessage) => Promise<{ ok: boolean; error?: string; warning?: string }>;
 }
 
@@ -215,6 +218,8 @@ export class CalendarService {
         to: recipients,
         subject: `【日程通知】${events[0].title}`,
         text: buildCalendarEmail('created', events[0], formatPerson(cmd.ownerName, cmd.ownerEmail), users),
+        senderUserId: cmd.ownerId,
+        senderEmail: cmd.ownerEmail,
       });
     }
 
@@ -326,8 +331,22 @@ export class CalendarService {
       const emailStep = emailJob?.steps.find((s) => s.key === 'sending_emails');
       let shouldDeliverEmailInBackground = false;
       if (emailStep?.status !== 'done' && !emailJob?.emailSent) {
-        await store.markStep(jobId, 'sending_emails', 'done', '已移交后台投递，不影响日程创建');
-        shouldDeliverEmailInBackground = true;
+        const recipientEmails = uniqueEmails(emailJob?.input.attendeeEmails ?? [])
+          .filter((email) => email !== normalizeEmail(emailJob?.input.ownerEmail ?? ''));
+        if (recipientEmails.length === 0) {
+          await store.markStep(jobId, 'sending_emails', 'done', '无收件人，跳过邮件');
+        } else if (await this.checkEmailSender({
+          to: recipientEmails,
+          subject: `【日程通知】${emailJob?.input.title ?? ''}`,
+          text: '',
+          senderUserId: emailJob?.input.ownerId,
+          senderEmail: emailJob?.input.ownerEmail,
+        })) {
+          await store.markStep(jobId, 'sending_emails', 'done', '已移交后台投递，不影响日程创建');
+          shouldDeliverEmailInBackground = true;
+        } else {
+          await store.markStep(jobId, 'sending_emails', 'failed', this.deliveryWarnings.at(-1) ?? 'email delivery failed');
+        }
       } else if (emailJob?.emailSent && emailStep?.status !== 'done') {
         await store.markStep(jobId, 'sending_emails', 'done', '邮件已发送');
       }
@@ -421,6 +440,8 @@ export class CalendarService {
           to: recipientEmails,
           subject: `【日程通知】${firstEvent.title}`,
           text: buildCalendarEmail('created', firstEvent, formatPerson(currentJob.input.ownerName, currentJob.input.ownerEmail), users),
+          senderUserId: currentJob.input.ownerId,
+          senderEmail: currentJob.input.ownerEmail,
         });
         if (!emailOk) {
           throw new Error(this.deliveryWarnings.at(-1) ?? 'email delivery failed');
@@ -908,6 +929,8 @@ export class CalendarService {
       to: recipients,
       subject: `${kind === 'updated' ? '【日程变更】' : '【日程取消】'}${after.title}`,
       text: buildCalendarEmail(kind, after, formatCalendarUser(owner, ownerEmail ?? before.ownerId), users),
+      senderUserId: before.ownerId,
+      senderEmail: organizerEmail || ownerEmail,
     });
   }
 
@@ -916,6 +939,7 @@ export class CalendarService {
       this.addDeliveryWarning('email service is unavailable');
       return false;
     }
+    if (!await this.checkEmailSender(message)) return false;
     const result = await this.deps.sendEmail(message);
     if (!result.ok) {
       this.addDeliveryWarning(result.error || 'email delivery failed');
@@ -923,6 +947,14 @@ export class CalendarService {
     }
     if (result.warning) this.addDeliveryWarning(result.warning);
     return true;
+  }
+
+  private async checkEmailSender(message: CalendarEmailMessage): Promise<boolean> {
+    if (!this.deps.checkEmailSender) return true;
+    const result = await this.deps.checkEmailSender(message);
+    if (result.ok) return true;
+    this.addDeliveryWarning(result.error || 'email delivery failed');
+    return false;
   }
 }
 
