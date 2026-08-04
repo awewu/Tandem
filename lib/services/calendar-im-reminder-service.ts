@@ -51,11 +51,11 @@ export class CalendarImReminderService {
     }
 
     const memberIds = Array.from(new Set([actorId, event.ownerId, ...event.attendees].filter(Boolean)));
-    const topic = topicForEvent(event.id);
+    const topic = topicForEvent(event);
     let existing: ImChannel | null = null;
     let channel: ImChannel;
     try {
-      existing = await this.findExistingChannel(topic, tenantId);
+      existing = await this.findExistingChannel(event.id, tenantId);
       channel = existing
         ? await this.ensureMembers(existing, memberIds)
         : await createChannel({
@@ -68,6 +68,13 @@ export class CalendarImReminderService {
             tenantId,
             autoCreated: true,
           });
+      if (existing && channel.topic !== topic) {
+        channel = await getStore().imChannels.update(channel.id, {
+          name: `会议：${event.title}`,
+          topic,
+          updatedAt: new Date().toISOString(),
+        });
+      }
     } catch (error) {
       throw new CalendarImReminderError('IM_CHANNEL_CREATE_FAILED', 'IM 群创建失败，请稍后重试', {
         cause: error instanceof Error ? error.message : String(error),
@@ -103,7 +110,7 @@ export class CalendarImReminderService {
         continue;
       }
 
-      const eventId = channel.topic.slice(CALENDAR_IM_TOPIC_PREFIX.length);
+      const eventId = eventIdFromTopic(channel.topic);
       const event = await this.ctx.calendarRepo.findById(eventId);
       if (!event || (event.tenantId ?? 'default') !== tenantId || !isExpiredOneTimeEvent(event, now)) {
         continue;
@@ -119,9 +126,10 @@ export class CalendarImReminderService {
     return archivedCount;
   }
 
-  private async findExistingChannel(topic: string, tenantId: string): Promise<ImChannel | null> {
-    const channels = await getStore().imChannels.list({ tenantId, topic });
-    return channels.find((channel) => !channel.archivedAt) ?? null;
+  private async findExistingChannel(eventId: string, tenantId: string): Promise<ImChannel | null> {
+    const channels = await getStore().imChannels.list({ tenantId });
+    const marker = `${CALENDAR_IM_TOPIC_PREFIX}${eventId}`;
+    return channels.find((channel) => !channel.archivedAt && channel.topic?.startsWith(marker)) ?? null;
   }
 
   private async ensureMembers(channel: ImChannel, requiredMemberIds: string[]): Promise<ImChannel> {
@@ -153,8 +161,32 @@ export class CalendarImReminderService {
   }
 }
 
-function topicForEvent(eventId: string): string {
-  return `${CALENDAR_IM_TOPIC_PREFIX}${eventId}`;
+function topicForEvent(event: CalendarEvent): string {
+  return `${CALENDAR_IM_TOPIC_PREFIX}${event.id}|${formatDateRange(event.startAt, event.endAt)}`;
+}
+
+function eventIdFromTopic(topic: string): string {
+  return topic.slice(CALENDAR_IM_TOPIC_PREFIX.length).split('|', 1)[0] ?? '';
+}
+
+function formatDateRange(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${startIso} - ${endIso}`;
+  }
+  const sameDay = start.toDateString() === end.toDateString();
+  const startLabel = start.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const endLabel = end.toLocaleString('zh-CN', sameDay
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `${startLabel} - ${endLabel}`;
 }
 
 function isExpiredOneTimeEvent(event: CalendarEvent, now: Date): boolean {

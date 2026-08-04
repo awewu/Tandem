@@ -48,7 +48,7 @@ import {
 } from 'lucide-react';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
 import type { ImSummaryScope, SummarizeChannelOutput } from '@/lib/im/summary';
-import { displayImChannelName } from '@/lib/im/channel-name';
+import { displayImChannelName, displayImChannelTopic } from '@/lib/im/channel-name';
 import { MemberProfileCard, type ImProfileUser } from '@/components/im/member-profile-card';
 
 interface OrgUser extends ImProfileUser {
@@ -693,8 +693,8 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-ink-primary truncate">{displayName}</div>
-                    {channel.topic
-                      ? <div className="mt-0.5 text-[11.5px] text-ink-secondary line-clamp-2">{channel.topic}</div>
+                    {displayImChannelTopic(channel)
+                      ? <div className="mt-0.5 text-[11.5px] text-ink-secondary line-clamp-2">{displayImChannelTopic(channel)}</div>
                       : <div className="mt-0.5 text-[11.5px] text-ink-tertiary">暂无群简介</div>}
                   </div>
                   {isAdmin && (

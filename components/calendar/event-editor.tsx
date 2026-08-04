@@ -528,7 +528,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
 
   async function handleDelete() {
     if (!editing) return;
-    if (confirm('确定取消此日程？')) {
+    if (confirm('确定删除此日程？')) {
       setDeleting(true);
       setFormError('');
       setJobStatus(null);
@@ -542,7 +542,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
             body: JSON.stringify({ scope: mutationScope }),
           }, CALENDAR_MUTATION_TIMEOUT_MS);
           const data = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '取消失败');
+          if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '删除失败');
           const cancelledEvents = Array.isArray(data.events) ? data.events : [];
           if (cancelledEvents.length > 0) {
             cancelledEvents.forEach((event: { id?: unknown }) => {
@@ -553,7 +553,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           }
           void Promise.resolve(onSaved?.()).catch(() => undefined);
           if (Array.isArray(data.warnings) && data.warnings.length > 0) {
-            alert(`日程已取消，但邮件发送失败：${data.warnings.join('；')}`);
+            alert(`日程已删除，但邮件发送失败：${data.warnings.join('；')}`);
           }
         } else {
           deleteEvent(editing.id);
@@ -564,8 +564,8 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           void Promise.resolve(onSaved?.()).catch(() => undefined);
         }
         setFormError(isRequestTimeoutError(error)
-          ? '取消请求等待时间过长，已刷新日程状态。若该日程仍显示，请稍后再点一次取消。'
-          : error instanceof Error ? error.message : '取消失败');
+          ? '删除请求等待时间过长，已刷新日程状态。若该日程仍显示，请稍后再点一次删除。'
+          : error instanceof Error ? error.message : '删除失败');
       } finally {
         setDeleting(false);
       }
@@ -1087,9 +1087,9 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           <div className="flex items-center gap-1">
             {editing && (
               <>
-                <Button type="button" variant="ghost" size="sm" onClick={handleDelete} disabled={saving || deleting} className="text-danger hover:text-danger" title="取消日程">
+                <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={saving || deleting} className="gap-1.5 px-3 shadow-sm" title="删除日程">
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  {deleting && <span className="ml-1 text-caption">取消中...</span>}
+                  <span>{deleting ? '删除中...' : '删除'}</span>
                 </Button>
                 {!editing.serverManaged && (
                   <Button type="button" variant="ghost" size="sm" onClick={handleDuplicate} disabled={saving || deleting} title="复制事件">
@@ -1104,7 +1104,8 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               <X className="h-4 w-4 mr-1" />
               取消
             </Button>
-            <Button type="button" size="sm" onClick={jobStatus?.status === 'completed' ? onClose : handleSave} disabled={saving || deleting} className="bg-info/80 hover:bg-info/70 text-white">              {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '完成' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
+            <Button type="button" size="sm" onClick={jobStatus?.status === 'completed' ? onClose : handleSave} disabled={saving || deleting} className="bg-info/80 hover:bg-info/70 text-white">
+              {deleting ? '删除中...' : jobStatus?.status === 'completed' ? '完成' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
             </Button>
           </div>
         </div>

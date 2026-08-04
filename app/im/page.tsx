@@ -45,7 +45,7 @@ import {
   reconcilePendingPersonMentionRanges,
   type PendingPersonMention,
 } from '@/lib/im/composer-text';
-import { displayImChannelName } from '@/lib/im/channel-name';
+import { displayImChannelName, displayImChannelTopic } from '@/lib/im/channel-name';
 import { chooseImPopupDirection, formatImMessageTimestamp, formatImDateDivider, shouldShowImDateDivider, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
 import {
   Hash,
@@ -1221,8 +1221,8 @@ function ImInner() {
                       ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊'
                       : displayImChannelName(activeChannel)}
                   </div>
-                  {activeChannel.topic && (
-                    <div className="truncate text-[12px] text-ink-secondary">{activeChannel.topic}</div>
+                  {displayImChannelTopic(activeChannel) && (
+                    <div className="truncate text-[12px] text-ink-secondary">{displayImChannelTopic(activeChannel)}</div>
                   )}
                 </div>
               </div>
