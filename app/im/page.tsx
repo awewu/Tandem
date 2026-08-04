@@ -19,6 +19,7 @@ import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
 import { ImSidebar } from '@/components/im/im-sidebar';
 import { ImVoiceComposerButton } from '@/components/im/im-voice-composer-button';
 import { ImVoiceMessageButton } from '@/components/im/ImVoiceMessageButton';
+import { MemberProfileCard, type ImProfileUser } from '@/components/im/member-profile-card';
 import ImSearchOverlay from '@/components/im/ImSearchOverlay';
 import ImForwardOverlay from '@/components/im/ImForwardOverlay';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
@@ -80,6 +81,12 @@ import {
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
 type Channel = ImChannel & { unread?: number };
 type Message = ImMessage;
+
+interface HrDeptLite {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
 
 const OfficeFileViewer = dynamic(() => import('@file-viewer/react'), { ssr: false }) as ComponentType<{
   url: string;
@@ -240,6 +247,9 @@ function ImInner() {
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [members, setMembers] = useState<ImMembership[]>([]);
+  const [orgUsers, setOrgUsers] = useState<Map<string, ImProfileUser>>(new Map());
+  const [departmentNames, setDepartmentNames] = useState<Map<string, string>>(new Map());
+  const [selectedProfileUser, setSelectedProfileUser] = useState<ImProfileUser | null>(null);
   const [sendAsAgent, setSendAsAgent] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showIdentityPicker, setShowIdentityPicker] = useState(false);
@@ -251,6 +261,8 @@ function ImInner() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragDepthRef = useRef(0);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const typingLastSentRef = useRef(0);
   const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [typingIds, setTypingIds] = useState<string[]>([]);
@@ -313,6 +325,36 @@ function ImInner() {
   const handlePersonMentionInserted = useCallback((mention: PendingPersonMention) => {
     setPendingMentions((current) => [...current, mention]);
   }, []);
+  useEffect(() => {
+    let alive = true;
+    void Promise.all([
+      fetch('/api/org/users', { cache: 'no-store' }).then((res) => (res.ok ? res.json() : { users: [] })).catch(() => ({ users: [] })),
+      fetch('/api/org/departments', { cache: 'no-store' }).then((res) => (res.ok ? res.json() : { depts: [] })).catch(() => ({ depts: [] })),
+    ]).then(([usersData, deptData]) => {
+      if (!alive) return;
+      const users = new Map<string, ImProfileUser>();
+      for (const userItem of (usersData.users ?? []) as ImProfileUser[]) users.set(userItem.id, userItem);
+      setOrgUsers(users);
+
+      const depts = (deptData.depts ?? []) as HrDeptLite[];
+      const byId = new Map(depts.map((dept) => [dept.id, dept]));
+      const names = new Map<string, string>();
+      for (const dept of depts) {
+        const parent = dept.parentId ? byId.get(dept.parentId) : null;
+        names.set(dept.id, parent ? `${parent.name} / ${dept.name}` : dept.name);
+      }
+      setDepartmentNames(names);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const openMemberProfile = useCallback((userId: string) => {
+    const user = orgUsers.get(userId) ?? {
+      id: userId,
+      name: nameOf(userId) || shortUserId(userId),
+    };
+    setSelectedProfileUser(user);
+  }, [nameOf, orgUsers]);
   const insertVoiceText = useCallback((text: string) => {
     const spoken = text.trim();
     if (!spoken) return;
@@ -646,11 +688,11 @@ function ImInner() {
     });
     es.addEventListener('channel', notifyChannelsRefresh);
 
-    // §B6 去掉常态 30s 轮询: 仅在 SSE 断线降级时对账 (健康时 no-op, 消除滚动抖动/冗余请求)。
+    // §B6 去掉常态 30s 轮询: 仅在 SSE 断线降级时快速对账 (健康时 no-op, 消除滚动抖动/冗余请求)。
     const poll = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       if (!sseHealthy) void refreshMessages(activeId);
-    }, 15_000);
+    }, 5_000);
 
     return () => {
       window.clearInterval(poll);
@@ -1019,29 +1061,73 @@ function ImInner() {
     }
   }
 
-  /** 粘贴: 将剪贴板图片文件入队 (与选图一致走 attachments → 预签名上传闭环). */
-  function queuePastedImages(files: File[]) {
-    files.forEach((file) => {
+  /** 粘贴: 将剪贴板文件入队 (图片走预览压缩, 其他文件走附件上传闭环). */
+  function queuePastedFiles(files: File[]) {
+    const normalized = files.map((file) => {
+      if (!file.type.startsWith('image/')) return file;
       const ext = (file.type.split('/')[1] || 'png').split('+')[0];
       // 剪贴板图片常为统一名 'image.png', 重命名避免多张重名
-      const named = file.name && file.name !== 'image.png'
+      return file.name && file.name !== 'image.png'
         ? file
         : new File([file], `pasted-${Date.now()}.${ext}`, { type: file.type });
-      void addImageAttachment(named);
+    });
+    enqueueComposerFiles(normalized, { previewImages: true });
+  }
+
+  function enqueueComposerFiles(files: File[], options: { previewImages?: boolean } = {}) {
+    if (!files.length) return;
+    files.forEach((file) => {
+      if (options.previewImages && file.type.startsWith('image/')) {
+        void addImageAttachment(file);
+      } else {
+        setAttachments((prev) => [...prev, { id: makeAttachmentId(file), name: file.name, size: file.size, file }]);
+      }
     });
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, kind: 'image' | 'file') {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    files.forEach((file) => {
-      if (kind === 'image' && file.type.startsWith('image/')) {
-        void addImageAttachment(file);
-      } else {
-        setAttachments((prev) => [...prev, { id: makeAttachmentId(file), name: file.name, size: file.size, file }]);
-      }
-    });
+    enqueueComposerFiles(
+      kind === 'image' ? files.filter((file) => file.type.startsWith('image/')) : files,
+      { previewImages: kind === 'image' },
+    );
     e.target.value = '';
+  }
+
+  function isFileDrag(event: React.DragEvent<HTMLElement>): boolean {
+    return Array.from(event.dataTransfer.types ?? []).includes('Files');
+  }
+
+  function handleComposerDragEnter(event: React.DragEvent<HTMLElement>) {
+    if (!activeId || sending || !isFileDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current += 1;
+    setDraggingFiles(true);
+  }
+
+  function handleComposerDragOver(event: React.DragEvent<HTMLElement>) {
+    if (!activeId || sending || !isFileDrag(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleComposerDragLeave(event: React.DragEvent<HTMLElement>) {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDraggingFiles(false);
+  }
+
+  function handleComposerDrop(event: React.DragEvent<HTMLElement>) {
+    if (!activeId || sending || !isFileDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = 0;
+    setDraggingFiles(false);
+    enqueueComposerFiles(Array.from(event.dataTransfer.files ?? []), { previewImages: true });
   }
 
   return (
@@ -1073,6 +1159,18 @@ function ImInner() {
         />
       )}
 
+      {selectedProfileUser && (
+        <MemberProfileCard
+          user={selectedProfileUser}
+          departmentName={selectedProfileUser.departmentId ? departmentNames.get(selectedProfileUser.departmentId) : undefined}
+          onClose={() => setSelectedProfileUser(null)}
+          onStartDm={(userId) => {
+            setSelectedProfileUser(null);
+            void startDmWith(userId);
+          }}
+        />
+      )}
+
       {/* 消息流 + 右侧详情面板 并排容器 */}
       <div className="flex min-w-0 flex-1 overflow-hidden">
       {/* 移动端: 未选中会话时全屏"消息选择页" (桌面端会话列表在 SubSidebar) */}
@@ -1083,11 +1181,22 @@ function ImInner() {
           </Suspense>
         </div>
       )}
-      <main className={cn(
-        'flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-surface-1',
-        // 移动端未选会话时让位给上面的会话列表
-        !activeId && 'hidden md:flex',
-      )}>
+      <main
+        onDragEnter={handleComposerDragEnter}
+        onDragOver={handleComposerDragOver}
+        onDragLeave={handleComposerDragLeave}
+        onDrop={handleComposerDrop}
+        className={cn(
+          'relative flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-surface-1',
+          // 移动端未选会话时让位给上面的会话列表
+          !activeId && 'hidden md:flex',
+        )}
+      >
+        {draggingFiles && activeChannel && (
+          <div className="pointer-events-none absolute inset-3 z-40 flex items-center justify-center rounded-xl border-2 border-dashed border-brand-300 bg-brand-50/80 text-[13px] font-medium text-brand-700 shadow-soft-sm backdrop-blur-sm">
+            松开添加附件
+          </div>
+        )}
         {activeChannel ? (
           <>
             {/* 顶部栏 */}
@@ -1225,6 +1334,7 @@ function ImInner() {
                     onForward={handleForward}
                     onPin={togglePinHandler}
                     onMentionPersona={summonPersona}
+                    onOpenMemberProfile={openMemberProfile}
                     onReactionChange={handleReactionChange}
                   />
                   </div>
@@ -1430,9 +1540,9 @@ function ImInner() {
                     onEnter={() => void sendMessage()}
                     onTextChange={handleComposerTextChange}
                     onMentionInserted={handlePersonMentionInserted}
-                    onPasteFiles={queuePastedImages}
+                    onPasteFiles={queuePastedFiles}
                     disabled={sending}
-                    placeholder={sendAsAgent ? '以 AI 分身身份发言...' : '发送消息，输入 @ 选择人员（可直接粘贴图片）...'}
+                    placeholder={sendAsAgent ? '以 AI 分身身份发言...' : '发送消息，输入 @ 选择人员（可直接粘贴图片/文件）...'}
                   />
                 </div>
                 <Button
@@ -1710,6 +1820,12 @@ function previewContentType(name?: string, mimeType?: string): string | undefine
   return mimeType || undefined;
 }
 
+function fileViewerType(name?: string, mimeType?: string): string | undefined {
+  const ext = attachmentExt(name);
+  if (ext) return ext;
+  return mimeType || undefined;
+}
+
 function FilePreviewModal({
   url,
   downloadUrl,
@@ -1837,7 +1953,7 @@ function FilePreviewModal({
                 buffer={officeBuffer}
                 name={name}
                 filename={name}
-                type={mimeType || attachmentExt(name)}
+                type={fileViewerType(name, mimeType)}
                 size={size}
                 className="h-full min-h-[70vh] w-full"
                 style={{ height: '100%' }}
@@ -2212,6 +2328,7 @@ function MessageRow({
   onForward,
   onPin,
   onMentionPersona,
+  onOpenMemberProfile,
   onReactionChange,
 }: {
   msg: Message;
@@ -2227,6 +2344,7 @@ function MessageRow({
   onForward: (id: string) => void;
   onPin: (id: string) => void;
   onMentionPersona: (userId: string) => void;
+  onOpenMemberProfile: (userId: string) => void;
   onReactionChange: (id: string, reactions: Record<string, string[]>) => void;
 }) {
   // Day 4: 已读人数 (除发送者外, lastReadAt >= msg.createdAt 的成员)
@@ -2324,18 +2442,28 @@ function MessageRow({
     <div className={`group flex w-full min-w-0 items-start gap-2 ${showSender ? 'mt-2 mb-0.5' : 'mb-0.5'} ${isMe ? 'flex-row-reverse' : ''}`}>
       {/* §B4 同人 5 分钟内分组: 续条隐藏头像, 用等宽占位保持对齐 */}
       {showSender ? (
-        <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
-            isPersona
-              ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
-              : isMe
-              ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
-              : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
-          }`}
-          title={nameOf(msg.senderId)}
-        >
-          {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
-        </div>
+        isPersona ? (
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-[10px] font-semibold text-white shadow-soft-sm"
+            title={nameOf(msg.senderId)}
+          >
+            <Bot className="h-4 w-4" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenMemberProfile(msg.senderId)}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm transition hover:ring-2 hover:ring-brand-400 hover:ring-offset-1 ${
+              isMe
+                ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
+                : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
+            }`}
+            title={`${nameOf(msg.senderId)} · 查看资料`}
+            aria-label={`查看 ${nameOf(msg.senderId)} 的资料`}
+          >
+            {nameOf(msg.senderId).slice(0, 2).toUpperCase()}
+          </button>
+        )
       ) : (
         <div className="h-1 w-8 shrink-0" aria-hidden />
       )}
@@ -2413,12 +2541,11 @@ function MessageRow({
             </div>
           )}
 
-          {/* 差异化浮条: 落在气泡右下/左下角. 默认隐藏, hover 浮起.
-              比起绝对定位 -top-3 的旧方案, 不再遮挡 sender 名 */}
+          {/* 差异化操作条: 保持浮层, 贴在气泡下方, 不参与消息排版 */}
           <div
-            className={`pointer-events-none absolute -bottom-3 z-10 ${
-              isMe ? 'right-2' : 'left-2'
-            } hidden w-max max-w-none flex-nowrap items-center gap-1 whitespace-nowrap translate-y-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:flex ${
+            className={`pointer-events-none absolute top-full z-10 mt-1 hidden w-max max-w-none flex-nowrap items-center gap-1 whitespace-nowrap opacity-0 transition-all group-hover:pointer-events-auto group-hover:opacity-100 md:flex ${
+              isMe ? 'right-0' : 'left-0'
+            } ${
               reactionOpen || reactionHover ? 'invisible' : ''
             }`}
           >
@@ -2426,11 +2553,11 @@ function MessageRow({
               type="button"
               onClick={() => onSpawnRoom(msg.id)}
               disabled={!!msg.spawnedDecisionCardId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-warning/10 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-7 items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[11px] font-semibold leading-none text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-warning/10 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
-              <Sparkles className="h-3 w-3" />
-              开议事室
+              <Sparkles className="h-3 w-3 shrink-0" />
+              <span>开议事室</span>
             </button>
             <button
               type="button"
@@ -2674,6 +2801,13 @@ function ImComposerInput(props: {
   const [mentionStart, setMentionStart] = useState(-1);
   const [mentionActive, setMentionActive] = useState(0);
   const [mentionAnchor, setMentionAnchor] = useState<{ x: number; top: number; bottom: number } | undefined>();
+
+  const closeMentionPicker = useCallback(() => {
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionQuery('');
+  }, []);
+
   const mentionCandidates = useMemo(() => {
     const q = mentionQuery.trim().toLowerCase();
     return members
@@ -2690,6 +2824,10 @@ function ImComposerInput(props: {
   useEffect(() => {
     setMentionActive(0);
   }, [mentionQuery, mentionCandidates.length]);
+
+  useEffect(() => {
+    if (!value) closeMentionPicker();
+  }, [closeMentionPicker, value]);
 
   useEffect(() => {
     const el = composerRef.current;
@@ -2717,9 +2855,7 @@ function ImComposerInput(props: {
       }
       i--;
     }
-    setMentionOpen(false);
-    setMentionStart(-1);
-    setMentionQuery('');
+    closeMentionPicker();
   }
 
   function insertPersonMention(person: { userId: string; name: string }) {
@@ -2739,9 +2875,7 @@ function ImComposerInput(props: {
       end: before.length + mentionText.length,
       text: mentionText,
     });
-    setMentionOpen(false);
-    setMentionStart(-1);
-    setMentionQuery('');
+    closeMentionPicker();
     queueMicrotask(() => {
       const el = composerRef.current;
       if (!el) return;
@@ -2765,19 +2899,27 @@ function ImComposerInput(props: {
         }}
         onPaste={(e) => {
           const items = e.clipboardData?.items;
-          if (!items) return;
-          const imgs: File[] = [];
-          for (const it of Array.from(items)) {
-            if (it.kind === 'file' && it.type.startsWith('image/')) {
+          const fromFiles = Array.from(e.clipboardData?.files ?? []);
+          const fromItems: File[] = [];
+          if (items) {
+            for (const it of Array.from(items)) {
+              if (it.kind !== 'file') continue;
               const f = it.getAsFile();
-              if (f) imgs.push(f);
+              if (f) fromItems.push(f);
             }
           }
-          if (imgs.length > 0) {
+          const seen = new Set<string>();
+          const files = [...fromFiles, ...fromItems].filter((file) => {
+            const key = `${file.name}:${file.size}:${file.type}:${file.lastModified}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          if (files.length > 0) {
             const pastedText = e.clipboardData.getData('text/plain');
             e.preventDefault();
-            onPasteFiles?.(imgs);
-            if (pastedText) {
+            onPasteFiles?.(files);
+            if (pastedText && files.every((file) => file.type.startsWith('image/'))) {
               const result = insertTextAtSelection(
                 value,
                 pastedText,
@@ -2796,21 +2938,30 @@ function ImComposerInput(props: {
           }
         }}
         onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
           if (mentionOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
-            e.preventDefault();
             if (e.key === 'ArrowDown') {
+              e.preventDefault();
               setMentionActive((idx) => Math.min(idx + 1, Math.max(mentionCandidates.length - 1, 0)));
             } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
               setMentionActive((idx) => Math.max(idx - 1, 0));
             } else if (e.key === 'Enter' || e.key === 'Tab') {
               const selected = mentionCandidates[mentionActive] ?? mentionCandidates[0];
-              if (selected) insertPersonMention(selected);
+              if (selected) {
+                e.preventDefault();
+                insertPersonMention(selected);
+              } else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                closeMentionPicker();
+                onEnter();
+              }
             } else if (e.key === 'Escape') {
-              setMentionOpen(false);
+              e.preventDefault();
+              closeMentionPicker();
             }
             return;
           }
-          if (e.nativeEvent.isComposing) return;
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             onEnter();

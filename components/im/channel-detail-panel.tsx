@@ -31,9 +31,6 @@ import {
   X,
   Pencil,
   Check,
-  Phone,
-  Mail,
-  Building2,
   Loader2,
   Settings,
   BellOff,
@@ -52,8 +49,9 @@ import {
 import type { ImChannel, ImMembership } from '@/lib/types/im';
 import type { ImSummaryScope, SummarizeChannelOutput } from '@/lib/im/summary';
 import { displayImChannelName } from '@/lib/im/channel-name';
+import { MemberProfileCard, type ImProfileUser } from '@/components/im/member-profile-card';
 
-interface OrgUser {
+interface OrgUser extends ImProfileUser {
   id: string;
   name: string;
   email: string;
@@ -61,6 +59,12 @@ interface OrgUser {
   roles: string[];
   title?: string;
   phone?: string;
+}
+
+interface HrDeptLite {
+  id: string;
+  name: string;
+  parentId: string | null;
 }
 
 interface OkrItem {
@@ -115,60 +119,6 @@ function SectionHeader({ icon: Icon, label, count, open, onToggle }: {
         ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
         : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />}
     </button>
-  );
-}
-
-// ─── 个人名片弹层 ───────────────────────────────────────────
-
-function MemberCard({ user, onClose, onStartDm }: {
-  user: OrgUser; onClose: () => void; onStartDm: (id: string) => void;
-}) {
-  const idx = avatarColor(user.id);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div className="w-80 overflow-hidden rounded-2xl bg-surface-2 shadow-soft-xl" onClick={(e) => e.stopPropagation()}>
-        <div className={`h-20 bg-gradient-to-br ${idx}`} />
-        <div className="relative -mt-10 px-5">
-          <div className={`h-[72px] w-[72px] rounded-2xl border-4 border-white bg-gradient-to-br ${idx} flex items-center justify-center text-[22px] font-bold text-white shadow-soft`}>
-            {user.name.slice(0, 1)}
-          </div>
-        </div>
-        <div className="px-5 pb-5 pt-2">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-[16px] font-semibold text-ink-primary">{user.name}</div>
-              {user.title && <div className="mt-0.5 text-[12px] text-ink-secondary">{user.title}</div>}
-            </div>
-            <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-surface-3">
-              <X className="h-4 w-4 text-ink-tertiary" />
-            </button>
-          </div>
-          <div className="mt-3 space-y-2 border-t border-hairline pt-3">
-            {user.phone && (
-              <div className="flex items-center gap-2.5 text-[12.5px] text-ink-secondary">
-                <Phone className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" /><span>{user.phone}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2.5 text-[12.5px] text-ink-secondary">
-              <Mail className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" /><span className="truncate">{user.email}</span>
-            </div>
-            {user.departmentId && (
-              <div className="flex items-center gap-2.5 text-[12.5px] text-ink-secondary">
-                <Building2 className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" /><span className="truncate">{user.departmentId}</span>
-              </div>
-            )}
-          </div>
-          <div className="mt-4 flex gap-2">
-            <Button size="sm" className="flex-1 rounded-lg text-[12.5px]"
-              onClick={() => { onStartDm(user.id); onClose(); }}>发消息</Button>
-            {user.email && (
-              <Button size="sm" variant="outline" className="flex-1 rounded-lg text-[12.5px]"
-                onClick={() => { window.location.href = `mailto:${user.email}`; }}>写邮件</Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -455,6 +405,7 @@ function SummaryView({
 export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose, onDissolve, onLeft }: Props) {
   const [members, setMembers] = useState<ImMembership[]>([]);
   const [orgUsers, setOrgUsers] = useState<Map<string, OrgUser>>(new Map());
+  const [departmentNames, setDepartmentNames] = useState<Map<string, string>>(new Map());
   const [okrs, setOkrs] = useState<OkrItem[]>([]);
   const [summaryResult, setSummaryResult] = useState<SummarizeChannelOutput | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -506,6 +457,20 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
     const map = new Map<string, OrgUser>();
     for (const u of (d2.users ?? [])) map.set(u.id, u);
     setOrgUsers(map);
+    try {
+      const r3 = await fetch('/api/org/departments', { cache: 'no-store' });
+      if (r3.ok) {
+        const d3 = await r3.json();
+        const depts: HrDeptLite[] = d3.depts ?? [];
+        const byId = new Map(depts.map((dept) => [dept.id, dept]));
+        const nameMap = new Map<string, string>();
+        for (const dept of depts) {
+          const parent = dept.parentId ? byId.get(dept.parentId) : null;
+          nameMap.set(dept.id, parent ? `${parent.name} / ${dept.name}` : dept.name);
+        }
+        setDepartmentNames(nameMap);
+      }
+    } catch { /* keep member card usable without department labels */ }
   }, [channel.id, currentUserId]);
 
   const loadOkrs = useCallback(async () => {
@@ -1000,7 +965,10 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
       </aside>
 
       {selectedUser && (
-        <MemberCard user={selectedUser} onClose={() => setSelectedUser(null)}
+        <MemberProfileCard
+          user={selectedUser}
+          departmentName={selectedUser.departmentId ? departmentNames.get(selectedUser.departmentId) : undefined}
+          onClose={() => setSelectedUser(null)}
           onStartDm={(userId) => { setSelectedUser(null); window.dispatchEvent(new CustomEvent('im:startDm', { detail: userId })); }} />
       )}
 

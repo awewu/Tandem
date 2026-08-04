@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { subscribeIm } from '@/lib/im/service';
+import { getChannelIfMember, subscribeIm } from '@/lib/im/service';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +49,13 @@ async function GETApiHandler(req: NextRequest) {
 
       unsubscribe = subscribeIm((evt) => {
         try {
-          if (evt.type === 'unread_changed' && evt.userId === auth.userId) {
+          if (evt.type === 'message' && evt.message.senderId !== auth.userId) {
+            void getChannelIfMember(evt.channelId, auth.userId, auth.tenantId)
+              .then((channel) => {
+                if (channel) sendEvent('message', { channelId: evt.channelId, message: evt.message });
+              })
+              .catch(() => undefined);
+          } else if (evt.type === 'unread_changed' && evt.userId === auth.userId) {
             sendEvent('unread', { channelId: evt.channelId, unread: evt.unread });
           } else if (
             evt.type === 'channel_updated' &&

@@ -170,7 +170,7 @@ function SubSidebarInner() {
       ref={sidebarRef}
       className={cn(
         // Semantic tokens — flips correctly in dark mode.
-        'relative flex h-full shrink-0 flex-col border-r border-border bg-[rgb(var(--surface-1))]',
+        'relative flex h-full min-h-0 shrink-0 flex-col border-r border-border bg-[rgb(var(--surface-1))]',
         'transition-[width] duration-base ease-standard',
         !isImModule && (open ? 'w-60' : 'w-12'),
         resizingIm && 'transition-none',
@@ -207,9 +207,11 @@ function SubSidebarInner() {
 
       {/* IM 模块: 动态会话列表 */}
       {isImModule ? (
-        <Suspense fallback={null}>
-          <ImSidebar collapsed={!open} />
-        </Suspense>
+        <div className="min-h-0 flex-1">
+          <Suspense fallback={null}>
+            <ImSidebar collapsed={!open} />
+          </Suspense>
+        </div>
       ) : (
       <nav className="flex-1 overflow-y-auto p-2">
         <ul className="space-y-0.5">
