@@ -65,6 +65,7 @@ async function ensureAuthorMember(channel: ImChannel, authorId: string): Promise
       id,
       channelId: channel.id,
       userId: authorId,
+      tenantId: channel.tenantId ?? 'default',
       role: 'member',
       joinedAt: now,
       unreadCount: 0,

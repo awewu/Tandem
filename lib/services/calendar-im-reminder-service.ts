@@ -156,6 +156,7 @@ export class CalendarImReminderService {
           id,
           channelId: channel.id,
           userId,
+          tenantId: channel.tenantId ?? 'default',
           role: 'member',
           joinedAt: now,
           unreadCount: 0,

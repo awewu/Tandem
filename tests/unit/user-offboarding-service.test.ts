@@ -1,13 +1,26 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { randomUUID } from 'crypto';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextRequest } from 'next/server';
 import { CalendarImReminderService } from '@/lib/services/calendar-im-reminder-service';
 import { handoffCalendarAndImOnUserOffboarding } from '@/lib/services/user-offboarding-service';
 import { InMemoryCalendarEventRepository } from '@/lib/repositories/memory-calendar-repo';
+import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import { getStore, setStore, type AuthUser } from '@/lib/storage/repository';
+import { COOKIE_ACCESS, signAccessToken } from '@/lib/auth/session';
 import { membershipKey } from '@/lib/types/im';
 import type { CalendarEvent } from '@/lib/types/feishu-catchup';
 
 const TENANT_ID = 'tenant-offboarding';
+
+vi.mock('@/lib/boot', async () => {
+  const repo = await import('@/lib/storage/repository');
+  return {
+    boot: vi.fn(async () => {}),
+    getRouter: vi.fn(() => ({})),
+    getStore: repo.getStore,
+  };
+});
 
 beforeEach(() => {
   setStore(createInMemoryStore());
@@ -117,6 +130,7 @@ describe('handoffCalendarAndImOnUserOffboarding', () => {
       id: membershipKey(channel.id, owner.id),
       channelId: channel.id,
       userId: owner.id,
+      tenantId: TENANT_ID,
       role: 'owner',
       joinedAt: '2026-08-04T00:00:00.000Z',
       unreadCount: 0,
@@ -177,7 +191,7 @@ describe('handoffCalendarAndImOnUserOffboarding', () => {
     expect(departedMembership).toBeNull();
   });
 
-  it('does not take over a meeting IM group that is already owned by another active user', async () => {
+  it('syncs a linked meeting IM group to the new calendar owner even when another active user owns the group', async () => {
     const calendarRepo = new InMemoryCalendarEventRepository();
     const departingOwner = await createUser('owner@example.com');
     const groupOwner = await createUser('group-owner@example.com');
@@ -200,10 +214,10 @@ describe('handoffCalendarAndImOnUserOffboarding', () => {
     const groupOwnerMembership = await getStore().imMemberships.get(membershipKey(reminder.channel.id, groupOwner.id));
 
     expect(result.calendarTransferred).toBe(1);
-    expect(result.imTransferred).toBe(0);
+    expect(result.imTransferred).toBe(1);
     expect(updatedEvent?.ownerId).toBe(nextMeetingOwner.id);
-    expect(channel?.createdBy).toBe(groupOwner.id);
-    expect(groupOwnerMembership?.role).toBe('owner');
+    expect(channel?.createdBy).toBe(nextMeetingOwner.id);
+    expect(groupOwnerMembership?.role).toBe('admin');
   });
 
   it('keeps the meeting owner unchanged when there is no active attendee to receive ownership', async () => {
@@ -229,15 +243,81 @@ describe('handoffCalendarAndImOnUserOffboarding', () => {
     expect(result.skippedEvents).toEqual([{ eventId: event.id, reason: 'no_eligible_attendee' }]);
     expect(updated?.ownerId).toBe(owner.id);
   });
+
+  it('PATCH /api/org/users/[id] transfers calendar and linked IM owner when disabling a meeting owner', async () => {
+    const tenantId = `tenant-route-${randomUUID()}`;
+    const admin = await createUser('admin-route@example.com', false, tenantId);
+    const owner = await createUser('zhu.wutao@example.com', false, tenantId);
+    const firstActive = await createUser('ping.yan@example.com', false, tenantId);
+    const secondActive = await createUser('second-route@example.com', false, tenantId);
+    const ctx = createAppContext();
+    const event = await ctx.calendarRepo.create(eventDraft({
+      id: `evt-route-${randomUUID()}`,
+      ownerId: owner.id,
+      attendees: [firstActive.id, secondActive.id],
+      attendeeEmails: [firstActive.email, secondActive.email],
+      tenantId,
+    }));
+    const now = '2026-08-04T00:00:00.000Z';
+    const store = getStore();
+    const channel = await store.imChannels.create({
+      id: `channel-route-${randomUUID()}`,
+      type: 'group',
+      name: 'Meeting route handoff',
+      topic: `calendar:event:${event.id}|2026/08/05`,
+      visibility: 'private',
+      memberIds: [owner.id, firstActive.id, secondActive.id],
+      createdBy: owner.id,
+      tenantId,
+      autoCreated: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    for (const userId of channel.memberIds) {
+      await store.imMemberships.create({
+        id: membershipKey(channel.id, userId),
+        channelId: channel.id,
+        userId,
+        tenantId,
+        role: userId === owner.id ? 'owner' : 'member',
+        joinedAt: now,
+        unreadCount: 0,
+        muted: false,
+      });
+    }
+
+    const { PATCH } = await import('@/app/api/org/users/[id]/route');
+    const res = await PATCH(
+      reqAsUser(`http://test.local/api/org/users/${owner.id}`, admin, { disabled: true }, ['owner']),
+      { params: { id: owner.id } },
+    );
+    const body = await res.json();
+    const updatedEvent = await ctx.calendarRepo.findById(event.id);
+    const updatedChannel = await store.imChannels.get(channel.id);
+    const departedMembership = await store.imMemberships.get(membershipKey(channel.id, owner.id));
+    const successorMembership = await store.imMemberships.get(membershipKey(channel.id, firstActive.id));
+
+    expect(res.status).toBe(200);
+    expect(body.user.disabled).toBe(true);
+    expect(body.offboarding.calendarTransferred).toBe(1);
+    expect(body.offboarding.imTransferred).toBe(1);
+    expect(updatedEvent?.ownerId).toBe(firstActive.id);
+    expect(updatedEvent?.attendees).toEqual([secondActive.id]);
+    expect(updatedEvent?.attendeeEmails).toEqual([secondActive.email]);
+    expect(updatedChannel?.createdBy).toBe(firstActive.id);
+    expect(updatedChannel?.memberIds).toEqual([firstActive.id, secondActive.id]);
+    expect(departedMembership).toBeNull();
+    expect(successorMembership?.role).toBe('owner');
+  });
 });
 
-async function createUser(email: string, disabled = false): Promise<AuthUser> {
+async function createUser(email: string, disabled = false, tenantId = TENANT_ID): Promise<AuthUser> {
   const store = getStore();
   const user = await store.auth.users.create({
     email,
     name: email.split('@')[0],
     roles: ['employee'],
-    tenantId: TENANT_ID,
+    tenantId,
   });
   if (!disabled) return user;
   await store.auth.users.update(user.id, { disabled: true });
@@ -266,8 +346,27 @@ function eventDraft(patch: Partial<CalendarEvent> & Pick<CalendarEvent, 'id' | '
     calendarSource: 'manual',
     externalId: null,
     status: patch.status ?? 'confirmed',
-    tenantId: TENANT_ID,
+    tenantId: patch.tenantId ?? TENANT_ID,
     createdAt: '2026-08-04T00:00:00.000Z',
     updatedAt: '2026-08-04T00:00:00.000Z',
   };
+}
+
+function reqAsUser(url: string, user: AuthUser, body: unknown, roles: string[]): NextRequest {
+  const token = signAccessToken({
+    sub: user.id,
+    email: user.email,
+    roles,
+    tenantId: user.tenantId ?? 'default',
+    mfa: true,
+    sid: `sid-${user.id}`,
+  });
+  return new NextRequest(new Request(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: `${COOKIE_ACCESS}=${token}`,
+    },
+    body: JSON.stringify(body),
+  }));
 }

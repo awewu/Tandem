@@ -145,15 +145,15 @@ async function handoffLinkedMeetingChannels(input: {
       continue;
     }
 
-    const departingMembership = await store.imMemberships.get(membershipKey(channel.id, input.departingUserId));
-    const departingUserOwnsGroup = channel.createdBy === input.departingUserId || departingMembership?.role === 'owner';
-    if (!departingUserOwnsGroup) continue;
-
     const eventId = eventIdFromTopic(channel.topic);
     const event = await input.calendarRepo.findById(eventId);
     if (!event || (event.tenantId ?? 'default') !== input.tenantId) continue;
+    const transferredMeetingOwnerId = input.transferredOwnerByEventId.get(eventId);
+    const departingMembership = await store.imMemberships.get(membershipKey(channel.id, input.departingUserId));
+    const departingUserOwnsGroup = channel.createdBy === input.departingUserId || departingMembership?.role === 'owner';
+    if (!transferredMeetingOwnerId && !departingUserOwnsGroup) continue;
     const newOwnerId =
-      input.transferredOwnerByEventId.get(eventId) ??
+      transferredMeetingOwnerId ??
       pickLinkedChannelSuccessor(event, channel, input.departingUserId, input.activeUsersById, input.activeUsersByEmail);
     if (!newOwnerId) {
       continue;

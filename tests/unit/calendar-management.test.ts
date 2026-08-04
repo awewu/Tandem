@@ -309,12 +309,42 @@ describe('CalendarService', () => {
       attendeeEmails: ['colleague@example.com', 'second@example.com'],
       reminderMinutes: 10,
     });
+    const store = getStore();
+    const channel = await store.imChannels.create({
+      id: 'channel-disabled-owner-transfer',
+      type: 'group',
+      name: '离职后参会人转交',
+      topic: `calendar:event:${event.id}|2026/07/17`,
+      visibility: 'private',
+      memberIds: ['owner-1', 'user-2', 'user-3'],
+      createdBy: 'owner-1',
+      tenantId: 'tenant-1',
+      autoCreated: true,
+      createdAt: '2026-07-16T02:00:00.000Z',
+      updatedAt: '2026-07-16T02:00:00.000Z',
+    });
+    for (const userId of channel.memberIds) {
+      await store.imMemberships.create({
+        id: membershipKey(channel.id, userId),
+        channelId: channel.id,
+        userId,
+        tenantId: 'tenant-1',
+        role: userId === 'owner-1' ? 'owner' : 'member',
+        joinedAt: '2026-07-16T02:00:00.000Z',
+        unreadCount: 0,
+        muted: false,
+      });
+    }
 
     const [updated] = await service.transferOwnerManaged(event.id, 'user-2', 'user-3', 'single', 'colleague@example.com');
 
     expect(updated.ownerId).toBe('user-3');
-    expect((await ctx.calendarRepo.findById(event.id))?.attendees).toEqual(['user-2', 'owner-1']);
+    expect((await ctx.calendarRepo.findById(event.id))?.attendees).toEqual(['user-2']);
     expect((await ctx.calendarRepo.findById(event.id))?.attendeeEmails).toEqual(['colleague@example.com']);
+    expect((await store.imChannels.get(channel.id))?.memberIds).toEqual(['user-2', 'user-3']);
+    expect((await store.imChannels.get(channel.id))?.createdBy).toBe('user-3');
+    expect(await store.imMemberships.get(membershipKey(channel.id, 'owner-1'))).toBeNull();
+    expect((await store.imMemberships.get(membershipKey(channel.id, 'user-3')))?.role).toBe('owner');
   });
 
   it('lets a privileged actor transfer a meeting owned by another user', async () => {

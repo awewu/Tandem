@@ -153,7 +153,8 @@ export class CalendarService {
 
     const tenantId = cmd.tenantId ?? 'default';
     const users = await this.deps.listUsers?.(tenantId) ?? [];
-    const usersByEmail = new Map(users.map((user) => [normalizeEmail(user.email), user]));
+    const activeUsers = activeCalendarUsers(users);
+    const usersByEmail = new Map(activeUsers.map((user) => [normalizeEmail(user.email), user]));
     const attendeeEmails = uniqueEmails(cmd.attendeeEmails ?? []).filter((email) => email !== normalizeEmail(cmd.ownerEmail));
     const internalAttendees = attendeeEmails
       .map((email) => usersByEmail.get(email))
@@ -266,7 +267,8 @@ export class CalendarService {
         const tenantId = cmd.tenantId ?? 'default';
         const users = await this.deps.listUsers?.(tenantId) ?? [];
         await store.update(jobId, { input: { ...cmd, attendeeUsers: users } });
-        const usersByEmail = new Map(users.map((user) => [normalizeEmail(user.email), user]));
+        const activeUsers = activeCalendarUsers(users);
+        const usersByEmail = new Map(activeUsers.map((user) => [normalizeEmail(user.email), user]));
         const attendeeEmails = uniqueEmails(cmd.attendeeEmails ?? []).filter((email) => email !== normalizeEmail(cmd.ownerEmail));
         const internalAttendees = attendeeEmails
           .map((email) => usersByEmail.get(email))
@@ -514,7 +516,8 @@ export class CalendarService {
     }
 
     const tenantUsers = await this.deps.listUsers?.(anchor.tenantId) ?? [];
-    const usersByEmail = new Map(tenantUsers.map((user) => [normalizeEmail(user.email), user]));
+    const activeTenantUsers = activeCalendarUsers(tenantUsers);
+    const usersByEmail = new Map(activeTenantUsers.map((user) => [normalizeEmail(user.email), user]));
     const attendeeEmails = patch.attendeeEmails === undefined
       ? (anchor.attendeeEmails ?? [])
       : uniqueEmails(patch.attendeeEmails).filter((email) => email !== normalizeEmail(tenantUsers.find((user) => user.id === anchor.ownerId)?.email ?? ''));
@@ -722,7 +725,10 @@ export class CalendarService {
     const usersById = new Map(tenantUsers.map((user) => [user.id, user]));
     const actorUser = usersById.get(actorId);
     const ownerUser = await getStore().auth.users.findById(previousOwnerId);
-    const ownerUnavailable = !ownerUser || ownerUser.disabled === true;
+    const listedOwner = usersById.get(previousOwnerId);
+    const ownerUnavailable = ownerUser
+      ? ownerUser.disabled === true
+      : (!listedOwner || listedOwner.disabled === true);
     const actorCanTransfer = previousOwnerId === actorId ||
       options.allowPrivilegedActor === true ||
       (ownerUnavailable && isEventParticipant(anchor, actorUser, actorEmail));
@@ -730,7 +736,7 @@ export class CalendarService {
       throw new ForbiddenError('Only owner can transfer this event');
     }
     const nextOwner = usersById.get(newOwnerId);
-    if (!nextOwner) throw new ValidationError('new owner must be an active tenant user');
+    if (!nextOwner || nextOwner.disabled === true) throw new ValidationError('new owner must be an active tenant user');
     if (!isEventParticipant(anchor, nextOwner)) {
       throw new ValidationError('new owner must be a meeting attendee');
     }
@@ -740,24 +746,26 @@ export class CalendarService {
     await this.ctx.calendarReminderRepo.cancelByEventIds(targets.map((event) => event.id));
     await this.cancelReminderTasksForEvents(targets);
 
-    const previousOwnerUser = usersById.get(previousOwnerId) ?? (ownerUser ? {
+    const previousOwnerUser = listedOwner ?? (ownerUser ? {
       id: ownerUser.id,
       email: ownerUser.email,
       name: ownerUser.name,
+      disabled: ownerUser.disabled,
     } : undefined);
     const previousOwnerEmail = normalizeEmail(previousOwnerUser?.email ?? (actorId === previousOwnerId ? actorEmail : '') ?? '');
     const nextOwnerEmail = normalizeEmail(nextOwner.email);
+    const keepPreviousOwnerAsAttendee = !ownerUnavailable;
     const updated: CalendarEvent[] = [];
 
     for (const event of targets) {
       const attendees = uniqueIds([
-        ...event.attendees.filter((userId) => userId !== newOwnerId),
-        previousOwnerId,
+        ...event.attendees.filter((userId) => userId !== newOwnerId && (keepPreviousOwnerAsAttendee || userId !== previousOwnerId)),
+        ...(keepPreviousOwnerAsAttendee ? [previousOwnerId] : []),
       ]);
       const attendeeEmails = uniqueEmails([
         ...(event.attendeeEmails ?? []),
-        previousOwnerEmail,
-      ]).filter((email) => email !== nextOwnerEmail);
+        ...(keepPreviousOwnerAsAttendee ? [previousOwnerEmail] : []),
+      ]).filter((email) => email !== nextOwnerEmail && (keepPreviousOwnerAsAttendee || email !== previousOwnerEmail));
       const externalAttendeeEmails = uniqueEmails(event.externalAttendeeEmails ?? [])
         .filter((email) => email !== nextOwnerEmail && email !== previousOwnerEmail);
       const next = await this.ctx.calendarRepo.update(event.id, {
@@ -1014,8 +1022,15 @@ export class CalendarService {
     newOwnerId: string,
     tenantId: string,
   ): Promise<void> {
-    const eventIds = new Set(events.map((event) => event.id));
     const store = getStore();
+    const currentOwner = await store.auth.users.findById(currentOwnerId);
+    const tenantUsers = await this.deps.listUsers?.(tenantId) ?? [];
+    const listedCurrentOwner = tenantUsers.find((user) => user.id === currentOwnerId);
+    const currentOwnerUnavailable = currentOwner
+      ? currentOwner.disabled === true
+      : (!listedCurrentOwner || listedCurrentOwner.disabled === true);
+    const removeCurrentOwnerId = currentOwnerUnavailable ? currentOwnerId : undefined;
+    const eventIds = new Set(events.map((event) => event.id));
     const channels = await store.imChannels.list({ tenantId });
     for (const channel of channels) {
       if (channel.archivedAt || channel.autoCreated !== true || !channel.topic?.startsWith(CALENDAR_IM_TOPIC_PREFIX)) {
@@ -1026,7 +1041,7 @@ export class CalendarService {
       const currentUserOwnsGroup = channel.createdBy === currentOwnerId || currentOwnerMembership?.role === 'owner';
       if (!currentUserOwnsGroup) continue;
       try {
-        await transferChannelOwnerForSystem(channel.id, newOwnerId);
+        await transferChannelOwnerForSystem(channel.id, newOwnerId, { removeUserId: removeCurrentOwnerId });
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         this.addDeliveryWarning(`日程已转交，但关联 IM 群主转让失败：${detail}`);
@@ -1234,6 +1249,10 @@ function isEventParticipant(event: CalendarEvent, user: CalendarUser | undefined
   const email = normalizeEmail(user?.email ?? fallbackEmail ?? '');
   return (!!user?.id && event.attendees.includes(user.id)) ||
     (event.attendeeEmails ?? []).some((attendeeEmail) => normalizeEmail(attendeeEmail) === email);
+}
+
+function activeCalendarUsers(users: CalendarUser[]): CalendarUser[] {
+  return users.filter((user) => user.disabled !== true);
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

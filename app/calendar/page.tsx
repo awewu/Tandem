@@ -1337,9 +1337,9 @@ function formatEventAttendees(event: CalendarEvent): string {
 }
 
 function formatEventOrganizer(event: CalendarEvent): string {
-  return event.organizer
-    ? formatPerson(event.organizer.name, event.organizer.email)
-    : '原发起人（账号已禁用或已删除）';
+  if (!event.organizer) return '原发起人（账号已禁用或已删除）';
+  const label = formatPerson(event.organizer.name, event.organizer.email);
+  return event.organizer.disabled ? `${label}（已禁用）` : label;
 }
 
 function formatPerson(name: string | undefined, email: string): string {
@@ -1368,7 +1368,7 @@ function canOpenCalendarTransferEditor(
   isAttendee: boolean,
 ): boolean {
   if (hasCalendarHandoffPrivilege(user?.roles)) return true;
-  return isAttendee && !event.organizer;
+  return isAttendee && (!event.organizer || event.organizer.disabled === true);
 }
 
 function hasCalendarHandoffPrivilege(roles: string[] | null | undefined): boolean {

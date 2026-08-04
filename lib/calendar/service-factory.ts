@@ -28,9 +28,7 @@ export function createCalendarService(senderUserId?: string): CalendarService {
   return new CalendarService(createAppContext(), {
     listUsers: async (tenantId) => {
       const users = await getStore().auth.users.list({ tenantId });
-      return users
-        .filter((user) => !user.disabled)
-        .map((user) => ({ id: user.id, email: user.email, name: user.name }));
+      return users.map((user) => ({ id: user.id, email: user.email, name: user.name, disabled: user.disabled }));
     },
     checkEmailSender: async (message) => resolveCalendarSender(message, senderUserId),
     sendEmail: async (message) => {

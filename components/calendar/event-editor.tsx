@@ -1201,6 +1201,7 @@ function ownerTransferCandidates(event: CalendarEvent): CalendarUser[] {
   const byId = new Map<string, CalendarUser>();
   for (const user of event.attendeeUsers ?? []) {
     if (user.id === ownerId) continue;
+    if (user.disabled === true) continue;
     if (attendeeEmails.size > 0 && !attendeeEmails.has(normalizeEmailLoose(user.email))) continue;
     if (!byId.has(user.id)) byId.set(user.id, user);
   }
@@ -1209,7 +1210,8 @@ function ownerTransferCandidates(event: CalendarEvent): CalendarUser[] {
 
 function formatCalendarUserLabel(user: CalendarUser | undefined, fallback = '原发起人（账号已禁用或已删除）'): string {
   if (!user) return fallback;
-  return user.name && user.name !== user.email ? `${user.name} (${user.email})` : user.email;
+  const label = user.name && user.name !== user.email ? `${user.name} (${user.email})` : user.email;
+  return user.disabled ? `${label}（已禁用）` : label;
 }
 
 function normalizeEmailLoose(value: string): string {

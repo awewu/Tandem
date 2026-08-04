@@ -109,6 +109,7 @@ export async function createChannel(input: CreateChannelInput): Promise<ImChanne
       id: membershipKey(channel.id, userId),
       channelId: channel.id,
       userId,
+      tenantId: channel.tenantId ?? input.tenantId ?? 'default',
       role: userId === input.createdBy ? 'owner' : 'member',
       joinedAt: now,
       unreadCount: 0,
@@ -670,6 +671,7 @@ export async function addChannelMember(
     id: membershipKey(channelId, userId),
     channelId,
     userId,
+    tenantId: channel.tenantId ?? 'default',
     role: 'member',
     joinedAt: now,
     unreadCount: 0,
@@ -781,6 +783,7 @@ async function applyChannelOwnerTransfer(
       id: membershipKey(channelId, newOwnerId),
       channelId,
       userId: newOwnerId,
+      tenantId: channel.tenantId ?? 'default',
       role: 'member',
       joinedAt: now,
       unreadCount: 0,
@@ -789,13 +792,14 @@ async function applyChannelOwnerTransfer(
   }
 
   for (const userId of channel.memberIds) {
-    const membership = await store.imMemberships.get(membershipKey(channelId, userId));
-    if (!membership) continue;
-    if (userId === newOwnerId) continue;
+    const membershipId = membershipKey(channelId, userId);
     if (userId === options.removeUserId) {
-      await store.imMemberships.delete?.(membership.id);
+      await store.imMemberships.delete(membershipId);
       continue;
     }
+    const membership = await store.imMemberships.get(membershipId);
+    if (!membership) continue;
+    if (userId === newOwnerId) continue;
     if (membership.role === 'owner') {
       await store.imMemberships.update(membership.id, { role: 'admin' });
     }
