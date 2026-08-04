@@ -14,7 +14,7 @@ export interface CalendarImReminderResult {
   reused: boolean;
 }
 
-const CALENDAR_IM_TOPIC_PREFIX = 'calendar:event:';
+export const CALENDAR_IM_TOPIC_PREFIX = 'calendar:event:';
 const ACTIVE_EVENT_STATUSES = new Set<CalendarEvent['status']>(['confirmed', 'tentative']);
 
 class CalendarImReminderError extends DomainError {
@@ -175,7 +175,7 @@ function topicForEvent(event: CalendarEvent): string {
   return `${CALENDAR_IM_TOPIC_PREFIX}${event.id}|${formatDateRange(event.startAt, event.endAt)}`;
 }
 
-function eventIdFromTopic(topic: string): string {
+export function eventIdFromTopic(topic: string): string {
   return topic.slice(CALENDAR_IM_TOPIC_PREFIX.length).split('|', 1)[0] ?? '';
 }
 

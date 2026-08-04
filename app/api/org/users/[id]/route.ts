@@ -6,6 +6,8 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { roleKeysExist } from '@/lib/auth/role-definitions';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { createAppContext } from '@/lib/repositories/app-context-factory';
+import { handoffCalendarAndImOnUserOffboarding } from '@/lib/services/user-offboarding-service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,12 +48,18 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
   await store.auth.users.update(params.id, patch as Parameters<typeof store.auth.users.update>[1]);
 
   // 禁用账号时撤销其全部会话 → 现有各端立即登出 (与前端提示一致).
+  let offboarding: Awaited<ReturnType<typeof handoffCalendarAndImOnUserOffboarding>> | undefined;
   if (patch.disabled === true) {
+    offboarding = await handoffCalendarAndImOnUserOffboarding({
+      ctx: createAppContext(),
+      departingUser: existing,
+      tenantId: auth.tenantId,
+    });
     await store.auth.sessions.revokeAllForUser(params.id, 'admin_disabled');
   }
 
   const updated = await store.auth.users.findById(params.id);
-  return NextResponse.json({ user: updated });
+  return NextResponse.json({ user: updated, offboarding });
 }
 
 export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/org/users/[id]' });
