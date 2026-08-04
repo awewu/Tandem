@@ -709,14 +709,26 @@ export class CalendarService {
     newOwnerId: string,
     scope: CalendarMutationScope,
     actorEmail?: string,
+    options: { allowPrivilegedActor?: boolean } = {},
   ): Promise<CalendarEvent[]> {
     this.deliveryWarnings.length = 0;
     if (!newOwnerId || newOwnerId === actorId) {
       throw new ValidationError('newOwnerId must be another meeting attendee');
     }
-    const anchor = await this.requireOwnedEvent(id, actorId);
+    const anchor = await this.ctx.calendarRepo.findById(id);
+    if (!anchor) throw new NotFoundError('CalendarEvent', id);
+    const previousOwnerId = anchor.ownerId;
     const tenantUsers = await this.deps.listUsers?.(anchor.tenantId) ?? [];
     const usersById = new Map(tenantUsers.map((user) => [user.id, user]));
+    const actorUser = usersById.get(actorId);
+    const ownerUser = await getStore().auth.users.findById(previousOwnerId);
+    const ownerUnavailable = !ownerUser || ownerUser.disabled === true;
+    const actorCanTransfer = previousOwnerId === actorId ||
+      options.allowPrivilegedActor === true ||
+      (ownerUnavailable && isEventParticipant(anchor, actorUser, actorEmail));
+    if (!actorCanTransfer) {
+      throw new ForbiddenError('Only owner can transfer this event');
+    }
     const nextOwner = usersById.get(newOwnerId);
     if (!nextOwner) throw new ValidationError('new owner must be an active tenant user');
     if (!isEventParticipant(anchor, nextOwner)) {
@@ -728,22 +740,26 @@ export class CalendarService {
     await this.ctx.calendarReminderRepo.cancelByEventIds(targets.map((event) => event.id));
     await this.cancelReminderTasksForEvents(targets);
 
-    const actorUser = usersById.get(actorId);
-    const actorAttendeeEmail = normalizeEmail(actorUser?.email ?? actorEmail ?? '');
+    const previousOwnerUser = usersById.get(previousOwnerId) ?? (ownerUser ? {
+      id: ownerUser.id,
+      email: ownerUser.email,
+      name: ownerUser.name,
+    } : undefined);
+    const previousOwnerEmail = normalizeEmail(previousOwnerUser?.email ?? (actorId === previousOwnerId ? actorEmail : '') ?? '');
     const nextOwnerEmail = normalizeEmail(nextOwner.email);
     const updated: CalendarEvent[] = [];
 
     for (const event of targets) {
       const attendees = uniqueIds([
         ...event.attendees.filter((userId) => userId !== newOwnerId),
-        actorId,
+        previousOwnerId,
       ]);
       const attendeeEmails = uniqueEmails([
         ...(event.attendeeEmails ?? []),
-        actorAttendeeEmail,
+        previousOwnerEmail,
       ]).filter((email) => email !== nextOwnerEmail);
       const externalAttendeeEmails = uniqueEmails(event.externalAttendeeEmails ?? [])
-        .filter((email) => email !== nextOwnerEmail && email !== actorAttendeeEmail);
+        .filter((email) => email !== nextOwnerEmail && email !== previousOwnerEmail);
       const next = await this.ctx.calendarRepo.update(event.id, {
         ownerId: newOwnerId,
         attendees,
@@ -769,11 +785,12 @@ export class CalendarService {
       attendeeEmails: updated[0]?.attendeeEmails ?? anchor.attendeeEmails ?? [],
       metadata: {
         eventIds: updated.map((event) => event.id),
-        ownerTransferredFrom: actorId,
+        ownerTransferredFrom: previousOwnerId,
         ownerTransferredTo: newOwnerId,
+        transferredBy: actorId,
       },
     });
-    await this.transferLinkedMeetingGroupOwners(updated, actorId, newOwnerId, anchor.tenantId);
+    await this.transferLinkedMeetingGroupOwners(updated, previousOwnerId, newOwnerId, anchor.tenantId);
     return updated;
   }
 
@@ -1213,9 +1230,9 @@ function uniqueIds(ids: string[]): string[] {
   return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
 }
 
-function isEventParticipant(event: CalendarEvent, user: CalendarUser): boolean {
-  const email = normalizeEmail(user.email);
-  return event.attendees.includes(user.id) ||
+function isEventParticipant(event: CalendarEvent, user: CalendarUser | undefined, fallbackEmail?: string): boolean {
+  const email = normalizeEmail(user?.email ?? fallbackEmail ?? '');
+  return (!!user?.id && event.attendees.includes(user.id)) ||
     (event.attendeeEmails ?? []).some((attendeeEmail) => normalizeEmail(attendeeEmail) === email);
 }
 

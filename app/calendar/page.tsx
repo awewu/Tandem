@@ -332,13 +332,17 @@ export default function CalendarPage() {
     const event = events.find((item) => item.id === instance.eventId);
     if (event?.serverManaged && event.createdBy !== user?.id) {
       const isAttendee = isCurrentUserEventAttendee(event, user);
+      if (canOpenCalendarTransferEditor(event, user, isAttendee)) {
+        setEditorEventId(instance.eventId);
+        return;
+      }
       const detail = [
         event.title,
         `${new Date(event.startTime).toLocaleString('zh-CN')} - ${new Date(event.endTime).toLocaleString('zh-CN')}`,
         event.location,
         event.description,
         event.attendeeEmails?.length ? `参会人: ${formatEventAttendees(event)}` : '',
-        event.organizer ? `发起人: ${formatPerson(event.organizer.name, event.organizer.email)}` : `发起人: ${event.createdBy}`,
+        `发起人: ${formatEventOrganizer(event)}`,
         event.reminders?.length ? `提醒: ${describeReminder(event.reminders[0].minutesBefore)}` : '提醒: 无',
         event.recurrenceRule ? `重复: ${describeRecurrence(event.recurrenceRule)}` : '重复: 不重复',
         event.hasConflict ? '时间冲突' : '',
@@ -1332,6 +1336,12 @@ function formatEventAttendees(event: CalendarEvent): string {
     .join(', ');
 }
 
+function formatEventOrganizer(event: CalendarEvent): string {
+  return event.organizer
+    ? formatPerson(event.organizer.name, event.organizer.email)
+    : '原发起人（账号已禁用或已删除）';
+}
+
 function formatPerson(name: string | undefined, email: string): string {
   const trimmedName = name?.trim();
   const trimmedEmail = email.trim();
@@ -1350,6 +1360,19 @@ function isCurrentUserEventAttendee(
     (email && (event.attendees ?? []).some((attendee) => normalizeCalendarEmail(attendee) === email)) ||
     (userId && (event.attendees ?? []).includes(userId)),
   );
+}
+
+function canOpenCalendarTransferEditor(
+  event: CalendarEvent,
+  user: { roles?: string[] | null } | null | undefined,
+  isAttendee: boolean,
+): boolean {
+  if (hasCalendarHandoffPrivilege(user?.roles)) return true;
+  return isAttendee && !event.organizer;
+}
+
+function hasCalendarHandoffPrivilege(roles: string[] | null | undefined): boolean {
+  return (roles ?? []).some((role) => role === 'owner' || role === 'admin' || role === 'steward');
 }
 
 function normalizeCalendarEmail(email?: string | null): string {

@@ -855,7 +855,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               <div className="min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3 py-2.5">
                 <div className="mb-2 flex min-w-0 items-center gap-2 text-caption text-ink-secondary">
                   <Crown className="h-3.5 w-3.5 shrink-0 text-warning" />
-                  <span className="truncate">当前：{formatCalendarUserLabel(editing.organizer, editing.createdBy)}</span>
+                  <span className="truncate">当前：{formatCalendarUserLabel(editing.organizer)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Select value={ownerTransferUserId} onValueChange={setOwnerTransferUserId}>
@@ -1207,7 +1207,7 @@ function ownerTransferCandidates(event: CalendarEvent): CalendarUser[] {
   return Array.from(byId.values());
 }
 
-function formatCalendarUserLabel(user: CalendarUser | undefined, fallback = '未知用户'): string {
+function formatCalendarUserLabel(user: CalendarUser | undefined, fallback = '原发起人（账号已禁用或已删除）'): string {
   if (!user) return fallback;
   return user.name && user.name !== user.email ? `${user.name} (${user.email})` : user.email;
 }

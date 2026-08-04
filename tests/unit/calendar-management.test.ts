@@ -291,6 +291,59 @@ describe('CalendarService', () => {
       .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
+  it('lets an attendee transfer a meeting when the original owner account is unavailable', async () => {
+    const { service, ctx } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'user-3', email: 'second@example.com', name: 'Second' },
+      ],
+    );
+    const [event] = await service.createManaged({
+      title: '离职后参会人转交',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com', 'second@example.com'],
+      reminderMinutes: 10,
+    });
+
+    const [updated] = await service.transferOwnerManaged(event.id, 'user-2', 'user-3', 'single', 'colleague@example.com');
+
+    expect(updated.ownerId).toBe('user-3');
+    expect((await ctx.calendarRepo.findById(event.id))?.attendees).toEqual(['user-2', 'owner-1']);
+    expect((await ctx.calendarRepo.findById(event.id))?.attendeeEmails).toEqual(['colleague@example.com']);
+  });
+
+  it('lets a privileged actor transfer a meeting owned by another user', async () => {
+    const { service } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'admin-1', email: 'admin@example.com', name: 'Admin' },
+      ],
+    );
+    const [event] = await service.createManaged({
+      title: '管理员代转',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 10,
+    });
+
+    const [updated] = await service.transferOwnerManaged(event.id, 'admin-1', 'user-2', 'single', 'admin@example.com', {
+      allowPrivilegedActor: true,
+    });
+
+    expect(updated.ownerId).toBe('user-2');
+  });
+
   it('transfers the linked auto-created IM group owner with the calendar owner', async () => {
     const { service } = createService();
     const [event] = await service.createManaged({
