@@ -27,6 +27,21 @@ export interface WorkflowFormField {
   defaultValue?: string;
 }
 
+export interface WorkflowFormAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  url: string;
+}
+
+export interface WorkflowAttachmentRecord extends WorkflowFormAttachment {
+  tenantId: string;
+  ownerId: string;
+  storageKey: string;
+  createdAt: string;
+}
+
 export interface WorkflowFormTemplate {
   id: string;
   tenantId: string;
@@ -177,7 +192,7 @@ export interface BusinessFormInstance {
 }
 
 export type WorkflowRuntimeStatus = 'running' | 'completed' | 'cancelled' | 'rejected' | 'revoked';
-export type WorkflowTaskStatus = 'open' | 'completed' | 'cancelled';
+export type WorkflowTaskStatus = 'queued' | 'open' | 'completed' | 'cancelled';
 export type WorkflowCcStatus = 'unread' | 'read';
 export type WorkflowDecision = 'approved' | 'rejected' | 'returned';
 
@@ -254,6 +269,7 @@ export interface WorkflowTask {
   assigneeName?: string;
   assigneeMode?: string;
   assigneeValue?: string;
+  assigneeOrder?: number;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -300,6 +316,26 @@ export interface WorkflowCc {
   readAt?: string;
 }
 
+export interface WorkflowLaunchPreviewPerson {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+export interface WorkflowLaunchPreviewNode {
+  nodeId: string;
+  nodeLabel: string;
+  mode: WorkflowAssigneeMode;
+  value?: string;
+  people: WorkflowLaunchPreviewPerson[];
+}
+
+export interface WorkflowLaunchPreview {
+  workflowTemplateId: string;
+  initiator: WorkflowLaunchPreviewPerson;
+  approvalNodes: WorkflowLaunchPreviewNode[];
+}
+
 export interface WorkflowRuntimeSnapshot {
   instances: WorkflowInstance[];
   myStarted: WorkflowInstance[];
@@ -309,5 +345,6 @@ export interface WorkflowRuntimeSnapshot {
   taskForms: WorkflowTaskForm[];
   workflows: WorkflowTemplate[];
   forms: WorkflowFormTemplate[];
+  launchPreviews: WorkflowLaunchPreview[];
   canManageWorkflows: boolean;
 }

@@ -304,6 +304,7 @@ export interface TandemStore {
   workflowTasks: Repository<import('../types/workflow').WorkflowTask>;
   workflowTaskForms: Repository<import('../types/workflow').WorkflowTaskForm>;
   workflowCcs: Repository<import('../types/workflow').WorkflowCc>;
+  workflowAttachments: Repository<import('../types/workflow').WorkflowAttachmentRecord>;
 
   /** 会议室预订 (KvStore-based) */
   meetingBookings: Repository<import('../types/meeting-booking').MeetingBooking>;

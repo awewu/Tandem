@@ -105,3 +105,9 @@ tsconfig.tsbuildinfo
 # external repos cloned for analysis (do not commit)
 qm/
 StrategyOS/
+
+# local cache / runtime artifacts (do not commit)
+.npm-cache/
+.playwright-cli/
+output/
+var/
