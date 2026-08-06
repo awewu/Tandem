@@ -1163,7 +1163,16 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           <div className="flex items-center gap-1">
             {editing && (
               <>
-                <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={saving || deleting || transferringOwner} className="gap-1.5 px-3 shadow-sm" title="删除日程">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={saving || deleting || transferringOwner}
+                  className="h-10 min-w-[96px] gap-2 bg-red-600 px-4 text-body font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-600"
+                  title="删除日程"
+                  aria-label="删除日程"
+                >
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   <span>{deleting ? '删除中...' : '删除'}</span>
                 </Button>

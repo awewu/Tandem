@@ -4,6 +4,7 @@ import { InMemoryCalendarEventRepository } from '@/lib/repositories/memory-calen
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import { getStore, setStore } from '@/lib/storage/repository';
 import { createChannel, listMyChannels } from '@/lib/im/service';
+import { displayImChannelPreview, displayImChannelSubtitle, displayImChannelTopic } from '@/lib/im/channel-name';
 
 beforeEach(() => {
   setStore(createInMemoryStore());
@@ -46,7 +47,9 @@ describe('CalendarImReminderService', () => {
 
     expect(result.reused).toBe(false);
     expect(result.channel.visibility).toBe('private');
-    expect(result.channel.topic).toMatch(/^calendar:event:evt-meeting-1\|/);
+    expect(result.channel.topic).toBe(`calendar:event:evt-meeting-1|${event.title}|2026/07/20 10:00 - 11:00`);
+    expect(displayImChannelSubtitle(result.channel)).toBe(`${event.title} · 2026/07/20 10:00 - 11:00`);
+    expect(displayImChannelTopic(result.channel)).toBe('2026/07/20 10:00 - 11:00');
     expect(result.channel.memberIds).toEqual(['owner-1', 'attendee-1']);
     expect(result.channel.memberIds).not.toContain('external@example.com');
     expect(result.message.senderKind).toBe('system');
@@ -88,9 +91,27 @@ describe('CalendarImReminderService', () => {
     expect(second.reused).toBe(true);
     expect(second.channel.id).toBe(first.channel.id);
     expect(second.channel.memberIds).toEqual(['owner-1', 'attendee-1', 'attendee-2']);
-    expect(channels).toHaveLength(1);
+    expect(channels.filter((channel) => channel.topic?.startsWith('calendar:event:evt-meeting-2'))).toHaveLength(1);
     expect(messages).toHaveLength(2);
     expect(second.message.body).toContain('地点/会议方式：https://meeting.example.com/room');
+  });
+
+  it('displays meeting group subtitles with meeting title and exact time', () => {
+    const channel = {
+      id: 'ch-meeting',
+      name: '会议：222',
+      type: 'group' as const,
+      topic: '"calendar:event:cmsebpu6eimhcjx4x|2026/08/04 07:30 - 08:00"',
+      visibility: 'private' as const,
+      memberIds: [],
+      createdBy: 'owner-1',
+      createdAt: '2026-08-04T00:00:00.000Z',
+      updatedAt: '2026-08-04T00:00:00.000Z',
+    };
+
+    expect(displayImChannelSubtitle(channel)).toBe('222 · 2026/08/04 07:30 - 08:00');
+    expect(displayImChannelPreview(channel.topic)).toBe('2026/08/04 07:30 - 08:00');
+    expect(displayImChannelPreview('"calendar:event:evt|222|2026/08/04 07:30 - 08:00"')).toBe('2026/08/04 07:30 - 08:00');
   });
 
   it('archives an auto-created one-time meeting group after the event has ended', async () => {

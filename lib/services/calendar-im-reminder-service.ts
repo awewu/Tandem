@@ -173,21 +173,29 @@ export class CalendarImReminderService {
 }
 
 function topicForEvent(event: CalendarEvent): string {
-  return `${CALENDAR_IM_TOPIC_PREFIX}${event.id}|${formatDateRange(event.startAt, event.endAt)}`;
+  return `${CALENDAR_IM_TOPIC_PREFIX}${event.id}|${calendarTopicTitle(event.title)}|${formatDateRange(event.startAt, event.endAt, event.timezone)}`;
+}
+
+function calendarTopicTitle(title: string): string {
+  return title.replace(/\|/g, '/').trim() || '未命名会议';
 }
 
 export function eventIdFromTopic(topic: string): string {
   return topic.slice(CALENDAR_IM_TOPIC_PREFIX.length).split('|', 1)[0] ?? '';
 }
 
-function formatDateRange(startIso: string, endIso: string): string {
+function formatDateRange(startIso: string, endIso: string, timeZone?: string | null): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return `${startIso} - ${endIso}`;
   }
-  const sameDay = start.toDateString() === end.toDateString();
+  const localeOptions = timeZone ? { timeZone } : undefined;
+  const startDay = start.toLocaleDateString('zh-CN', localeOptions);
+  const endDay = end.toLocaleDateString('zh-CN', localeOptions);
+  const sameDay = startDay === endDay;
   const startLabel = start.toLocaleString('zh-CN', {
+    ...localeOptions,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -195,8 +203,8 @@ function formatDateRange(startIso: string, endIso: string): string {
     minute: '2-digit',
   });
   const endLabel = end.toLocaleString('zh-CN', sameDay
-    ? { hour: '2-digit', minute: '2-digit' }
-    : { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    ? { ...localeOptions, hour: '2-digit', minute: '2-digit' }
+    : { ...localeOptions, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   return `${startLabel} - ${endLabel}`;
 }
 
@@ -260,18 +268,19 @@ function buildReminderMessage(event: CalendarEvent): string {
   return [
     `【会议提醒】${event.title}`,
     '',
-    `开始时间：${formatDateTime(event.startAt)}`,
-    `结束时间：${formatDateTime(event.endAt)}`,
+    `开始时间：${formatDateTime(event.startAt, event.timezone)}`,
+    `结束时间：${formatDateTime(event.endAt, event.timezone)}`,
     `地点/会议方式：${place}`,
     '',
     '请相关参会人准时参加。',
   ].join('\n');
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string, timeZone?: string | null): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString('zh-CN', {
+    ...(timeZone ? { timeZone } : undefined),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

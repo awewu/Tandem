@@ -45,7 +45,7 @@ import {
   reconcilePendingPersonMentionRanges,
   type PendingPersonMention,
 } from '@/lib/im/composer-text';
-import { displayImChannelName, displayImChannelTopic, getDmPeerId } from '@/lib/im/channel-name';
+import { displayImChannelName, displayImChannelSubtitle, displayImChannelTopic, getDmPeerId } from '@/lib/im/channel-name';
 import { chooseImPopupDirection, formatImMessageTimestamp, formatImDateDivider, shouldShowImDateDivider, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
 import {
   Hash,
@@ -1254,8 +1254,8 @@ function ImInner() {
                   <div className="truncate text-[14px] font-semibold text-ink-primary">
                     {activeChannelDisplayName}
                   </div>
-                  {displayImChannelTopic(activeChannel) && (
-                    <div className="truncate text-[12px] text-ink-secondary">{displayImChannelTopic(activeChannel)}</div>
+                  {(displayImChannelSubtitle(activeChannel) ?? displayImChannelTopic(activeChannel)) && (
+                    <div className="truncate text-[12px] text-ink-secondary">{displayImChannelSubtitle(activeChannel) ?? displayImChannelTopic(activeChannel)}</div>
                   )}
                 </div>
               </div>

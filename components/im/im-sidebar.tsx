@@ -19,7 +19,7 @@ import ImSearchOverlay from '@/components/im/ImSearchOverlay';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import { extractPreview, type ImChannel, type ImMembership } from '@/lib/types/im';
-import { displayImChannelName, getDmPeerId } from '@/lib/im/channel-name';
+import { displayImChannelName, displayImChannelPreview, displayImChannelSubtitle, getDmPeerId } from '@/lib/im/channel-name';
 import { useToast } from '@/hooks/use-toast';
 import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
 
@@ -575,7 +575,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
                 </div>
                 <div className="mt-0.5 flex items-center justify-between gap-1">
                   <span className="truncate text-[11px] text-ink-secondary">
-                    {c.lastMessagePreview ?? ''}
+                    {displayImChannelSubtitle(c) ?? displayImChannelPreview(c.lastMessagePreview)}
                   </span>
                   {u.show !== 'none' && (
                     <span className={cn(
