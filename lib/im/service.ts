@@ -109,6 +109,7 @@ export async function createChannel(input: CreateChannelInput): Promise<ImChanne
       id: membershipKey(channel.id, userId),
       channelId: channel.id,
       userId,
+      tenantId: channel.tenantId ?? input.tenantId ?? 'default',
       role: userId === input.createdBy ? 'owner' : 'member',
       joinedAt: now,
       unreadCount: 0,
@@ -670,6 +671,7 @@ export async function addChannelMember(
     id: membershipKey(channelId, userId),
     channelId,
     userId,
+    tenantId: channel.tenantId ?? 'default',
     role: 'member',
     joinedAt: now,
     unreadCount: 0,
@@ -743,11 +745,75 @@ export async function transferOwner(
   if (!op || op.role !== 'owner') throw new Error('only owner can transfer ownership');
   const target = await store.imMemberships.get(membershipKey(channelId, newOwnerId));
   if (!target) throw new Error('new owner is not in channel');
-  const now = new Date().toISOString();
-  await store.imMemberships.update(op.id, { role: 'admin' });
-  await store.imMemberships.update(target.id, { role: 'owner' });
+  await applyChannelOwnerTransfer(channelId, newOwnerId);
+}
+
+/** System handoff: transfer group ownership without requiring a human owner operator. */
+export async function transferChannelOwnerForSystem(
+  channelId: string,
+  newOwnerId: string,
+  options: { removeUserId?: string } = {},
+): Promise<ImChannel> {
+  return applyChannelOwnerTransfer(channelId, newOwnerId, {
+    removeUserId: options.removeUserId,
+    createTargetMembership: true,
+  });
+}
+
+async function applyChannelOwnerTransfer(
+  channelId: string,
+  newOwnerId: string,
+  options: { removeUserId?: string; createTargetMembership?: boolean } = {},
+): Promise<ImChannel> {
+  const store = getStore();
   const channel = await store.imChannels.get(channelId);
-  if (channel) broadcast({ type: 'channel_updated', channelId, channel: { ...channel, updatedAt: now } });
+  if (!channel) throw new Error('channel not found');
+  if (channel.archivedAt) throw new Error('channel archived');
+  if (channel.type === 'dm') throw new Error('cannot transfer ownership of a DM channel');
+
+  const now = new Date().toISOString();
+  const nextMemberIds = Array.from(
+    new Set([...channel.memberIds.filter((id) => id !== options.removeUserId), newOwnerId]),
+  );
+
+  let target = await store.imMemberships.get(membershipKey(channelId, newOwnerId));
+  if (!target) {
+    if (!options.createTargetMembership) throw new Error('new owner is not in channel');
+    target = await store.imMemberships.create({
+      id: membershipKey(channelId, newOwnerId),
+      channelId,
+      userId: newOwnerId,
+      tenantId: channel.tenantId ?? 'default',
+      role: 'member',
+      joinedAt: now,
+      unreadCount: 0,
+      muted: false,
+    });
+  }
+
+  for (const userId of channel.memberIds) {
+    const membershipId = membershipKey(channelId, userId);
+    if (userId === options.removeUserId) {
+      await store.imMemberships.delete(membershipId);
+      continue;
+    }
+    const membership = await store.imMemberships.get(membershipId);
+    if (!membership) continue;
+    if (userId === newOwnerId) continue;
+    if (membership.role === 'owner') {
+      await store.imMemberships.update(membership.id, { role: 'admin' });
+    }
+  }
+
+  await store.imMemberships.update(target.id, { role: 'owner' });
+  const next = await store.imChannels.update(channelId, {
+    memberIds: nextMemberIds,
+    createdBy: newOwnerId,
+    updatedAt: now,
+  });
+  if (!next) throw new Error('update failed');
+  broadcast({ type: 'channel_updated', channelId, channel: next });
+  return next;
 }
 
 /** 解散群 (仅 owner, 非 dm/announcement 频道) */

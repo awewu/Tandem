@@ -276,6 +276,12 @@ export async function resolveUserEmailSmtp(
   senderEmail: string,
   tenantId: string,
 ): Promise<ResolvedEmailSmtp | null> {
+  const personal = await resolvePersonalUserEmailSmtp(userId);
+  if (personal) return personal;
+  return selectResolvedEmailSmtp(null, null, await listGlobalEmailConfigs(tenantId), senderEmail);
+}
+
+export async function resolvePersonalUserEmailSmtp(userId: string): Promise<ResolvedEmailSmtp | null> {
   let personal: EmailSmtpTransport | null = null;
   let personalImap: EmailImapTransport | null = null;
   try {
@@ -301,7 +307,7 @@ export async function resolveUserEmailSmtp(
     personal = null;
     personalImap = null;
   }
-  return selectResolvedEmailSmtp(personal, personalImap, await listGlobalEmailConfigs(tenantId), senderEmail);
+  return personal ? { mode: 'personal', smtp: personal, imap: personalImap ?? undefined } : null;
 }
 
 function inferImapHost(smtpHost: string): string {

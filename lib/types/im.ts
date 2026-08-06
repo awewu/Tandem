@@ -166,6 +166,7 @@ export interface ImMembership {
   id: string;
   channelId: string;
   userId: string;
+  tenantId?: string;
   role: ImMemberRole;
   joinedAt: string;
   /** 上次已读消息时间 (用于计算未读数) */

@@ -332,13 +332,17 @@ export default function CalendarPage() {
     const event = events.find((item) => item.id === instance.eventId);
     if (event?.serverManaged && event.createdBy !== user?.id) {
       const isAttendee = isCurrentUserEventAttendee(event, user);
+      if (canOpenCalendarTransferEditor(event, user, isAttendee)) {
+        setEditorEventId(instance.eventId);
+        return;
+      }
       const detail = [
         event.title,
         `${new Date(event.startTime).toLocaleString('zh-CN')} - ${new Date(event.endTime).toLocaleString('zh-CN')}`,
         event.location,
         event.description,
         event.attendeeEmails?.length ? `参会人: ${formatEventAttendees(event)}` : '',
-        event.organizer ? `发起人: ${formatPerson(event.organizer.name, event.organizer.email)}` : `发起人: ${event.createdBy}`,
+        `发起人: ${formatEventOrganizer(event)}`,
         event.reminders?.length ? `提醒: ${describeReminder(event.reminders[0].minutesBefore)}` : '提醒: 无',
         event.recurrenceRule ? `重复: ${describeRecurrence(event.recurrenceRule)}` : '重复: 不重复',
         event.hasConflict ? '时间冲突' : '',
@@ -426,7 +430,9 @@ export default function CalendarPage() {
     } catch (error) {
       setImReminderMeetings([]);
       setImReminderEventId('');
-      setImReminderError(error instanceof Error ? error.message : '可提醒会议读取失败');
+      setImReminderError(isRequestTimeoutError(error)
+        ? '可提醒会议读取超时，请稍后重试。'
+        : error instanceof Error ? error.message : '可提醒会议读取失败');
     } finally {
       setImReminderLoading(false);
     }
@@ -456,7 +462,9 @@ export default function CalendarPage() {
         reused: data.reused === true,
       });
     } catch (error) {
-      setImReminderError(error instanceof Error ? error.message : 'IM 提醒发送失败');
+      setImReminderError(isRequestTimeoutError(error)
+        ? 'IM 提醒发送超时，请稍后到 IM 查看会议群是否已创建，或稍后重试。'
+        : error instanceof Error ? error.message : 'IM 提醒发送失败');
     } finally {
       setImReminderSending(false);
     }
@@ -1328,6 +1336,12 @@ function formatEventAttendees(event: CalendarEvent): string {
     .join(', ');
 }
 
+function formatEventOrganizer(event: CalendarEvent): string {
+  if (!event.organizer) return '原发起人（账号已禁用或已删除）';
+  const label = formatPerson(event.organizer.name, event.organizer.email);
+  return event.organizer.disabled ? `${label}（已禁用）` : label;
+}
+
 function formatPerson(name: string | undefined, email: string): string {
   const trimmedName = name?.trim();
   const trimmedEmail = email.trim();
@@ -1346,6 +1360,19 @@ function isCurrentUserEventAttendee(
     (email && (event.attendees ?? []).some((attendee) => normalizeCalendarEmail(attendee) === email)) ||
     (userId && (event.attendees ?? []).includes(userId)),
   );
+}
+
+function canOpenCalendarTransferEditor(
+  event: CalendarEvent,
+  user: { roles?: string[] | null } | null | undefined,
+  isAttendee: boolean,
+): boolean {
+  if (hasCalendarHandoffPrivilege(user?.roles)) return true;
+  return isAttendee && (!event.organizer || event.organizer.disabled === true);
+}
+
+function hasCalendarHandoffPrivilege(roles: string[] | null | undefined): boolean {
+  return (roles ?? []).some((role) => role === 'owner' || role === 'admin' || role === 'steward');
 }
 
 function normalizeCalendarEmail(email?: string | null): string {

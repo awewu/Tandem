@@ -30,6 +30,8 @@ import { getStore } from '@/lib/storage/repository';
 import { audit } from '@/lib/audit/log';
 import { revokeAllSessions } from '@/lib/auth/native';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { createAppContext } from '@/lib/repositories/app-context-factory';
+import { handoffCalendarAndImOnUserOffboarding } from '@/lib/services/user-offboarding-service';
 
 const ADMIN_ROLES = new Set(['admin', 'owner', 'manager']);
 
@@ -81,6 +83,12 @@ async function POSTApiHandler(
   const anonEmail = `anon-${shortHash}@anonymized.local`;
   const anonName = `前员工-${shortHash.slice(0, 6)}`;
 
+  const offboarding = await handoffCalendarAndImOnUserOffboarding({
+    ctx: createAppContext(),
+    departingUser: target,
+    tenantId: target.tenantId ?? 'default',
+  });
+
   // -------- 2. 脱敏 AuthUser --------
   await store.auth.users.update(targetId, {
     email: anonEmail,
@@ -127,6 +135,7 @@ async function POSTApiHandler(
       personaAnonymized,
       personaCount: personas.length,
       personaIds: personas.map((p) => p.id),
+      offboarding,
       manifestoReference: 'section 13.2',
     },
   });
@@ -138,6 +147,7 @@ async function POSTApiHandler(
     anonName,
     personaAnonymized,
     sessionsRevoked: true,
+    offboarding,
   });
 }
 

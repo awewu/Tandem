@@ -9,7 +9,8 @@ import { InMemoryReminderTaskRepository } from '@/lib/repositories/memory-remind
 import { CalendarSubscriptionService } from '@/lib/services/calendar-subscription-service';
 import { listCalendarActivities } from '@/lib/calendar/activity-log';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
-import { setStore } from '@/lib/storage/repository';
+import { getStore, setStore } from '@/lib/storage/repository';
+import { membershipKey } from '@/lib/types/im';
 
 beforeEach(() => {
   vi.useRealTimers();
@@ -26,9 +27,10 @@ function createService(
     { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
     { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
   ],
-  emailResult: { ok: boolean; error?: string } | ((message: { to: string[]; subject: string; text: string }) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>) = { ok: true },
+  emailResult: { ok: boolean; error?: string } | ((message: { to: string[]; subject: string; text: string; senderUserId?: string; senderEmail?: string }) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>) = { ok: true },
+  senderCheckResult: { ok: boolean; error?: string } | ((message: { to: string[]; subject: string; text: string; senderUserId?: string; senderEmail?: string }) => { ok: boolean; error?: string } | Promise<{ ok: boolean; error?: string }>) = { ok: true },
 ) {
-  const sentEmails: Array<{ to: string[]; subject: string; text: string }> = [];
+  const sentEmails: Array<{ to: string[]; subject: string; text: string; senderUserId?: string; senderEmail?: string }> = [];
   const ctx = {
     calendarRepo: new InMemoryCalendarEventRepository(),
     notificationRepo: new InMemoryNotificationRepository(),
@@ -40,6 +42,9 @@ function createService(
   const service = new CalendarService(ctx, {
     now: () => now,
     listUsers: async () => users,
+    checkEmailSender: async (message) => (
+      typeof senderCheckResult === 'function' ? await senderCheckResult(message) : senderCheckResult
+    ),
     sendEmail: async (message) => {
       sentEmails.push(message);
       return typeof emailResult === 'function' ? await emailResult(message) : emailResult;
@@ -133,6 +138,10 @@ describe('CalendarService', () => {
       'outside@example.net',
     ]);
     expect(sentEmails[0].subject).toBe('【日程通知】项目同步会');
+    expect(sentEmails[0]).toMatchObject({
+      senderUserId: 'owner-1',
+      senderEmail: 'owner@example.com',
+    });
 
     const activities = await listCalendarActivities({
       tenantId: 'tenant-1',
@@ -224,6 +233,197 @@ describe('CalendarService', () => {
     expect(activeReminders).toHaveLength(6);
     expect(sentEmails.at(-1)?.subject).toBe('【日程变更】每日进度同步');
     expect(sentEmails.at(-1)?.to).toEqual(['colleague@example.com']);
+  });
+
+  it('transfers selected and future instances to a meeting attendee and keeps the old owner as attendee', async () => {
+    const { service, ctx } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'user-3', email: 'second@example.com', name: 'Second' },
+      ],
+    );
+    const events = await service.createManaged({
+      title: '转交测试',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com', 'second@example.com'],
+      reminderMinutes: 10,
+      recurrence: { frequency: 'daily', interval: 1, end: { type: 'count', count: 3 } },
+    });
+
+    const updated = await service.transferOwnerManaged(events[1].id, 'owner-1', 'user-2', 'future', 'owner@example.com');
+
+    expect(updated.map((event) => event.ownerId)).toEqual(['user-2', 'user-2']);
+    expect((await ctx.calendarRepo.findById(events[0].id))?.ownerId).toBe('owner-1');
+    expect((await ctx.calendarRepo.findById(events[1].id))?.attendees).toEqual(['user-3', 'owner-1']);
+    expect((await ctx.calendarRepo.findById(events[1].id))?.attendeeEmails).toEqual(['second@example.com', 'owner@example.com']);
+    expect(await service.listForUser('owner-1', 'tenant-1')).toHaveLength(3);
+    expect(await service.listForUser('user-2', 'tenant-1')).toHaveLength(3);
+    expect(await ctx.calendarReminderRepo.list({ userId: 'user-2', status: 'pending' })).toHaveLength(3);
+  });
+
+  it('rejects transferring a meeting to a non-attendee', async () => {
+    const { service } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'user-3', email: 'stranger@example.com', name: 'Stranger' },
+      ],
+    );
+    const [event] = await service.createManaged({
+      title: '转交校验',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 10,
+    });
+
+    await expect(service.transferOwnerManaged(event.id, 'owner-1', 'user-3', 'single', 'owner@example.com'))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('lets an attendee transfer a meeting when the original owner account is unavailable', async () => {
+    const { service, ctx } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'user-3', email: 'second@example.com', name: 'Second' },
+      ],
+    );
+    const [event] = await service.createManaged({
+      title: '离职后参会人转交',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com', 'second@example.com'],
+      reminderMinutes: 10,
+    });
+    const store = getStore();
+    const channel = await store.imChannels.create({
+      id: 'channel-disabled-owner-transfer',
+      type: 'group',
+      name: '离职后参会人转交',
+      topic: `calendar:event:${event.id}|2026/07/17`,
+      visibility: 'private',
+      memberIds: ['owner-1', 'user-2', 'user-3'],
+      createdBy: 'owner-1',
+      tenantId: 'tenant-1',
+      autoCreated: true,
+      createdAt: '2026-07-16T02:00:00.000Z',
+      updatedAt: '2026-07-16T02:00:00.000Z',
+    });
+    for (const userId of channel.memberIds) {
+      await store.imMemberships.create({
+        id: membershipKey(channel.id, userId),
+        channelId: channel.id,
+        userId,
+        tenantId: 'tenant-1',
+        role: userId === 'owner-1' ? 'owner' : 'member',
+        joinedAt: '2026-07-16T02:00:00.000Z',
+        unreadCount: 0,
+        muted: false,
+      });
+    }
+
+    const [updated] = await service.transferOwnerManaged(event.id, 'user-2', 'user-3', 'single', 'colleague@example.com');
+
+    expect(updated.ownerId).toBe('user-3');
+    expect((await ctx.calendarRepo.findById(event.id))?.attendees).toEqual(['user-2']);
+    expect((await ctx.calendarRepo.findById(event.id))?.attendeeEmails).toEqual(['colleague@example.com']);
+    expect((await store.imChannels.get(channel.id))?.memberIds).toEqual(['user-2', 'user-3']);
+    expect((await store.imChannels.get(channel.id))?.createdBy).toBe('user-3');
+    expect(await store.imMemberships.get(membershipKey(channel.id, 'owner-1'))).toBeNull();
+    expect((await store.imMemberships.get(membershipKey(channel.id, 'user-3')))?.role).toBe('owner');
+  });
+
+  it('lets a privileged actor transfer a meeting owned by another user', async () => {
+    const { service } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      [
+        { id: 'owner-1', email: 'owner@example.com', name: 'Owner' },
+        { id: 'user-2', email: 'colleague@example.com', name: 'Colleague' },
+        { id: 'admin-1', email: 'admin@example.com', name: 'Admin' },
+      ],
+    );
+    const [event] = await service.createManaged({
+      title: '管理员代转',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 10,
+    });
+
+    const [updated] = await service.transferOwnerManaged(event.id, 'admin-1', 'user-2', 'single', 'admin@example.com', {
+      allowPrivilegedActor: true,
+    });
+
+    expect(updated.ownerId).toBe('user-2');
+  });
+
+  it('transfers the linked auto-created IM group owner with the calendar owner', async () => {
+    const { service } = createService();
+    const [event] = await service.createManaged({
+      title: 'IM 转交测试',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T09:30:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 10,
+    });
+    const store = getStore();
+    const channel = await store.imChannels.create({
+      id: 'channel-calendar-transfer',
+      type: 'group',
+      name: 'IM 转交测试',
+      topic: `calendar:event:${event.id}|2026/07/17`,
+      visibility: 'private',
+      memberIds: ['owner-1', 'user-2'],
+      createdBy: 'owner-1',
+      tenantId: 'tenant-1',
+      autoCreated: true,
+      createdAt: '2026-07-16T02:00:00.000Z',
+      updatedAt: '2026-07-16T02:00:00.000Z',
+    });
+    await store.imMemberships.create({
+      id: membershipKey(channel.id, 'owner-1'),
+      channelId: channel.id,
+      userId: 'owner-1',
+      role: 'owner',
+      joinedAt: '2026-07-16T02:00:00.000Z',
+      unreadCount: 0,
+      muted: false,
+    });
+    await store.imMemberships.create({
+      id: membershipKey(channel.id, 'user-2'),
+      channelId: channel.id,
+      userId: 'user-2',
+      role: 'member',
+      joinedAt: '2026-07-16T02:00:00.000Z',
+      unreadCount: 0,
+      muted: false,
+    });
+
+    await service.transferOwnerManaged(event.id, 'owner-1', 'user-2', 'single', 'owner@example.com');
+
+    expect((await store.imChannels.get(channel.id))?.createdBy).toBe('user-2');
+    expect((await store.imMemberships.get(membershipKey(channel.id, 'user-2')))?.role).toBe('owner');
+    expect((await store.imMemberships.get(membershipKey(channel.id, 'owner-1')))?.role).toBe('admin');
   });
 
   it('soft-cancels the selected and future instances and cancels only pending reminders', async () => {
@@ -704,6 +904,9 @@ describe('CalendarService', () => {
     expect(completedBeforeEmail?.completedSteps).toBe(completedBeforeEmail?.totalSteps);
     expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
     expect(completedBeforeEmail?.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已移交后台投递，不影响日程创建');
+    for (let attempt = 0; attempt < 20 && sentEmails.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0].to).toEqual(['colleague@example.com', 'outside@example.net']);
 
@@ -711,6 +914,40 @@ describe('CalendarService', () => {
 
     const sentJob = await waitForCalendarJob(job.id, (item) => item.emailSent);
     expect(sentJob.steps.find((step) => step.key === 'sending_emails')?.detail).toBe('已批量发送给 2 个收件人');
+  });
+
+  it('surfaces a warning and skips async email delivery when the organizer has no mailbox configured', async () => {
+    const missingMailbox = '发起人 owner@example.com 未配置邮箱，日程已保存但邮件通知未发送；请先到「设置 - 邮箱」绑定并验证邮箱。';
+    const { service, sentEmails } = createService(
+      new Date('2026-07-16T02:00:00.000Z'),
+      undefined,
+      { ok: true },
+      { ok: false, error: missingMailbox },
+    );
+    const { getCalendarJobStore } = await import('@/lib/calendar/job-store');
+    const store = getCalendarJobStore();
+
+    const job = await store.create({
+      title: '无邮箱配置提示',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T10:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      ownerName: 'Owner',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+    });
+
+    await service.createManagedAsync(job);
+
+    const finalJob = await store.get(job.id);
+    expect(finalJob?.status).toBe('completed');
+    expect(finalJob?.emailSent).toBe(false);
+    expect(finalJob?.result?.warnings).toEqual([missingMailbox]);
+    expect(finalJob?.steps.find((step) => step.key === 'sending_emails')?.status).toBe('failed');
+    expect(finalJob?.steps.find((step) => step.key === 'sending_emails')?.detail).toBe(missingMailbox);
+    expect(sentEmails).toHaveLength(0);
   });
 
   it('repairs legacy completed async jobs whose email step is still spinning', async () => {

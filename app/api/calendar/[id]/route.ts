@@ -5,6 +5,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 import { createCalendarService } from '@/lib/calendar/service-factory';
 import type { CalendarMutationScope } from '@/lib/types/calendar-management';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 
 interface RouteContext {
   params: { id: string };
@@ -20,6 +21,17 @@ const PATCHApiHandler = withErrorHandler(async (req: NextRequest, { params }: Ro
   if (auth instanceof NextResponse) return auth;
   const body = await req.json();
   const service = createCalendarService(auth.userId);
+  if (body.action === 'transferOwner') {
+    const events = await service.transferOwnerManaged(
+      params.id,
+      auth.userId,
+      String(body.newOwnerId ?? ''),
+      scopeOf(body.scope),
+      auth.email,
+      { allowPrivilegedActor: auth.roles.some((role) => DATA_STEWARD_ROLES.includes(role as never)) },
+    );
+    return NextResponse.json({ action: 'owner_transferred', events, warnings: service.getDeliveryWarnings() });
+  }
   const events = await service.updateManaged(params.id, auth.userId, scopeOf(body.scope), {
     ownerEmail: auth.email,
     title: body.title,

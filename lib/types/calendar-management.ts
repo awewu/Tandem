@@ -39,5 +39,5 @@ export interface CalendarUser {
   id: string;
   email: string;
   name: string;
+  disabled?: boolean;
 }
-

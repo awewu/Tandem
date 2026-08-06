@@ -19,8 +19,9 @@ import ImSearchOverlay from '@/components/im/ImSearchOverlay';
 import { ImCombinedSearchOverlay } from '@/components/im/ImCombinedSearchOverlay';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
-import type { ImChannel, ImMembership } from '@/lib/types/im';
-import { displayImChannelName } from '@/lib/im/channel-name';
+import { extractPreview, type ImChannel, type ImMembership } from '@/lib/types/im';
+import { displayImChannelName, displayImChannelPreview, displayImChannelSubtitle, getDmPeerId } from '@/lib/im/channel-name';
+import { useToast } from '@/hooks/use-toast';
 import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
 
 type Channel = ImChannel & { unread?: number; membership?: ImMembership };
@@ -116,8 +117,9 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { user } = useCurrentUser();
-  const ME = user?.id ?? 'demo-user';
+  const ME = user?.id ?? '';
   const nameOf = usePersonNameResolver();
+  const { toast } = useToast();
   const canManageOrgGroups = user?.permissions?.includes('organization.manage') ?? false;
 
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -131,9 +133,15 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
   const channelsLoadInFlightRef = useRef<Promise<void> | null>(null);
   const showMsgSearchRef = useRef(false);
+  const channelsRef = useRef<Channel[]>([]);
+  const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
 
   const activeId = searchParams?.get('ch') ?? null;
   const isImRoute = pathname?.startsWith('/im') ?? false;
+
+  useEffect(() => {
+    channelsRef.current = channels;
+  }, [channels]);
 
   useHandoffPrefill('im', (payload) => {
     setHandoffDraft({ name: payload.title, topic: payload.body });
@@ -144,7 +152,17 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     showMsgSearchRef.current = showMsgSearch;
   }, [showMsgSearch]);
 
+  const channelDisplayName = useCallback((channel: Channel, fallback = '私聊') => {
+    if (channel.type !== 'dm') return displayImChannelName(channel);
+    const peerId = getDmPeerId(channel, ME);
+    return peerId ? nameOf(peerId) : fallback;
+  }, [ME, nameOf]);
+
   const loadChannels = useCallback(async (options: { force?: boolean } = {}) => {
+    if (!ME) {
+      setChannels([]);
+      return;
+    }
     if (showMsgSearchRef.current && !options.force) return;
     if (channelsLoadInFlightRef.current) return channelsLoadInFlightRef.current;
 
@@ -172,16 +190,101 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
 
   useEffect(() => { void loadChannels({ force: true }); }, [loadChannels]);
 
-  // 简单兜底刷新: 初次加载 + 30s 轮询。搜索弹层打开时暂停，避免干扰搜索。
+  // 兜底刷新会话列表。当前聊天区标已读/发消息后会派发事件立即刷新。
   useEffect(() => {
+    const refresh = () => void loadChannels();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    window.addEventListener('tandem:im-channels-refresh', refresh);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     const id = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       void loadChannels();
     }, 30_000);
     return () => {
+      window.removeEventListener('tandem:im-channels-refresh', refresh);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(id);
     };
   }, [loadChannels]);
+
+  const notifyIncomingMessage = useCallback((event: MessageEvent) => {
+    try {
+      const payload = JSON.parse(event.data) as {
+        channelId?: string;
+        message?: { id?: string; senderId?: string; body?: string; attachments?: unknown[] };
+      };
+      const channelId = payload.channelId;
+      const message = payload.message;
+      if (!ME) return;
+      if (!channelId || !message?.id || message.senderId === ME) return;
+      if (notifiedMessageIdsRef.current.has(message.id)) return;
+      notifiedMessageIdsRef.current.add(message.id);
+      if (notifiedMessageIdsRef.current.size > 100) {
+        notifiedMessageIdsRef.current = new Set(Array.from(notifiedMessageIdsRef.current).slice(-50));
+      }
+
+      const channel = channelsRef.current.find((item) => item.id === channelId);
+      const channelName = channel
+        ? channelDisplayName(channel)
+        : 'IM 消息';
+      const senderName = nameOf(message.senderId) || '有人';
+      const preview = extractPreview(message.body ?? '') ||
+        (message.attachments?.length ? `[附件] ${message.attachments.length} 个文件` : '发来一条新消息');
+      const shouldSkipToast = document.visibilityState === 'visible' && activeId === channelId;
+      if (!shouldSkipToast) {
+        toast({
+          title: `新 IM 消息 · ${channelName}`,
+          description: `${senderName}: ${preview}`,
+        });
+      }
+      if (
+        document.visibilityState === 'hidden' &&
+        typeof Notification !== 'undefined' &&
+        Notification.permission === 'granted'
+      ) {
+        const notification = new Notification(`新 IM 消息 · ${channelName}`, {
+          body: `${senderName}: ${preview}`,
+          tag: `im-${message.id}`,
+        });
+        notification.onclick = () => {
+          window.focus();
+          router.replace(`/im?ch=${encodeURIComponent(channelId)}`);
+          notification.close();
+        };
+      }
+    } catch {
+      /* ignore malformed stream events */
+    }
+  }, [ME, activeId, channelDisplayName, nameOf, router, toast]);
+
+  useEffect(() => {
+    if (!ME) return;
+    const es = new EventSource('/api/im/stream');
+    const refresh = () => void loadChannels();
+    let sseHealthy = true;
+    es.addEventListener('unread', refresh);
+    es.addEventListener('channel', refresh);
+    es.addEventListener('message', (event) => {
+      refresh();
+      notifyIncomingMessage(event as MessageEvent);
+    });
+    es.onopen = () => { sseHealthy = true; };
+    es.onerror = () => {
+      sseHealthy = false;
+    };
+    const fallback = setInterval(() => {
+      if (document.visibilityState === 'hidden' || sseHealthy) return;
+      void loadChannels();
+    }, 10_000);
+    return () => {
+      clearInterval(fallback);
+      es.close();
+    };
+  }, [ME, loadChannels, notifyIncomingMessage]);
 
   const filteredChannels = useMemo(() => {
     let list = channels;
@@ -203,13 +306,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter((c) => {
-      const name = c.type === 'dm' ? nameOf(c.memberIds.find((m) => m !== ME)) : displayImChannelName(c);
+      const name = channelDisplayName(c);
       return (
         name.toLowerCase().includes(q) ||
         (c.lastMessagePreview ?? '').toLowerCase().includes(q)
       );
     });
-  }, [channels, search, activeFilter, ME, nameOf]);
+  }, [channels, search, activeFilter, channelDisplayName]);
 
   // 各分组未读计数
   const groupCounts = useMemo(() => ({
@@ -283,6 +386,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         <button
           type="button"
           onClick={() => setShowDm(true)}
+          disabled={!ME}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
           title="发起单聊"
         >
@@ -291,6 +395,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
+          disabled={!ME}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
           title="新建会话"
         >
@@ -300,6 +405,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowSeedOrg(true)}
+            disabled={!ME}
             className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
             title="按组织架构同步部门群"
           >
@@ -307,7 +413,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </button>
         )}
         {filteredChannels.slice(0, 12).map((c) => {
-          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '?') : displayImChannelName(c);
+          const displayName = channelDisplayName(c, '?');
           const u = unreadStyle(c);
           return (
             <button
@@ -354,21 +460,22 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   }
 
   return (
-    <div className="flex h-full w-full min-w-0 overflow-hidden flex-col">
+    <div className="flex h-full w-full min-w-0 flex-col">
       {/* 顶栏: 标题 + 新建 */}
-      <div className="flex min-w-0 shrink-0 items-center justify-between gap-1 px-3 pb-2 pt-1">
-        <span className="flex min-w-0 items-center text-[13px] font-semibold text-ink-primary">
-          <span className="min-w-0 truncate whitespace-nowrap">消息</span>
+      <div className="flex shrink-0 items-center justify-between px-3 pb-2 pt-1">
+        <span className="text-[13px] font-semibold text-ink-primary">
+          消息
           {totalUnread > 0 && (
-            <span className="ml-1.5 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
               {totalUnread > 99 ? '99+' : totalUnread}
             </span>
           )}
         </span>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={() => setShowDm(true)}
+            disabled={!ME}
             className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
             title="发起单聊"
           >
@@ -377,6 +484,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
+            disabled={!ME}
             className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
             title="新建会话"
           >
@@ -390,6 +498,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <button
             type="button"
             onClick={() => setShowSeedOrg(true)}
+            disabled={!ME}
             className="flex w-full items-center gap-2 rounded-md border border-hairline bg-surface-2 px-2.5 py-2 text-left text-[12px] font-medium text-ink-primary transition-colors hover:bg-surface-3"
             title="按照 HR 组织结构自动生成体系群和部门群"
           >
@@ -403,7 +512,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
 
       {/* 搜索框 (会话名过滤) + 全局消息搜索入口 */}
       <div className="shrink-0 px-2 pb-2">
-        <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-surface-3 px-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-md bg-surface-3 px-2.5 py-1.5">
           <Search className="h-3 w-3 shrink-0 text-ink-tertiary" />
           <input
             type="text"
@@ -413,7 +522,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
               if (showMsgSearch) setMessageSearchQuery(e.target.value);
             }}
             placeholder="搜索会话"
-            className="min-w-0 flex-1 truncate bg-transparent text-[12px] text-ink-primary placeholder:text-ink-tertiary outline-none"
+            className="flex-1 bg-transparent text-[12px] text-ink-primary placeholder:text-ink-tertiary outline-none"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -421,113 +530,116 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
               }
             }}
           />
-          <button
-            type="button"
-            onClick={() => openMessageSearch(search)}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary"
-            title="搜索聊天记录"
-          >
-            <Search className="h-3.5 w-3.5" />
-          </button>
         </div>
+        <button
+          type="button"
+          onClick={() => openMessageSearch(search)}
+          className="mt-1.5 flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[11.5px] text-ink-tertiary transition-colors hover:bg-surface-3 hover:text-ink-secondary"
+          title="搜索聊天记录"
+        >
+          <Search className="h-3 w-3 shrink-0" />
+          <span>搜索聊天记录…</span>
+        </button>
       </div>
 
       {/* 分组 tabs */}
-          <div className="shrink-0 overflow-x-auto px-2 pb-2">
-            <div className="flex gap-1">
-              {FILTER_TABS.map(({ id, label, icon: Icon }) => {
-                const cnt = groupCounts[id as keyof typeof groupCounts];
-                const active = activeFilter === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setActiveFilter(active ? 'all' : id)}
-                    className={cn(
-                      'flex max-w-24 shrink-0 items-center gap-1 overflow-hidden rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                      active
-                        ? 'bg-brand-100 text-brand-700'
-                        : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 hover:text-ink-primary',
-                    )}
-                  >
-                    <Icon className="h-3 w-3" />
-                    <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
-                    {cnt > 0 && (
-                      <span className={cn(
-                        'inline-flex h-3.5 min-w-3.5 shrink-0 items-center justify-center px-0.5 text-[9px] font-bold text-ink-secondary',
-                      )}>
-                        {cnt > 99 ? '99+' : cnt}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+      <div className="scrollbar-none shrink-0 overflow-x-auto px-2 pb-2">
+        <div className="flex gap-1">
+          {FILTER_TABS.map(({ id, label, icon: Icon }) => {
+            const cnt = groupCounts[id as keyof typeof groupCounts];
+            const active = activeFilter === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveFilter(active ? 'all' : id)}
+                className={cn(
+                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                  active
+                    ? 'bg-brand-100 text-brand-700'
+                    : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 hover:text-ink-primary',
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+                {cnt > 0 && (
+                  <span className={cn(
+                    'inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] font-bold',
+                    active ? 'bg-brand-500 text-white' : 'bg-danger text-white',
+                  )}>
+                    {cnt > 99 ? '99+' : cnt}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 会话列表 */}
+      <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto pb-3">
+        {filteredChannels.length === 0 && (
+          <div className="px-3 py-8 text-center text-[12px] text-ink-tertiary">
+            {search
+              ? '无匹配结果'
+              : activeFilter === 'unread' ? '没有未读消息'
+              : activeFilter === 'at' ? '没有 @ 我的消息'
+              : activeFilter === 'dm' ? '还没有单聊'
+              : activeFilter === 'group' ? '还没有群聊'
+              : activeFilter === 'dept' ? '还没有部门群'
+              : activeFilter === 'marked' ? '还没有标记的会话'
+              : '还没有会话'}
           </div>
+        )}
+        {filteredChannels.map((c) => {
+          const displayName = channelDisplayName(c);
+          const u = unreadStyle(c);
+          const active = activeId === c.id;
 
-          {/* 会话列表 */}
-          <div className="flex-1 overflow-y-auto">
-            {filteredChannels.length === 0 && (
-              <div className="px-3 py-8 text-center text-[12px] text-ink-tertiary">
-                {search
-                  ? '无匹配结果'
-                  : activeFilter === 'unread' ? '没有未读消息'
-                  : activeFilter === 'at' ? '没有 @ 我的消息'
-                  : activeFilter === 'dm' ? '还没有单聊'
-                  : activeFilter === 'group' ? '还没有群聊'
-                  : activeFilter === 'dept' ? '还没有部门群'
-                  : activeFilter === 'marked' ? '还没有标记的会话'
-                  : '还没有会话'}
-              </div>
-            )}
-            {filteredChannels.map((c) => {
-              const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : displayImChannelName(c);
-              const u = unreadStyle(c);
-              const active = activeId === c.id;
-
-              return (
-                <Link
-                  key={c.id}
-                  href={`/im?ch=${encodeURIComponent(c.id)}`}
-                  scroll={false}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 px-2 py-2 text-left transition-colors',
-                    active
-                      ? 'bg-brand-50'
-                      : 'hover:bg-surface-3',
+          return (
+            <Link
+              key={c.id}
+              href={`/im?ch=${encodeURIComponent(c.id)}`}
+              scroll={false}
+              className={cn(
+                'flex w-full items-center gap-2.5 px-2 py-2 text-left transition-colors',
+                active
+                  ? 'bg-brand-50'
+                  : 'hover:bg-surface-3',
+              )}
+            >
+              <ConvAvatar channel={c} name={displayName} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className={cn(
+                    'truncate text-[12.5px]',
+                    active ? 'font-semibold text-brand-700' : u.show !== 'none' ? 'font-semibold text-ink-primary' : 'text-ink-primary',
+                  )}>
+                    {displayName}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-ink-tertiary">
+                    {c.lastMessageAt ? formatRelative(c.lastMessageAt) : ''}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex items-center justify-between gap-1">
+                  <span className="truncate text-[11px] text-ink-secondary">
+                    {displayImChannelSubtitle(c) ?? displayImChannelPreview(c.lastMessagePreview)}
+                  </span>
+                  {u.show !== 'none' && (
+                    <span className={cn(
+                      'flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white',
+                      u.show === 'urgent' ? 'bg-danger' : 'bg-success',
+                    )}>
+                      {(u.count ?? 0) > 99 ? '99+' : u.count}
+                    </span>
                   )}
-                >
-                  <ConvAvatar channel={c} name={displayName} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className={cn(
-                        'truncate text-[12.5px]',
-                        active ? 'font-semibold text-brand-700' : u.show !== 'none' ? 'font-semibold text-ink-primary' : 'text-ink-primary',
-                      )}>
-                        {displayName}
-                      </span>
-                      <span className="shrink-0 text-[10px] text-ink-tertiary">
-                        {c.lastMessageAt ? formatRelative(c.lastMessageAt) : ''}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 flex items-center justify-between gap-1">
-                      <span className="truncate text-[11px] text-ink-secondary">
-                        {c.lastMessagePreview ?? ''}
-                      </span>
-                      {u.show !== 'none' && (
-                        <span className={cn(
-                          'flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white',
-                          u.show === 'urgent' ? 'bg-danger' : 'bg-success',
-                        )}>
-                          {(u.count ?? 0) > 99 ? '99+' : u.count}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
       <CreateChannelDialog
         open={showCreate}
         onOpenChange={(v) => { setShowCreate(v); if (!v) setHandoffDraft(null); }}

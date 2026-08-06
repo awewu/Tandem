@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,17 +8,22 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft,
   Ban,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Copy,
   Edit3,
   GitBranch,
   Inbox,
   Layers3,
+  LoaderCircle,
+  Paperclip,
   Plus,
   Play,
   RefreshCw,
@@ -29,6 +34,7 @@ import {
   ShieldCheck,
   StopCircle,
   Trash2,
+  Upload,
   UserRound,
   UserRoundCheck,
   UserRoundMinus,
@@ -42,8 +48,10 @@ import type {
   WorkflowDecision,
   WorkflowEmptyAssigneeAction,
   WorkflowFormField,
+  WorkflowFormAttachment,
   WorkflowFormTemplate,
   WorkflowInstance,
+  WorkflowLaunchPreview,
   WorkflowMultiApprovalMode,
   WorkflowNode,
   WorkflowNodeFormPermission,
@@ -54,9 +62,11 @@ import type {
   WorkflowTaskForm,
   WorkflowTemplate,
 } from '@/lib/types/workflow';
+import { getWorkflowDataStatus, type WorkflowDataStatus } from '@/lib/workflows/workflow-data-status';
 
 type TabId = 'desk' | 'start' | 'started' | 'cc' | 'forms' | 'models' | 'bindings' | 'admin';
 type ApprovalRuntimeTabId = 'start' | 'todo' | 'started' | 'cc' | 'running';
+type WorkflowDataStatusFilter = 'all' | WorkflowDataStatus;
 
 interface WorkflowDirectoryUser {
   id: string;
@@ -65,6 +75,7 @@ interface WorkflowDirectoryUser {
   departmentId?: string | null;
   departmentName?: string | null;
   jobTitle?: string | null;
+  managerId?: string | null;
   roles?: string[];
   disabled?: boolean;
 }
@@ -73,6 +84,7 @@ interface WorkflowDirectoryDepartment {
   id: string;
   name: string;
   parentId?: string | null;
+  headId?: string | null;
   order?: number;
 }
 
@@ -110,6 +122,7 @@ const EMPTY_SNAPSHOT: WorkflowRuntimeSnapshot = {
   taskForms: [],
   workflows: [],
   forms: [],
+  launchPreviews: [],
   canManageWorkflows: false,
 };
 
@@ -160,7 +173,27 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: '已终止',
   rejected: '已驳回',
   revoked: '已撤回',
+  returned: '已退回',
   open: '待处理',
+};
+
+const WORKFLOW_DATA_STATUS_OPTIONS: Array<{ value: WorkflowDataStatusFilter; label: string }> = [
+  { value: 'all', label: '全部状态' },
+  { value: 'running', label: '审批中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'returned', label: '已退回' },
+  { value: 'rejected', label: '已驳回' },
+  { value: 'revoked', label: '已撤回' },
+  { value: 'cancelled', label: '已终止' },
+];
+
+const WORKFLOW_DATA_STATUS_LABELS: Record<WorkflowDataStatus, string> = {
+  running: '审批中',
+  completed: '已完成',
+  returned: '已退回',
+  rejected: '已驳回',
+  revoked: '已撤回',
+  cancelled: '已终止',
 };
 
 const DECISION_LABELS: Record<WorkflowDecision, string> = {
@@ -281,11 +314,11 @@ export default function WorkflowsPage() {
   const [startTitle, setStartTitle] = useState('');
   const [startFormData, setStartFormData] = useState<Record<string, unknown>>({});
   const [taskComments, setTaskComments] = useState<Record<string, string>>({});
-  const [taskFormData, setTaskFormData] = useState<Record<string, Record<string, unknown>>>({});
   const [formDraft, setFormDraft] = useState(initialFormDraft);
   const [workflowDraft, setWorkflowDraft] = useState(initialWorkflowDraft);
   const [bindingDraft, setBindingDraft] = useState(initialBindingDraft);
   const [modelEditing, setModelEditing] = useState(false);
+  const [modelSaving, setModelSaving] = useState(false);
   const [directoryUsers, setDirectoryUsers] = useState<WorkflowDirectoryUser[]>([]);
   const [directoryDepartments, setDirectoryDepartments] = useState<WorkflowDirectoryDepartment[]>([]);
   const [directoryRoles, setDirectoryRoles] = useState<WorkflowDirectoryRole[]>([]);
@@ -341,8 +374,8 @@ export default function WorkflowsPage() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!loading && !snapshot.canManageWorkflows && activeTab === 'bindings') {
-      setActiveTab('models');
+    if (!loading && !snapshot.canManageWorkflows && (activeTab === 'models' || activeTab === 'bindings')) {
+      window.location.replace('/approvals');
     }
   }, [activeTab, loading, snapshot.canManageWorkflows]);
 
@@ -350,22 +383,28 @@ export default function WorkflowsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [configRes, runtimeRes, usersRes, departmentsRes, rolesRes] = await Promise.all([
+      const runtimeRes = await fetch('/api/workflows/runtime', { credentials: 'include' });
+      const runtimeJson = await runtimeRes.json();
+      if (!runtimeRes.ok) throw new Error(runtimeJson.error || '流程运行数据加载失败');
+      const nextSnapshot = runtimeJson.snapshot ?? EMPTY_SNAPSHOT;
+      setSnapshot(nextSnapshot);
+      if (!nextSnapshot.canManageWorkflows) {
+        window.location.replace('/approvals');
+        return;
+      }
+
+      const [configRes, usersRes, departmentsRes, rolesRes] = await Promise.all([
         fetch('/api/workflows/config', { credentials: 'include' }),
-        fetch('/api/workflows/runtime', { credentials: 'include' }),
         fetch('/api/org/users', { credentials: 'include' }),
         fetch('/api/org/departments', { credentials: 'include' }),
         fetch('/api/admin/roles', { credentials: 'include' }),
       ]);
       const configJson = await configRes.json();
-      const runtimeJson = await runtimeRes.json();
       const usersJson = await usersRes.json().catch(() => ({ users: [] }));
       const departmentsJson = await departmentsRes.json().catch(() => ({ depts: [] }));
       const rolesJson = await rolesRes.json().catch(() => ({ roles: [] }));
       if (!configRes.ok) throw new Error(configJson.error || '流程配置加载失败');
-      if (!runtimeRes.ok) throw new Error(runtimeJson.error || '流程运行数据加载失败');
       setConfig(configJson.config ?? EMPTY_CONFIG);
-      setSnapshot(runtimeJson.snapshot ?? EMPTY_SNAPSHOT);
       const users = Array.isArray(usersJson.users) ? usersJson.users.filter((user: WorkflowDirectoryUser) => !user.disabled) : [];
       const rolesFromApi = Array.isArray(rolesJson.roles)
         ? rolesJson.roles.map((role: { key?: string; name?: string }) => ({ key: String(role.key ?? ''), name: String(role.name ?? role.key ?? '') })).filter((role: WorkflowDirectoryRole) => role.key)
@@ -477,7 +516,6 @@ export default function WorkflowsPage() {
       taskId: task.id,
       decision,
       comment: taskComments[task.id] ?? '',
-      formData: taskFormData[task.id] ?? {},
     });
     setMessage(`待办已处理：${DECISION_LABELS[decision]}`);
   }
@@ -511,50 +549,56 @@ export default function WorkflowsPage() {
     setMessage('表单模板已保存');
   }
 
-  async function saveWorkflowTemplate(e: FormEvent) {
+  async function saveWorkflowTemplate(e: FormEvent): Promise<boolean> {
     e.preventDefault();
     const nodes = normalizeWorkflowDraftNodes(workflowDraft.nodes);
     if (workflowDraft.startFormDraft.fields.length === 0) {
       setError('请至少为流程发起表单添加一个字段');
-      return;
+      return false;
     }
-    const formResult = await apiPost('/api/workflows/config', {
-      kind: 'form',
-      config: {
-        id: workflowDraft.startFormDraft.id || workflowDraft.startFormTemplateId || undefined,
-        code: workflowDraft.startFormDraft.code || defaultWorkflowFormCode(workflowDraft.code),
-        name: workflowDraft.startFormDraft.name || defaultWorkflowFormName(workflowDraft.name),
-        description: workflowDraft.startFormDraft.description,
-        version: workflowDraft.startFormDraft.version,
-        status: workflowDraft.startFormDraft.status,
-        fields: workflowDraft.startFormDraft.fields,
-      },
-    });
-    const savedForm = formResult.config as WorkflowFormTemplate;
-    await apiPost('/api/workflows/config', {
-      kind: 'workflow',
-      config: {
-        id: workflowDraft.id || undefined,
-        code: workflowDraft.code,
-        name: workflowDraft.name,
-        description: workflowDraft.description,
-        group: workflowDraft.group,
-        launchMode: workflowDraft.launchMode,
-        status: workflowDraft.status,
-        nodes: nodes.map(({ assigneeMode: _mode, assigneeValue: _value, ...node }) => node),
-        edges: linearEdges(nodes),
-        nodeForms: [{ nodeId: 'start', formTemplateIds: [savedForm.id], required: true }],
-        assigneeRules: nodes
-          .filter((node) => ['approval', 'cc', 'notify', 'form'].includes(node.type))
-          .map((node) => ({
-            nodeId: node.id,
-            mode: node.assigneeMode || 'admin',
-            value: node.assigneeValue || '',
-          })),
-      },
-    });
-    setWorkflowDraft(initialWorkflowDraft());
-    setMessage('流程模型已保存');
+    setModelSaving(true);
+    try {
+      const formResult = await apiPost('/api/workflows/config', {
+        kind: 'form',
+        config: {
+          id: workflowDraft.startFormDraft.id || workflowDraft.startFormTemplateId || undefined,
+          code: workflowDraft.startFormDraft.code || defaultWorkflowFormCode(workflowDraft.code),
+          name: workflowDraft.startFormDraft.name || defaultWorkflowFormName(workflowDraft.name),
+          description: workflowDraft.startFormDraft.description,
+          version: workflowDraft.startFormDraft.version,
+          status: workflowDraft.status === 'published' ? 'published' : workflowDraft.startFormDraft.status,
+          fields: workflowDraft.startFormDraft.fields,
+        },
+      });
+      const savedForm = formResult.config as WorkflowFormTemplate;
+      await apiPost('/api/workflows/config', {
+        kind: 'workflow',
+        config: {
+          id: workflowDraft.id || undefined,
+          code: workflowDraft.code,
+          name: workflowDraft.name,
+          description: workflowDraft.description,
+          group: workflowDraft.group,
+          launchMode: workflowDraft.launchMode,
+          status: workflowDraft.status,
+          nodes: nodes.map(({ assigneeMode: _mode, assigneeValue: _value, ...node }) => node),
+          edges: linearEdges(nodes),
+          nodeForms: [{ nodeId: 'start', formTemplateIds: [savedForm.id], required: true }],
+          assigneeRules: nodes
+            .filter((node) => ['approval', 'cc', 'notify', 'form'].includes(node.type))
+            .map((node) => ({
+              nodeId: node.id,
+              mode: node.assigneeMode || 'admin',
+              value: node.assigneeValue || '',
+            })),
+        },
+      });
+      setWorkflowDraft(initialWorkflowDraft());
+      setMessage('流程模型已保存');
+      return true;
+    } finally {
+      setModelSaving(false);
+    }
   }
 
   async function saveBinding(e: FormEvent) {
@@ -591,7 +635,7 @@ export default function WorkflowsPage() {
   }
 
   const activeSection = WORKFLOW_SECTIONS.find((item) => item.id === activeTab) ?? WORKFLOW_SECTIONS[0];
-  const showWorkflowHeader = !(activeTab === 'models' && modelEditing);
+  const showWorkflowHeader = snapshot.canManageWorkflows && !(activeTab === 'models' && modelEditing);
 
   return (
     <div className="min-h-screen bg-surface-1 px-4 py-4 text-ink-primary md:px-6">
@@ -638,10 +682,6 @@ export default function WorkflowsPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回流程中心
               </Button>
-              <Button variant="outline" onClick={() => void loadAll()} disabled={loading} className="h-12 px-5">
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                刷新
-              </Button>
             </div>
           </div>
         </section>
@@ -653,15 +693,15 @@ export default function WorkflowsPage() {
           </div>
         )}
 
-          {!loading && !snapshot.canManageWorkflows && (
+          {loading && (
             <Card className="rounded-md">
               <CardContent className="p-6">
-                <EmptyState text="当前账号没有工作流设计权限；审批处理请从左侧进入“流程中心”。" />
+                <EmptyState text="正在校验流程设计权限..." />
               </CardContent>
             </Card>
           )}
 
-          {(loading || snapshot.canManageWorkflows) && activeTab === 'models' && (
+          {!loading && snapshot.canManageWorkflows && activeTab === 'models' && (
             <ModelsTab
               workflows={config.workflows}
               forms={config.forms}
@@ -670,8 +710,10 @@ export default function WorkflowsPage() {
               roles={directoryRoles}
               draft={workflowDraft}
               setDraft={setWorkflowDraft}
-              saving={saving}
+              saving={saving || modelSaving}
+              loading={loading}
               onEditingChange={setModelEditing}
+              onRefresh={loadAll}
               onSubmit={saveWorkflowTemplate}
               onStatus={updateStatus}
               onEdit={(workflow) => {
@@ -721,7 +763,7 @@ export default function WorkflowsPage() {
             />
           )}
 
-          {(loading || snapshot.canManageWorkflows) && activeTab === 'bindings' && (
+          {!loading && snapshot.canManageWorkflows && activeTab === 'bindings' && (
             <BindingsTab
               bindings={config.businessWorkflowBindings}
               workflows={config.workflows}
@@ -738,6 +780,8 @@ export default function WorkflowsPage() {
               setBusinessId={setBusinessStartId}
               setBusinessFormData={setBusinessStartFormData}
               saving={saving}
+              loading={loading}
+              onRefresh={loadAll}
               onSubmit={saveBinding}
               onBusinessStart={startBusinessWorkflow}
               onStatus={updateStatus}
@@ -756,6 +800,12 @@ export default function WorkflowsPage() {
             />
           )}
       </main>
+      {modelSaving && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/45 text-white" role="status" aria-live="polite">
+          <LoaderCircle className="h-10 w-10 animate-spin" />
+          <p className="mt-3 text-body font-semibold">保存中...</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -769,10 +819,13 @@ export function ApprovalRuntimeWorkbench() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState('');
   const [startTitle, setStartTitle] = useState('');
   const [startFormData, setStartFormData] = useState<Record<string, unknown>>({});
+  const [startRuntimeAssignees, setStartRuntimeAssignees] = useState<Record<string, string[]>>({});
+  const [directoryUsers, setDirectoryUsers] = useState<WorkflowDirectoryUser[]>([]);
+  const [directoryDepartments, setDirectoryDepartments] = useState<WorkflowDirectoryDepartment[]>([]);
+  const [directoryRoles, setDirectoryRoles] = useState<WorkflowDirectoryRole[]>([]);
   const [workflowSearch, setWorkflowSearch] = useState('');
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [taskComments, setTaskComments] = useState<Record<string, string>>({});
-  const [taskFormData, setTaskFormData] = useState<Record<string, Record<string, unknown>>>({});
   const [activeRuntimeTab, setActiveRuntimeTab] = useState<ApprovalRuntimeTabId>('start');
 
   const selectedWorkflow = useMemo(
@@ -789,20 +842,25 @@ export function ApprovalRuntimeWorkbench() {
     void loadRuntime();
   }, []);
 
-  useEffect(() => {
-    if (!selectedWorkflowId && snapshot.workflows[0]) {
-      setSelectedWorkflowId(snapshot.workflows[0].id);
-    }
-  }, [selectedWorkflowId, snapshot.workflows]);
-
   async function loadRuntime() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/workflows/runtime', { credentials: 'include' });
+      const [res, usersRes, departmentsRes] = await Promise.all([
+        fetch('/api/workflows/runtime', { credentials: 'include' }),
+        fetch('/api/org/users', { credentials: 'include' }),
+        fetch('/api/org/departments', { credentials: 'include' }),
+      ]);
       const data = await res.json();
+      const usersData = await usersRes.json().catch(() => ({ users: [] }));
+      const departmentsData = await departmentsRes.json().catch(() => ({ depts: [] }));
       if (!res.ok) throw new Error(data.error || '审批运行数据加载失败');
       setSnapshot(data.snapshot ?? EMPTY_SNAPSHOT);
+      const users = Array.isArray(usersData.users) ? usersData.users.filter((user: WorkflowDirectoryUser) => !user.disabled) : [];
+      const roleKeys = Array.from(new Set<string>(users.flatMap((user: WorkflowDirectoryUser) => user.roles ?? [])));
+      setDirectoryUsers(users);
+      setDirectoryDepartments(Array.isArray(departmentsData.depts) ? departmentsData.depts : []);
+      setDirectoryRoles(roleKeys.map((key) => ({ key, name: key })));
     } catch (err) {
       setError(err instanceof Error ? err.message : '审批运行数据加载失败');
     } finally {
@@ -842,10 +900,12 @@ export function ApprovalRuntimeWorkbench() {
       title: startTitle || selectedWorkflow.name,
       formTemplateId: selectedStartForm?.id,
       formData: startFormData,
+      runtimeAssignees: startRuntimeAssignees,
       launchSource: 'manual',
     });
     setStartTitle('');
     setStartFormData({});
+    setStartRuntimeAssignees({});
     setStartDialogOpen(false);
     setMessage('流程已发起');
   }
@@ -856,7 +916,6 @@ export function ApprovalRuntimeWorkbench() {
       taskId: task.id,
       decision,
       comment: taskComments[task.id] ?? '',
-      formData: taskFormData[task.id] ?? {},
     });
     setMessage(`待办已处理：${DECISION_LABELS[decision]}`);
   }
@@ -891,13 +950,12 @@ export function ApprovalRuntimeWorkbench() {
     setMessage('流程已终止');
   }
 
-  const runningInstances = snapshot.instances.filter((item) => item.status === 'running');
   const runtimeTabs: Array<{ id: ApprovalRuntimeTabId; label: string; prefix: string; count?: number }> = [
     { id: 'start', label: '发起流程', prefix: '发' },
     { id: 'todo', label: '我的待办', prefix: '办', count: snapshot.myTodo.length },
     { id: 'started', label: '我发起的', prefix: '我', count: snapshot.myStarted.length },
     { id: 'cc', label: '抄送我的', prefix: '抄', count: snapshot.myCc.length },
-    { id: 'running', label: '运行中流程', prefix: '数', count: runningInstances.length },
+    { id: 'running', label: '流程数据', prefix: '数', count: snapshot.instances.length },
   ];
 
   return (
@@ -925,8 +983,8 @@ export function ApprovalRuntimeWorkbench() {
           <aside className="self-start rounded-md border border-border bg-surface-0 p-3">
             <p className="mb-3 text-caption font-medium text-ink-tertiary">流程管理</p>
             <div className="space-y-1">
-              <RuntimeSideNavButton label="流程模型" prefix="流" onClick={() => { window.location.href = '/workflows?tab=models'; }} />
-              <RuntimeSideNavButton label="业务流程绑定" prefix="绑" onClick={() => { window.location.href = '/workflows?tab=bindings'; }} />
+              {snapshot.canManageWorkflows && <RuntimeSideNavButton label="流程模型" prefix="流" onClick={() => { window.location.href = '/workflows?tab=models'; }} />}
+              {snapshot.canManageWorkflows && <RuntimeSideNavButton label="业务流程绑定" prefix="绑" onClick={() => { window.location.href = '/workflows?tab=bindings'; }} />}
               <RuntimeSideNavButton label="流程数据" prefix="数" active={activeRuntimeTab === 'running'} onClick={() => setActiveRuntimeTab('running')} />
             </div>
             <p className="mb-3 mt-8 text-caption font-medium text-ink-tertiary">我的事务</p>
@@ -959,6 +1017,10 @@ export function ApprovalRuntimeWorkbench() {
                   <StartTab
                     workflows={snapshot.workflows}
                     forms={snapshot.forms}
+                    launchPreviews={snapshot.launchPreviews}
+                    users={directoryUsers}
+                    departments={directoryDepartments}
+                    roles={directoryRoles}
                     selectedWorkflow={selectedWorkflow}
                     selectedStartForm={selectedStartForm}
                     selectedWorkflowId={selectedWorkflowId}
@@ -967,6 +1029,8 @@ export function ApprovalRuntimeWorkbench() {
                     setStartTitle={setStartTitle}
                     startFormData={startFormData}
                     setStartFormData={setStartFormData}
+                    startRuntimeAssignees={startRuntimeAssignees}
+                    setStartRuntimeAssignees={setStartRuntimeAssignees}
                     workflowSearch={workflowSearch}
                     setWorkflowSearch={setWorkflowSearch}
                     startDialogOpen={startDialogOpen}
@@ -979,20 +1043,21 @@ export function ApprovalRuntimeWorkbench() {
                   <TodoTab
                     snapshot={snapshot}
                     forms={snapshot.forms}
+                    users={directoryUsers}
                     taskComments={taskComments}
-                    taskFormData={taskFormData}
                     saving={saving}
                     setTaskComments={setTaskComments}
-                    setTaskFormData={setTaskFormData}
                     onComplete={completeTask}
                   />
                 )}
-                {activeRuntimeTab === 'started' && <StartedTab snapshot={snapshot} forms={snapshot.forms} onWithdraw={withdraw} />}
+                {activeRuntimeTab === 'started' && <StartedTab snapshot={snapshot} forms={snapshot.forms} users={directoryUsers} onWithdraw={withdraw} />}
                 {activeRuntimeTab === 'cc' && <CcTab snapshot={snapshot} />}
                 {activeRuntimeTab === 'running' && (
-                  <RunningProcessesTab
-                    instances={runningInstances}
+                  <WorkflowDataTab
+                    instances={snapshot.instances}
                     forms={snapshot.forms}
+                    tasks={snapshot.visibleTasks}
+                    users={directoryUsers}
                     canManage={snapshot.canManageWorkflows}
                     saving={saving}
                     onTerminate={adminTerminate}
@@ -1087,11 +1152,10 @@ function RuntimeSideNavButton(props: {
 function TodoTab(props: {
   snapshot: WorkflowRuntimeSnapshot;
   forms: WorkflowFormTemplate[];
+  users: WorkflowDirectoryUser[];
   taskComments: Record<string, string>;
-  taskFormData: Record<string, Record<string, unknown>>;
   saving: boolean;
   setTaskComments: (next: Record<string, string>) => void;
-  setTaskFormData: (next: Record<string, Record<string, unknown>>) => void;
   onComplete: (task: WorkflowTask, decision: WorkflowDecision) => Promise<void>;
 }) {
   const [query, setQuery] = useState('');
@@ -1156,11 +1220,11 @@ function TodoTab(props: {
           task={selectedTask}
           instance={selectedInstance}
           forms={props.forms}
+          tasks={props.snapshot.visibleTasks.filter((task) => task.instanceId === selectedTask.instanceId)}
+          users={props.users}
           comments={props.taskComments}
-          formData={props.taskFormData}
           saving={props.saving}
           setComments={props.setTaskComments}
-          setFormData={props.setTaskFormData}
           onClose={() => setSelectedTask(null)}
           onComplete={async (task, decision) => {
             await props.onComplete(task, decision);
@@ -1172,7 +1236,7 @@ function TodoTab(props: {
   );
 }
 
-function StartedTab(props: { snapshot: WorkflowRuntimeSnapshot; forms: WorkflowFormTemplate[]; onWithdraw: (instance: WorkflowInstance) => Promise<void> }) {
+function StartedTab(props: { snapshot: WorkflowRuntimeSnapshot; forms: WorkflowFormTemplate[]; users: WorkflowDirectoryUser[]; onWithdraw: (instance: WorkflowInstance) => Promise<void> }) {
   const [query, setQuery] = useState('');
   const [selectedInstance, setSelectedInstance] = useState<WorkflowInstance | null>(null);
   const keyword = query.trim().toLowerCase();
@@ -1234,6 +1298,8 @@ function StartedTab(props: { snapshot: WorkflowRuntimeSnapshot; forms: WorkflowF
         <WorkflowInstanceDetailDialog
           instance={selectedInstance}
           forms={props.forms}
+          tasks={props.snapshot.visibleTasks.filter((task) => task.instanceId === selectedInstance.id)}
+          users={props.users}
           onClose={() => setSelectedInstance(null)}
         />
       )}
@@ -1295,64 +1361,98 @@ function CcTab(props: { snapshot: WorkflowRuntimeSnapshot }) {
   );
 }
 
-function RunningProcessesTab(props: {
+function WorkflowDataTab(props: {
   instances: WorkflowInstance[];
   forms: WorkflowFormTemplate[];
+  tasks: WorkflowTask[];
+  users: WorkflowDirectoryUser[];
   canManage: boolean;
   saving: boolean;
   onTerminate: (instance: WorkflowInstance) => Promise<void>;
 }) {
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<WorkflowDataStatusFilter>('all');
   const [selectedInstance, setSelectedInstance] = useState<WorkflowInstance | null>(null);
   const keyword = query.trim().toLowerCase();
   const rows = props.instances.filter((item) => {
+    const displayStatus = getWorkflowDataStatus(item);
+    if (statusFilter !== 'all' && displayStatus !== statusFilter) return false;
     if (!keyword) return true;
-    return [item.code, item.title, item.workflowName, item.currentNodeLabel, item.initiatorName, item.initiatorEmail]
-      .some((value) => String(value || '').toLowerCase().includes(keyword));
+    return [
+      item.code,
+      item.title,
+      item.workflowName,
+      item.currentNodeLabel,
+      item.initiatorName,
+      item.initiatorEmail,
+      WORKFLOW_DATA_STATUS_LABELS[displayStatus],
+    ].some((value) => String(value || '').toLowerCase().includes(keyword));
   });
   const { currentPage, pageSize, pageStart, pagedItems, setPage, setPageSize, totalPages } = usePagedItems(rows);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, setPage, statusFilter]);
+
   return (
     <RuntimeTablePanel
       title="流程数据"
-      description="展示当前仍在流转中的流程实例，管理员可处理异常流程。"
+      description="展示全部流程实例及当前状态，管理员可处理审批中的异常流程。"
       count={rows.length}
       query={query}
       onQueryChange={setQuery}
-      placeholder="请输入标题 / 编号"
+      placeholder="请输入标题 / 编号 / 状态"
+      filters={(
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as WorkflowDataStatusFilter)}
+          className="h-9 min-w-[132px] rounded-md border border-input bg-background px-3 text-caption text-ink-primary"
+          aria-label="流程状态"
+        >
+          {WORKFLOW_DATA_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      )}
     >
       <RuntimeDataTable
         columns={[
-          { key: 'code', label: '编号', width: '16%' },
-          { key: 'title', label: '标题', width: '22%' },
-          { key: 'workflow', label: '流程模型', width: '16%' },
-          { key: 'node', label: '当前节点', width: '14%' },
-          { key: 'initiator', label: '发起人', width: '12%' },
+          { key: 'code', label: '编号', width: '12%' },
+          { key: 'title', label: '标题', width: '18%' },
+          { key: 'workflow', label: '流程模型', width: '14%' },
+          { key: 'node', label: '当前节点', width: '12%' },
+          { key: 'initiator', label: '发起人', width: '10%' },
+          { key: 'status', label: '状态', width: '10%' },
           { key: 'createdAt', label: '发起时间', width: '12%' },
-          { key: 'action', label: '操作', width: '8%', align: 'right' },
+          { key: 'action', label: '操作', width: '12%', align: 'right' },
         ]}
-        emptyText="暂无运行中的流程。"
-        colSpan={7}
+        emptyText="暂无流程数据。"
+        colSpan={8}
       >
-        {pagedItems.map((item) => (
-          <tr key={item.id} className="border-b border-border last:border-0">
-            <RuntimeDataCell value={item.code} />
-            <RuntimeDataCell value={item.title} strong />
-            <RuntimeDataCell value={item.workflowName} />
-            <RuntimeDataCell value={item.currentNodeLabel || '-'} />
-            <RuntimeDataCell value={item.initiatorName || item.initiatorEmail || '-'} />
-            <RuntimeDataCell value={formatDateTime(item.createdAt)} />
-            <td className="px-3 py-2">
-              <div className="flex justify-end gap-1">
-                <Button type="button" variant="outline" size="sm" className="h-8 px-3" onClick={() => setSelectedInstance(item)}>详情</Button>
-                {props.canManage && (
-                  <Button type="button" variant="destructive" size="sm" className="h-8 px-3" disabled={props.saving} onClick={() => void props.onTerminate(item)}>
-                    终止
-                  </Button>
-                )}
-              </div>
-            </td>
-          </tr>
-        ))}
+        {pagedItems.map((item) => {
+          const displayStatus = getWorkflowDataStatus(item);
+          return (
+            <tr key={item.id} className="border-b border-border last:border-0">
+              <RuntimeDataCell value={item.code} />
+              <RuntimeDataCell value={item.title} strong />
+              <RuntimeDataCell value={item.workflowName} />
+              <RuntimeDataCell value={item.currentNodeLabel || '-'} />
+              <RuntimeDataCell value={item.initiatorName || item.initiatorEmail || '-'} />
+              <td className="px-3 py-2"><StatusBadge status={displayStatus} label={WORKFLOW_DATA_STATUS_LABELS[displayStatus]} /></td>
+              <RuntimeDataCell value={formatDateTime(item.createdAt)} />
+              <td className="px-3 py-2">
+                <div className="flex justify-end gap-1">
+                  <Button type="button" variant="outline" size="sm" className="h-8 px-3" onClick={() => setSelectedInstance(item)}>详情</Button>
+                  {props.canManage && item.status === 'running' && (
+                    <Button type="button" variant="destructive" size="sm" className="h-8 px-3" disabled={props.saving} onClick={() => void props.onTerminate(item)}>
+                      终止
+                    </Button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
       </RuntimeDataTable>
       <RuntimePagination
         total={rows.length}
@@ -1367,6 +1467,8 @@ function RunningProcessesTab(props: {
         <WorkflowInstanceDetailDialog
           instance={selectedInstance}
           forms={props.forms}
+          tasks={props.tasks.filter((task) => task.instanceId === selectedInstance.id)}
+          users={props.users}
           onClose={() => setSelectedInstance(null)}
         />
       )}
@@ -1381,6 +1483,7 @@ function RuntimeTablePanel(props: {
   query: string;
   placeholder: string;
   onQueryChange: (value: string) => void;
+  filters?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -1399,6 +1502,7 @@ function RuntimeTablePanel(props: {
           placeholder={props.placeholder}
           className="h-9 max-w-[260px]"
         />
+        {props.filters}
       </div>
       <div className="overflow-hidden rounded-md border border-border bg-surface-0">
         {props.children}
@@ -1453,26 +1557,20 @@ function WorkflowTaskDetailDialog(props: {
   task: WorkflowTask;
   instance?: WorkflowInstance;
   forms: WorkflowFormTemplate[];
+  tasks: WorkflowTask[];
+  users: WorkflowDirectoryUser[];
   comments: Record<string, string>;
-  formData: Record<string, Record<string, unknown>>;
   saving: boolean;
   setComments: (next: Record<string, string>) => void;
-  setFormData: (next: Record<string, Record<string, unknown>>) => void;
   onClose: () => void;
   onComplete: (task: WorkflowTask, decision: WorkflowDecision) => Promise<void>;
 }) {
   const instanceForm = props.instance?.formTemplateId ? props.forms.find((form) => form.id === props.instance?.formTemplateId) : undefined;
   const nodeConfig = props.instance?.workflowSnapshot.nodes.find((node) => node.id === props.task.nodeId);
-  const formPermissionById = new Map((nodeConfig?.formPermissions ?? []).map((permission) => [permission.fieldId, permission]));
-  const effectiveForm = instanceForm ? {
-    ...instanceForm,
-    fields: instanceForm.fields.map((field) => ({ ...field, ...(formPermissionById.get(field.id) ?? {}) })),
-  } : undefined;
   const operationPermissions = { ...defaultWorkflowOperationPermissions(), ...(nodeConfig?.operationPermissions ?? {}) };
-  const approvalFormData = props.formData[props.task.id] ?? {};
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onClick={props.onClose}>
-      <div className="grid max-h-[88vh] w-full max-w-[980px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}>
+      <div className="grid max-h-[88vh] w-full max-w-[980px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
             <h3 className="text-title-3 font-bold text-ink-primary">待办详情</h3>
@@ -1481,55 +1579,64 @@ function WorkflowTaskDetailDialog(props: {
           <Button type="button" variant="outline" disabled={props.saving} onClick={props.onClose}>关闭</Button>
         </div>
 
-        <div className="min-h-0 overflow-auto p-5">
-          <div className="grid gap-4">
-            <section className="rounded-md border border-border bg-surface-0 p-4">
-              <h4 className="mb-3 text-body font-bold text-ink-primary">流程信息</h4>
-              <div className="grid gap-3 text-body md:grid-cols-2">
-                <InfoCell label="任务编号" value={props.task.id} />
-                <InfoCell label="流程编号" value={props.task.instanceCode} />
-                <InfoCell label="流程标题" value={props.task.title} />
-                <InfoCell label="发起人" value={props.task.initiatorName || props.task.initiatorEmail || '-'} />
-                <InfoCell label="当前节点" value={props.task.nodeLabel} />
-                <InfoCell label="当前处理人" value={props.task.assigneeName || props.task.assigneeEmail || '-'} />
-                <InfoCell label="到达时间" value={formatDateTime(props.task.createdAt)} />
-                <InfoCell label="业务单据" value={props.task.businessType || props.task.businessId ? `${props.task.businessType || '-'} / ${props.task.businessId || '-'}` : '-'} />
-              </div>
-            </section>
-            {props.instance && (
-              <SubmittedFormPanel
-                title="发起表单"
-                form={effectiveForm}
-                data={props.instance.formData ?? {}}
-              />
-            )}
-            {effectiveForm && (
-              <section className="rounded-md border border-border bg-surface-0 p-4">
-                <h4 className="mb-3 text-body font-bold text-ink-primary">审批补充数据</h4>
-                <DynamicForm
-                  form={effectiveForm}
-                  value={approvalFormData}
-                  onChange={(value) => props.setFormData({ ...props.formData, [props.task.id]: value })}
-                />
-              </section>
-            )}
-            {props.instance && (
-              <section className="rounded-md border border-border bg-surface-0 p-4">
-                <h4 className="mb-3 text-body font-bold text-ink-primary">审批流程</h4>
-                <WorkflowHistoryTimeline instance={props.instance} compact />
-              </section>
-            )}
-            <section className="rounded-md border border-border bg-surface-0 p-4">
-              <h4 className="mb-3 text-body font-bold text-ink-primary">审批意见</h4>
-              <Textarea
-                value={props.comments[props.task.id] ?? ''}
-                onChange={(e) => props.setComments({ ...props.comments, [props.task.id]: e.target.value })}
-                placeholder="审批意见；退回或驳回时建议填写原因"
-                className="min-h-[84px]"
-              />
-            </section>
+        <Tabs defaultValue="action" className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+          <div className="border-b border-border px-5">
+            <TabsList className="h-11 rounded-none bg-transparent p-0">
+              <TabsTrigger value="action" className="h-11 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:text-brand-600 data-[state=active]:shadow-none">审批处理</TabsTrigger>
+              <TabsTrigger value="details" className="h-11 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:text-brand-600 data-[state=active]:shadow-none">流程信息</TabsTrigger>
+            </TabsList>
           </div>
-        </div>
+          <div className="min-h-0 overflow-auto p-5">
+            <TabsContent value="action" className="mt-0">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="space-y-4">
+                  {props.instance ? (
+                    <SubmittedFormPanel
+                      title="流程表单"
+                      form={instanceForm}
+                      data={props.instance.formData ?? {}}
+                      users={props.users}
+                    />
+                  ) : (
+                    <EmptyState text="暂无流程表单信息。" />
+                  )}
+                  <section className="rounded-md border border-border bg-surface-0 p-4">
+                    <h4 className="mb-3 text-body font-bold text-ink-primary">审批意见</h4>
+                    <Textarea
+                      value={props.comments[props.task.id] ?? ''}
+                      onChange={(e) => props.setComments({ ...props.comments, [props.task.id]: e.target.value })}
+                      placeholder="审批意见；退回或驳回时必须填写原因"
+                      className="min-h-[96px]"
+                    />
+                  </section>
+                </div>
+                <aside className="border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+                  <h4 className="mb-4 text-body font-bold text-ink-primary">审批流程</h4>
+                  {props.instance ? (
+                  <WorkflowFullTimeline instance={props.instance} tasks={props.tasks} users={props.users} />
+                  ) : (
+                    <EmptyState text="暂未获取到审批流程。" />
+                  )}
+                </aside>
+              </div>
+            </TabsContent>
+            <TabsContent value="details" className="mt-0">
+              <section className="rounded-md border border-border bg-surface-0 p-4">
+                <h4 className="mb-3 text-body font-bold text-ink-primary">流程信息</h4>
+                <div className="grid gap-3 text-body md:grid-cols-2">
+                  <InfoCell label="任务编号" value={props.task.id} />
+                  <InfoCell label="流程编号" value={props.task.instanceCode} />
+                  <InfoCell label="流程标题" value={props.task.title} />
+                  <InfoCell label="发起人" value={props.task.initiatorName || props.task.initiatorEmail || '-'} />
+                  <InfoCell label="当前节点" value={props.task.nodeLabel} />
+                  <InfoCell label="当前处理人" value={props.task.assigneeName || props.task.assigneeEmail || '-'} />
+                  <InfoCell label="到达时间" value={formatDateTime(props.task.createdAt)} />
+                  <InfoCell label="业务单据" value={props.task.businessType || props.task.businessId ? `${props.task.businessType || '-'} / ${props.task.businessId || '-'}` : '-'} />
+                </div>
+              </section>
+            </TabsContent>
+          </div>
+        </Tabs>
 
         <div className="flex justify-end gap-2 border-t border-border bg-surface-0 px-5 py-4">
           {operationPermissions.back && <Button type="button" variant="outline" disabled={props.saving} onClick={() => void props.onComplete(props.task, 'returned')}>退回</Button>}
@@ -1541,40 +1648,54 @@ function WorkflowTaskDetailDialog(props: {
   );
 }
 
-function WorkflowInstanceDetailDialog(props: { instance: WorkflowInstance; forms: WorkflowFormTemplate[]; onClose: () => void }) {
+function WorkflowInstanceDetailDialog(props: {
+  instance: WorkflowInstance;
+  forms: WorkflowFormTemplate[];
+  tasks: WorkflowTask[];
+  users: WorkflowDirectoryUser[];
+  onClose: () => void;
+}) {
   const form = props.instance.formTemplateId ? props.forms.find((item) => item.id === props.instance.formTemplateId) : undefined;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onClick={props.onClose}>
-      <div className="grid max-h-[88vh] w-full max-w-[920px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}>
+      <div className="grid max-h-[88vh] w-full max-w-[920px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
             <h3 className="text-title-3 font-bold text-ink-primary">流程详情</h3>
-            <p className="mt-1 text-body text-ink-secondary">{props.instance.workflowName} / {props.instance.currentNodeLabel || '-'}</p>
+            <p className="mt-1 text-body text-ink-secondary">{props.instance.title} · {props.instance.workflowName}</p>
           </div>
           <Button type="button" variant="outline" onClick={props.onClose}>关闭</Button>
         </div>
-        <div className="min-h-0 overflow-auto p-5">
-          <div className="grid gap-4">
-            <section className="rounded-md border border-border bg-surface-0 p-4">
-              <h4 className="mb-3 text-body font-bold text-ink-primary">流程信息</h4>
-              <div className="grid gap-3 text-body md:grid-cols-2">
-                <InfoCell label="编号" value={props.instance.code} />
-                <InfoCell label="标题" value={props.instance.title} />
-                <InfoCell label="流程模型" value={props.instance.workflowName} />
-                <InfoCell label="当前节点" value={props.instance.currentNodeLabel || '-'} />
-                <InfoCell label="状态" value={STATUS_LABELS[props.instance.status] || props.instance.status} />
-                <InfoCell label="发起时间" value={formatDateTime(props.instance.createdAt)} />
-                <InfoCell label="发起人" value={props.instance.initiatorName || props.instance.initiatorEmail || '-'} />
-                <InfoCell label="业务单据" value={props.instance.businessType || props.instance.businessId ? `${props.instance.businessType || '-'} / ${props.instance.businessId || '-'}` : '-'} />
-              </div>
-            </section>
-            <SubmittedFormPanel title="发起表单" form={form} data={props.instance.formData ?? {}} />
-            <section className="rounded-md border border-border bg-surface-0 p-4">
-              <h4 className="mb-3 text-body font-bold text-ink-primary">审批流程</h4>
-              <WorkflowHistoryTimeline instance={props.instance} compact />
-            </section>
+        <Tabs defaultValue="overview" className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+          <div className="border-b border-border px-5">
+            <TabsList className="h-11 rounded-none bg-transparent p-0">
+              <TabsTrigger value="overview" className="h-11 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:text-brand-600 data-[state=active]:shadow-none">基本信息</TabsTrigger>
+              <TabsTrigger value="details" className="h-11 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-brand-500 data-[state=active]:bg-transparent data-[state=active]:text-brand-600 data-[state=active]:shadow-none">流程信息</TabsTrigger>
+            </TabsList>
           </div>
-        </div>
+          <div className="min-h-0 overflow-auto p-5">
+            <TabsContent value="overview" className="mt-0">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <SubmittedFormPanel title="流程表单" form={form} data={props.instance.formData ?? {}} users={props.users} />
+                <aside className="border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+                  <h4 className="mb-4 text-body font-bold text-ink-primary">审批流程</h4>
+                  <WorkflowFullTimeline instance={props.instance} tasks={props.tasks} users={props.users} />
+                </aside>
+              </div>
+            </TabsContent>
+            <TabsContent value="details" className="mt-0">
+              <section className="rounded-md border border-border bg-surface-0 p-4">
+                <h4 className="mb-3 text-body font-bold text-ink-primary">流程信息</h4>
+                <div className="grid gap-3 text-body md:grid-cols-2">
+                  <InfoCell label="状态" value={STATUS_LABELS[props.instance.status] || props.instance.status} />
+                  <InfoCell label="当前节点" value={props.instance.currentNodeLabel || (props.instance.status === 'completed' ? '流程结束' : '-')} />
+                  <InfoCell label="发起人" value={formatWorkflowPersonName(props.instance.initiatorId, props.instance.initiatorName || props.instance.initiatorEmail, props.users)} />
+                  <InfoCell label="发起时间" value={formatDateTime(props.instance.createdAt)} />
+                </div>
+              </section>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );
@@ -1583,6 +1704,10 @@ function WorkflowInstanceDetailDialog(props: { instance: WorkflowInstance; forms
 function StartTab(props: {
   workflows: WorkflowTemplate[];
   forms: WorkflowFormTemplate[];
+  launchPreviews: WorkflowLaunchPreview[];
+  users: WorkflowDirectoryUser[];
+  departments: WorkflowDirectoryDepartment[];
+  roles: WorkflowDirectoryRole[];
   selectedWorkflow?: WorkflowTemplate;
   selectedStartForm?: WorkflowFormTemplate;
   selectedWorkflowId: string;
@@ -1591,6 +1716,8 @@ function StartTab(props: {
   setStartTitle: (value: string) => void;
   startFormData: Record<string, unknown>;
   setStartFormData: (value: Record<string, unknown>) => void;
+  startRuntimeAssignees: Record<string, string[]>;
+  setStartRuntimeAssignees: (value: Record<string, string[]>) => void;
   workflowSearch: string;
   setWorkflowSearch: (value: string) => void;
   startDialogOpen: boolean;
@@ -1616,6 +1743,7 @@ function StartTab(props: {
     props.setSelectedWorkflowId(workflow.id);
     props.setStartTitle(workflow.name);
     props.setStartFormData({});
+    props.setStartRuntimeAssignees({});
     props.setStartDialogOpen(true);
   }
 
@@ -1650,7 +1778,6 @@ function StartTab(props: {
               </div>
               <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-10">
                 {rows.map((workflow) => {
-                  const selected = props.selectedWorkflowId === workflow.id;
                   const launchFormId = workflow.nodeForms[0]?.formTemplateIds[0];
                   const launchForm = launchFormId ? props.forms.find((form) => form.id === launchFormId) : undefined;
                   const disabled = !launchForm;
@@ -1661,14 +1788,12 @@ function StartTab(props: {
                       disabled={disabled || props.saving}
                       title={launchForm ? `${workflow.name} / ${workflow.code}` : `${workflow.name}：未找到已发布发起表单`}
                       onClick={() => selectWorkflow(workflow)}
-                      className="group min-w-0 text-center disabled:cursor-not-allowed disabled:opacity-55"
+                      className="group min-w-0 rounded-md text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
                     >
-                      <span className={`mx-auto flex h-12 w-12 items-center justify-center rounded-md text-title-3 font-bold transition-colors ${
-                        selected ? 'bg-brand-500/10 text-brand-600' : 'bg-surface-1 text-ink-tertiary group-hover:bg-brand-500/10 group-hover:text-brand-600'
-                      }`}>
+                      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-brand-500/10 text-title-3 font-bold text-brand-600 transition-colors group-hover:bg-brand-500 group-hover:text-white group-active:bg-brand-500 group-active:text-white group-focus-visible:bg-brand-500 group-focus-visible:text-white">
                         {workflowInitial(workflow.name)}
                       </span>
-                      <span className={`mt-2 block truncate text-caption ${selected ? 'font-semibold text-ink-primary' : 'text-ink-secondary'}`}>{workflow.name}</span>
+                      <span className="mt-2 block truncate text-caption font-semibold text-ink-primary">{workflow.name}</span>
                     </button>
                   );
                 })}
@@ -1682,11 +1807,17 @@ function StartTab(props: {
         open={props.startDialogOpen}
         workflow={props.selectedWorkflow}
         form={props.selectedStartForm}
+        launchPreview={props.launchPreviews.find((item) => item.workflowTemplateId === props.selectedWorkflow?.id)}
+        users={props.users}
+        departments={props.departments}
+        roles={props.roles}
         title={props.startTitle}
         formData={props.startFormData}
+        runtimeAssignees={props.startRuntimeAssignees}
         saving={props.saving}
         onTitleChange={props.setStartTitle}
         onFormDataChange={props.setStartFormData}
+        onRuntimeAssigneesChange={props.setStartRuntimeAssignees}
         onClose={() => props.setStartDialogOpen(false)}
         onStart={props.onStart}
       />
@@ -1698,17 +1829,24 @@ function WorkflowStartDialog(props: {
   open: boolean;
   workflow?: WorkflowTemplate;
   form?: WorkflowFormTemplate;
+  launchPreview?: WorkflowLaunchPreview;
+  users: WorkflowDirectoryUser[];
+  departments: WorkflowDirectoryDepartment[];
+  roles: WorkflowDirectoryRole[];
   title: string;
   formData: Record<string, unknown>;
+  runtimeAssignees: Record<string, string[]>;
   saving: boolean;
   onTitleChange: (value: string) => void;
   onFormDataChange: (value: Record<string, unknown>) => void;
+  onRuntimeAssigneesChange: (value: Record<string, string[]>) => void;
   onClose: () => void;
   onStart: (e: FormEvent) => Promise<void>;
 }) {
+  const [choiceNodeId, setChoiceNodeId] = useState<string | null>(null);
   if (!props.open || !props.workflow) return null;
-  const approvalNodes = normalizeWorkflowDraftNodes(props.workflow.nodes as WorkflowNodeDraft[])
-    .filter((node) => node.type === 'approval');
+  const approvalNodes = props.launchPreview?.approvalNodes ?? [];
+  const selectedChoiceNode = approvalNodes.find((node) => node.nodeId === choiceNodeId);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onClick={props.onClose}>
       <div className="flex max-h-[88vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -1733,20 +1871,26 @@ function WorkflowStartDialog(props: {
                   className="h-10"
                 />
               </div>
-              <DynamicForm form={props.form} value={props.formData} onChange={props.onFormDataChange} />
+              <DynamicForm form={props.form} value={props.formData} onChange={props.onFormDataChange} users={props.users} roles={props.roles} />
             </div>
 
             <aside className="border-l border-border pl-5">
               <p className="mb-4 text-body font-bold text-ink-primary">审批流程</p>
               <div className="space-y-4">
-                <RuntimeLaunchPreviewRow title="发起人" people={['当前登录人']} active hasNext />
+                <RuntimeLaunchPreviewRow title="发起人" people={props.launchPreview ? [formatLaunchPreviewPerson(props.launchPreview.initiator)] : []} active hasNext />
                 {approvalNodes.map((node) => {
-                  const rule = props.workflow?.assigneeRules.find((item) => item.nodeId === node.id);
+                  const people = launchPreviewPeople(node, props.runtimeAssignees, props.formData, props.users);
                   return (
                     <RuntimeLaunchPreviewRow
-                      key={node.id}
-                      title={node.label || '审批人'}
-                      people={assigneeRulePeople(rule)}
+                      key={node.nodeId}
+                      title={node.nodeLabel || '审批人'}
+                      people={people}
+                      action={node.mode === 'choice' ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setChoiceNodeId(node.nodeId)}>
+                          <UserRoundPlus className="mr-2 h-4 w-4" />
+                          {people.length ? '修改审批人' : '选择审批人'}
+                        </Button>
+                      ) : undefined}
                       hasNext
                     />
                   );
@@ -1757,7 +1901,7 @@ function WorkflowStartDialog(props: {
             </aside>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-border bg-surface-0 px-5 py-4">
+          <div data-workflow-form-footer className="flex justify-end gap-2 border-t border-border bg-surface-1 px-5 py-4">
             <Button type="button" variant="outline" onClick={props.onClose}>取消</Button>
             <Button type="submit" disabled={props.saving} className="bg-brand-500 text-white hover:bg-brand-600">
               <Send className="mr-2 h-4 w-4" />
@@ -1765,6 +1909,19 @@ function WorkflowStartDialog(props: {
             </Button>
           </div>
         </form>
+        <WorkflowUserPickerDialog
+          open={choiceNodeId !== null}
+          onOpenChange={(open) => { if (!open) setChoiceNodeId(null); }}
+          users={props.users}
+          departments={props.departments}
+          value={choiceNodeId ? props.runtimeAssignees[choiceNodeId] ?? [] : []}
+          multiple={Boolean(props.workflow.nodes.find((node) => node.id === selectedChoiceNode?.nodeId)?.initiatorChoiceMultiple)}
+          onConfirm={(values) => {
+            if (!choiceNodeId) return;
+            props.onRuntimeAssigneesChange({ ...props.runtimeAssignees, [choiceNodeId]: values });
+            setChoiceNodeId(null);
+          }}
+        />
       </div>
     </div>
   );
@@ -1813,8 +1970,10 @@ function ModelsTab(props: {
   draft: ReturnType<typeof initialWorkflowDraft>;
   setDraft: (draft: ReturnType<typeof initialWorkflowDraft>) => void;
   saving: boolean;
+  loading: boolean;
   onEditingChange: (editing: boolean) => void;
-  onSubmit: (e: FormEvent) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onSubmit: (e: FormEvent) => Promise<boolean>;
   onStatus: (kind: 'workflow', id: string, status: WorkflowConfigStatus) => Promise<void>;
   onEdit: (workflow: WorkflowTemplate) => void;
 }) {
@@ -1906,6 +2065,13 @@ function ModelsTab(props: {
     props.onEditingChange(true);
   }
 
+  async function submitModel(e: FormEvent) {
+    const saved = await props.onSubmit(e);
+    if (!saved) return;
+    setEditing(false);
+    props.onEditingChange(false);
+  }
+
   if (editing) {
     return (
       <WorkflowModelEditor
@@ -1917,7 +2083,7 @@ function ModelsTab(props: {
         draft={props.draft}
         setDraft={props.setDraft}
         saving={props.saving}
-        onSubmit={props.onSubmit}
+        onSubmit={submitModel}
         onBack={() => {
           setEditing(false);
           props.onEditingChange(false);
@@ -1934,10 +2100,6 @@ function ModelsTab(props: {
           <h2 className="text-title-lg font-bold">流程模型管理</h2>
           <p className="mt-1 text-body text-ink-secondary">统一维护流程模型，按分组管理模型，并配置基础信息、表单、流程图和高级规则。</p>
         </div>
-        <Button type="button" onClick={startNewModel} className="bg-[rgb(var(--danger))] text-white hover:bg-[rgb(var(--danger))]">
-          <Plus className="mr-2 h-4 w-4" />
-          新增模型
-        </Button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[276px_minmax(0,1fr)]">
@@ -2026,17 +2188,17 @@ function ModelsTab(props: {
                 <option value="published">已发布</option>
                 <option value="disabled">已停用</option>
               </select>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="h-10 rounded-md border border-input bg-background px-3 text-body"
-                aria-label="每页条数"
-              >
-                {WORKFLOW_MODEL_PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>每页 {size} 条</option>
-                ))}
-              </select>
-              <span className="text-body text-ink-secondary">共 {filteredWorkflows.length} 个模型</span>
+              <span className="whitespace-nowrap text-body text-ink-secondary">共 {filteredWorkflows.length} 个模型</span>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" onClick={startNewModel}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  新增模型
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => void props.onRefresh()} disabled={props.loading}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${props.loading ? 'animate-spin' : ''}`} />
+                  刷新
+                </Button>
+              </div>
             </div>
 
             {filteredWorkflows.length === 0 ? (
@@ -2119,6 +2281,16 @@ function ModelsTab(props: {
                     显示 {filteredWorkflows.length === 0 ? 0 : pageStart + 1}-{Math.min(pageStart + pageSize, filteredWorkflows.length)} 条，共 {filteredWorkflows.length} 条
                   </p>
                   <div className="flex items-center justify-end gap-2">
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="h-8 rounded-md border border-input bg-background px-2 text-caption"
+                      aria-label="模型列表每页条数"
+                    >
+                      {WORKFLOW_MODEL_PAGE_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>{size} 条/页</option>
+                      ))}
+                    </select>
                     <Button
                       type="button"
                       variant="outline"
@@ -2309,6 +2481,8 @@ function BindingsTab(props: {
   setBusinessId: (value: string) => void;
   setBusinessFormData: (value: Record<string, unknown>) => void;
   saving: boolean;
+  loading: boolean;
+  onRefresh: () => Promise<void>;
   onSubmit: (e: FormEvent) => Promise<void>;
   onBusinessStart: (e: FormEvent) => Promise<void>;
   onStatus: (kind: 'binding', id: string, status: WorkflowConfigStatus) => Promise<void>;
@@ -2371,6 +2545,10 @@ function BindingsTab(props: {
             <Button type="button" variant="outline" size="sm" onClick={() => setValidationDialogOpen(true)}>
               <Play className="mr-2 h-4 w-4" />
               绑定验证
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => void props.onRefresh()} disabled={props.loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${props.loading ? 'animate-spin' : ''}`} />
+              刷新
             </Button>
           </div>
         )}
@@ -2617,7 +2795,7 @@ function FormFieldDesigner(props: {
               <TextInput label="占位提示" value={field.placeholder ?? ''} onChange={(placeholder) => updateField(index, { placeholder })} />
               <TextInput label="说明" value={field.helpText ?? ''} onChange={(helpText) => updateField(index, { helpText })} />
               {(field.type === 'select' || field.type === 'multiselect' || field.type === 'checkbox') && (
-                <TextInput label="选项" value={(field.options ?? []).join('，')} onChange={(value) => updateField(index, { options: splitOptions(value) })} placeholder="用逗号分隔" />
+                <OptionsInput fieldId={field.id} value={field.options ?? []} onCommit={(options) => updateField(index, { options })} />
               )}
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-caption text-ink-secondary">
@@ -2911,7 +3089,7 @@ function WorkflowFormBindingDesigner(props: {
                 />
               </div>
               {(selectedField.type === 'select' || selectedField.type === 'multiselect' || selectedField.type === 'checkbox') && (
-                <TextInput label="选项" value={(selectedField.options ?? []).join('，')} onChange={(value) => updateField(selectedFieldIndex, { options: splitOptions(value) })} placeholder="用逗号分隔" />
+                <OptionsInput fieldId={selectedField.id} value={selectedField.options ?? []} onCommit={(options) => updateField(selectedFieldIndex, { options })} />
               )}
               <div className="grid gap-2 text-caption text-ink-secondary">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={Boolean(selectedField.required)} onChange={(e) => updateField(selectedFieldIndex, { required: e.target.checked })} />必填</label>
@@ -2952,6 +3130,7 @@ function WorkflowNodeDesigner(props: {
 }) {
   const nodes = normalizeWorkflowDraftNodes(props.nodes);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [zoom, setZoom] = useState(100);
   const selectedNode = selectedIndex === null ? undefined : nodes[Math.min(selectedIndex, nodes.length - 1)];
 
@@ -2987,6 +3166,7 @@ function WorkflowNodeDesigner(props: {
     if (node.type === 'start' || node.type === 'end') return;
     props.onChange(nodes.filter((_, i) => i !== index));
     setSelectedIndex(null);
+    setPendingDeleteIndex(null);
   }
 
   return (
@@ -3001,9 +3181,6 @@ function WorkflowNodeDesigner(props: {
         <Button type="button" variant="outline" disabled title="当前运行引擎仍按线性边执行，并行分支不会保存为可运行路径。">并行分支</Button>
         <Button type="button" variant="outline" disabled title="等待节点需要运行引擎支持定时唤醒后再启用。">等待</Button>
         <Button type="button" variant="outline" disabled title="跳转节点需要运行引擎支持非线性回边后再启用。">跳转</Button>
-        <Button type="button" variant="outline" disabled={selectedIndex === null || !selectedNode || selectedNode.type === 'start' || selectedNode.type === 'end'} onClick={() => selectedIndex !== null && removeNode(selectedIndex)}>
-          删除节点
-        </Button>
         <span className="ml-auto text-caption text-ink-tertiary">当前保存为串行可执行流</span>
       </div>
 
@@ -3068,20 +3245,33 @@ function WorkflowNodeDesigner(props: {
                         {node.label}
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedIndex(index)}
-                        className={`w-[240px] overflow-hidden rounded-sm bg-surface-0 text-left shadow-soft transition ${selected ? 'ring-2 ring-brand-500' : 'hover:ring-1 hover:ring-brand-500'}`}
-                      >
-                        <div className={`flex h-10 items-center justify-between px-3 text-body font-semibold text-white ${headerClass}`}>
-                          <span className="truncate text-white">{node.label}</span>
-                          {fixed ? <Settings2 className="h-5 w-5 text-white" /> : <Plus className="h-6 w-6 rounded-full border border-white text-white" />}
-                        </div>
-                        <div className="px-3 py-3 text-caption text-ink-primary">
-                          <p className="line-clamp-2">{fixed ? '发起人' : assigneeLabel(node, props.users)}</p>
-                          {node.description && <p className="mt-1 line-clamp-2 text-caption text-ink-tertiary">{node.description}</p>}
-                        </div>
-                      </button>
+                      <div className="relative w-[240px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedIndex(index)}
+                          className={`w-full overflow-hidden rounded-sm bg-surface-0 text-left shadow-soft transition ${selected ? 'ring-2 ring-brand-500' : 'hover:ring-1 hover:ring-brand-500'}`}
+                        >
+                          <div className={`flex h-10 items-center justify-between px-3 text-body font-semibold text-white ${headerClass}`}>
+                            <span className="truncate pr-7 text-white">{node.label}</span>
+                            {fixed && <Settings2 className="h-5 w-5 text-white" />}
+                          </div>
+                          <div className="px-3 py-3 text-caption text-ink-primary">
+                            <p className="line-clamp-2">{fixed ? '发起人' : assigneeLabel(node, props.users)}</p>
+                            {node.description && <p className="mt-1 line-clamp-2 text-caption text-ink-tertiary">{node.description}</p>}
+                          </div>
+                        </button>
+                        {!fixed && (
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); setPendingDeleteIndex(index); }}
+                            className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-sm text-white hover:bg-white/20"
+                            aria-label={`删除节点 ${node.label}`}
+                            title="删除节点"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     )}
                     {index < nodes.length - 1 && (
                       <div className="flex flex-col items-center">
@@ -3114,8 +3304,26 @@ function WorkflowNodeDesigner(props: {
           roles={props.roles}
           onChange={(patch) => updateNode(selectedIndex, patch)}
           onClose={() => setSelectedIndex(null)}
+          onDelete={() => setPendingDeleteIndex(selectedIndex)}
         />
       )}
+      <Dialog open={pendingDeleteIndex !== null} onOpenChange={(open) => { if (!open) setPendingDeleteIndex(null); }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[420px] gap-0 overflow-hidden border-border bg-surface-1 p-0 shadow-soft-xl sm:rounded-md">
+          <DialogHeader className="border-b border-border px-5 py-4 pr-12">
+            <DialogTitle className="text-title-3 text-ink-primary">删除节点</DialogTitle>
+            <DialogDescription className="mt-2 text-body leading-6 text-ink-secondary">
+              确定删除“{pendingDeleteIndex === null ? '' : nodes[pendingDeleteIndex]?.label}”节点吗？删除后无法撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 bg-surface-2 px-5 py-3 sm:space-x-0">
+            <Button type="button" variant="outline" className="h-9 px-4" onClick={() => setPendingDeleteIndex(null)}>取消</Button>
+            <Button type="button" variant="destructive" className="h-9 px-4" onClick={() => pendingDeleteIndex !== null && removeNode(pendingDeleteIndex)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              确认删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -3143,6 +3351,7 @@ function WorkflowNodeEditorDrawer(props: {
   roles: WorkflowDirectoryRole[];
   onChange: (patch: Partial<WorkflowNodeDraft>) => void;
   onClose: () => void;
+  onDelete: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<WorkflowNodeEditorTab>('assignee');
   const fixed = props.node.type === 'start' || props.node.type === 'end';
@@ -3173,6 +3382,12 @@ function WorkflowNodeEditorDrawer(props: {
             />
             <Edit3 className="h-4 w-4 shrink-0 text-brand-600" />
           </div>
+          {!fixed && (
+            <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              删除节点
+            </Button>
+          )}
           <span className="shrink-0 text-caption text-ink-tertiary">{nodeTypeLabel(props.node.type)} · 第 {props.nodeIndex + 1} 步</span>
         </header>
 
@@ -3410,6 +3625,7 @@ function WorkflowUserPickerDialog(props: {
   users: WorkflowDirectoryUser[];
   departments: WorkflowDirectoryDepartment[];
   value: string[];
+  multiple?: boolean;
   onConfirm: (value: string[]) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -3438,7 +3654,10 @@ function WorkflowUserPickerDialog(props: {
     const aliases = new Set([user.id, user.email.toLowerCase()]);
     setDraft((current) => {
       const next = current.filter((value) => !aliases.has(value) && !aliases.has(value.toLowerCase()));
-      if (!selectedSet.has(user.id) && !selectedSet.has(user.email.toLowerCase())) next.push(user.id);
+      if (!selectedSet.has(user.id) && !selectedSet.has(user.email.toLowerCase())) {
+        if (props.multiple === false) return [user.id];
+        next.push(user.id);
+      }
       return next;
     });
   }
@@ -3751,10 +3970,188 @@ function WorkflowHistoryTimeline({ instance, compact }: { instance: WorkflowInst
   );
 }
 
-function SubmittedFormPanel({ title, form, data }: { title: string; form?: WorkflowFormTemplate; data: Record<string, unknown> }) {
-  const entries = form
-    ? form.fields.filter((field) => !field.hidden).map((field) => ({ label: field.label, value: data[field.id] }))
-    : Object.entries(data).map(([label, value]) => ({ label, value }));
+type WorkflowTimelineState = 'completed' | 'current' | 'pending' | 'stopped';
+
+interface WorkflowTimelineParticipant {
+  key: string;
+  label: string;
+  status?: string;
+}
+
+function WorkflowFullTimeline(props: { instance: WorkflowInstance; tasks: WorkflowTask[]; users: WorkflowDirectoryUser[] }) {
+  const nodes = orderedWorkflowNodes(props.instance.workflowSnapshot);
+  const currentIndex = nodes.findIndex((node) => node.id === props.instance.currentNodeId);
+  const terminal = props.instance.status !== 'running';
+  return (
+    <div>
+      {nodes.map((node, index) => {
+        const nodeTasks = props.tasks.filter((task) => task.nodeId === node.id).sort((a, b) => (a.assigneeOrder ?? 0) - (b.assigneeOrder ?? 0));
+        const state = workflowTimelineNodeState(props.instance, node, nodeTasks, index, currentIndex, terminal);
+        const participants = workflowTimelineParticipants(props.instance, node, nodeTasks, props.users);
+        const stateLabel = workflowTimelineStateLabel(node.type, state);
+        return (
+          <div key={node.id} className="flex gap-3">
+            <div className="flex w-5 shrink-0 flex-col items-center">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${state === 'completed' ? 'border-brand-500 bg-brand-500 text-white' : state === 'current' ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-border bg-surface-0 text-ink-tertiary'}`}>
+                {state === 'completed' ? <Check className="h-3 w-3" /> : state === 'current' ? <span className="h-2 w-2 rounded-full bg-brand-500" /> : <span className="h-1.5 w-1.5 rounded-full bg-border" />}
+              </span>
+              {index < nodes.length - 1 && <span className={`min-h-8 w-px flex-1 ${state === 'completed' ? 'bg-brand-500/50' : 'bg-border'}`} />}
+            </div>
+            <div className="min-w-0 flex-1 pb-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-body font-semibold text-ink-primary">{node.label}</p>
+                <span className={`rounded-sm px-2 py-0.5 text-caption font-medium ${state === 'current' ? 'bg-brand-500/10 text-brand-700' : state === 'completed' ? 'bg-success/10 text-success' : state === 'stopped' ? 'bg-surface-2 text-ink-tertiary' : 'bg-surface-1 text-ink-secondary'}`}>{stateLabel}</span>
+                {node.type === 'approval' && node.multiApprovalMode && nodeTasks.length > 1 && (
+                  <span className="text-caption text-ink-tertiary">{workflowMultiApprovalLabel(node.multiApprovalMode)}</span>
+                )}
+              </div>
+              {node.description && <p className="mt-1 text-caption text-ink-tertiary">{node.description}</p>}
+              {participants.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {participants.map((participant) => (
+                    <span key={participant.key} className="max-w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-caption text-ink-secondary">
+                      <span className="break-all">{participant.label}</span>
+                      {participant.status && <span className="ml-1 text-ink-tertiary">· {participant.status}</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function orderedWorkflowNodes(workflow: WorkflowTemplate): WorkflowNode[] {
+  const byId = new Map(workflow.nodes.map((node) => [node.id, node]));
+  const orderIndex = new Map(workflow.nodes.map((node, index) => [node.id, index]));
+  const indegree = new Map(workflow.nodes.map((node) => [node.id, 0]));
+  const outgoing = new Map<string, string[]>();
+  workflow.edges.forEach((edge) => {
+    if (!byId.has(edge.from) || !byId.has(edge.to)) return;
+    indegree.set(edge.to, (indegree.get(edge.to) ?? 0) + 1);
+    outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge.to]);
+  });
+  const queue = workflow.nodes.filter((node) => (indegree.get(node.id) ?? 0) === 0).sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+  const ordered: WorkflowNode[] = [];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    if (ordered.some((item) => item.id === node.id)) continue;
+    ordered.push(node);
+    (outgoing.get(node.id) ?? []).forEach((nextId) => {
+      indegree.set(nextId, (indegree.get(nextId) ?? 1) - 1);
+      if ((indegree.get(nextId) ?? 0) === 0) {
+        const next = byId.get(nextId);
+        if (next) queue.push(next);
+      }
+    });
+    queue.sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0));
+  }
+  workflow.nodes.forEach((node) => {
+    if (!ordered.some((item) => item.id === node.id)) ordered.push(node);
+  });
+  return ordered;
+}
+
+function workflowTimelineNodeState(instance: WorkflowInstance, node: WorkflowNode, tasks: WorkflowTask[], index: number, currentIndex: number, terminal: boolean): WorkflowTimelineState {
+  if (node.type === 'start') return 'completed';
+  if (node.type === 'end' && instance.status === 'completed') return 'completed';
+  if (instance.status === 'running' && node.id === instance.currentNodeId) return 'current';
+  if (tasks.length > 0 && tasks.every((task) => task.status === 'completed')) return 'completed';
+  if (currentIndex >= 0 && index < currentIndex) return 'completed';
+  if (terminal) return 'stopped';
+  return 'pending';
+}
+
+function workflowTimelineParticipants(instance: WorkflowInstance, node: WorkflowNode, tasks: WorkflowTask[], users: WorkflowDirectoryUser[]): WorkflowTimelineParticipant[] {
+  if (node.type === 'start') {
+    return [{ key: instance.initiatorId, label: formatWorkflowTimelinePerson(instance.initiatorId, instance.initiatorName, users) }];
+  }
+  if (tasks.length > 0) {
+    return tasks.map((task) => ({
+      key: task.id,
+      label: formatWorkflowTimelinePerson(task.assigneeId, task.assigneeName, users),
+      status: workflowTaskProgressLabel(task),
+    }));
+  }
+  if (node.type === 'end') return [];
+  const rule = instance.workflowSnapshot.assigneeRules.find((item) => item.nodeId === node.id);
+  if (!rule) return [];
+  const references = workflowTimelineRuleReferences(instance, node.id, rule.mode, rule.value, users);
+  return references.map((reference, index) => ({ key: `${node.id}-${index}-${reference}`, label: reference }));
+}
+
+function workflowTimelineRuleReferences(instance: WorkflowInstance, nodeId: string, mode: WorkflowAssigneeMode, value: string | undefined, users: WorkflowDirectoryUser[]): string[] {
+  const values = parseAssigneeValues(value ?? '');
+  if (mode === 'initiator') return [formatWorkflowTimelinePerson(instance.initiatorId, instance.initiatorName, users)];
+  if (mode === 'user') return workflowPeopleFromReferences(values, users);
+  if (mode === 'choice') return workflowPeopleFromReferences(workflowFormValues(instance.runtimeAssignees?.[nodeId]), users);
+  if (mode === 'role') return users.filter((user) => (user.roles ?? []).some((role) => values.includes(role))).map(formatWorkflowTimelineUserName);
+  if (mode === 'admin') return users.filter((user) => (user.roles ?? []).some((role) => ['admin', 'owner'].includes(role))).map(formatWorkflowTimelineUserName);
+  if (mode === 'formUser') return workflowPeopleFromReferences(workflowFormValues(value ? instance.formData?.[value] : undefined), users);
+  if (mode === 'formRole') {
+    const roles = workflowFormValues(value ? instance.formData?.[value] : undefined);
+    return users.filter((user) => (user.roles ?? []).some((role) => roles.includes(role))).map(formatWorkflowTimelineUserName);
+  }
+  if (mode === 'leader') return ['直属上级（流转时确定）'];
+  if (mode === 'orgLeader') return ['组织主管（流转时确定）'];
+  if (mode === 'autoReject') return ['系统自动驳回'];
+  return [];
+}
+
+function workflowPeopleFromReferences(references: string[], users: WorkflowDirectoryUser[]): string[] {
+  return references.map((reference) => {
+    const user = findWorkflowUser(users, reference);
+    return user ? formatWorkflowTimelineUserName(user) : '人员信息已不可用';
+  });
+}
+
+function formatWorkflowTimelinePerson(id: string, fallbackName: string | undefined, users: WorkflowDirectoryUser[]): string {
+  const user = findWorkflowUser(users, id);
+  return user ? formatWorkflowTimelineUserName(user) : formatWorkflowApprovalPersonName(fallbackName);
+}
+
+function formatWorkflowTimelineUserName(user: Pick<WorkflowDirectoryUser, 'email' | 'name'>): string {
+  return formatWorkflowApprovalPersonName(user.name, user.email);
+}
+
+function workflowTaskProgressLabel(task: WorkflowTask): string {
+  if (task.status === 'queued') return '等待前一位';
+  if (task.status === 'open') return '处理中';
+  if (task.status === 'cancelled') return '已取消';
+  if (task.decision) return DECISION_LABELS[task.decision];
+  return '已完成';
+}
+
+function workflowTimelineStateLabel(type: WorkflowNodeType, state: WorkflowTimelineState): string {
+  if (state === 'current') return type === 'approval' ? '审批中' : '处理中';
+  if (state === 'completed') return type === 'start' ? '已发起' : type === 'end' ? '已结束' : '已完成';
+  if (state === 'stopped') return '未到达';
+  return type === 'end' ? '待结束' : '待处理';
+}
+
+function workflowMultiApprovalLabel(mode: WorkflowMultiApprovalMode): string {
+  if (mode === 'sequential') return '依次审批';
+  if (mode === 'joint') return '会签';
+  return '任一人审批';
+}
+
+function SubmittedFormPanel({ title, form, data, users = [] }: { title: string; form?: WorkflowFormTemplate; data: Record<string, unknown>; users?: WorkflowDirectoryUser[] }) {
+  if (form) {
+    const readonlyForm = {
+      ...form,
+      fields: form.fields.map((field) => ({ ...field, readonly: true })),
+    };
+    return (
+      <div className="space-y-3">
+        <p className="text-body font-bold text-ink-primary">{title}</p>
+        <DynamicForm form={readonlyForm} value={data} users={users} onChange={() => undefined} />
+      </div>
+    );
+  }
+  const entries = Object.entries(data).filter(([, value]) => workflowFieldHasDisplayValue(value));
   return (
     <div className="rounded-md border border-border bg-surface-1 p-4">
       <p className="mb-3 text-caption font-medium text-ink-secondary">{title}</p>
@@ -3762,8 +4159,8 @@ function SubmittedFormPanel({ title, form, data }: { title: string; form?: Workf
         <p className="text-caption text-ink-tertiary">暂无表单数据。</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {entries.map((entry) => (
-            <InfoCell key={entry.label} label={entry.label} value={formatFieldValue(entry.value)} />
+          {entries.map(([label, value]) => (
+            <InfoCell key={label} label={label} value={formatFieldValue(value)} />
           ))}
         </div>
       )}
@@ -3784,6 +4181,8 @@ function DynamicForm(props: {
   form?: WorkflowFormTemplate;
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
+  users?: WorkflowDirectoryUser[];
+  roles?: WorkflowDirectoryRole[];
 }) {
   if (!props.form) return <EmptyState text="该流程没有绑定发起表单。" />;
   const grouped = props.form.fields.reduce<Record<string, WorkflowFormField[]>>((acc, field) => {
@@ -3802,6 +4201,8 @@ function DynamicForm(props: {
                 key={field.id}
                 field={field}
                 value={props.value[field.id]}
+                users={props.users}
+                roles={props.roles}
                 onChange={(value) => props.onChange({ ...props.value, [field.id]: value })}
               />
             ))}
@@ -3841,7 +4242,7 @@ function CompactFieldPreview({ field }: { field: WorkflowFormField }) {
   return <input className={common} type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} placeholder={field.placeholder || field.label} readOnly />;
 }
 
-function FieldInput({ field, value, onChange }: { field: WorkflowFormField; value: unknown; onChange: (value: unknown) => void }) {
+function FieldInput({ field, value, users = [], roles = [], onChange }: { field: WorkflowFormField; value: unknown; users?: WorkflowDirectoryUser[]; roles?: WorkflowDirectoryRole[]; onChange: (value: unknown) => void }) {
   const id = `field-${field.id}`;
   const label = `${field.label}${field.required ? ' *' : ''}`;
   if (field.type === 'textarea') {
@@ -3871,10 +4272,226 @@ function FieldInput({ field, value, onChange }: { field: WorkflowFormField; valu
       </label>
     );
   }
+  if (field.type === 'attachment') {
+    return <WorkflowAttachmentInput id={id} label={label} value={value} readonly={field.readonly} onChange={onChange} />;
+  }
+  if (field.type === 'user') {
+    return <WorkflowUserSearchSelect id={id} label={label} value={String(value ?? '')} users={users} readonly={field.readonly} onChange={(next) => onChange(next)} />;
+  }
+  if (field.type === 'role') {
+    return (
+      <div>
+        <Label htmlFor={id}>{label}</Label>
+        <select id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} required={field.required} disabled={field.readonly} className="h-10 w-full rounded-md border border-input bg-background px-3 text-body">
+          <option value="">请选择角色</option>
+          {roles.map((role) => <option key={role.key} value={role.key}>{role.name}</option>)}
+        </select>
+      </div>
+    );
+  }
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
       <Input id={id} type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} value={String(value ?? '')} onChange={(e) => onChange(field.type === 'number' ? Number(e.target.value) : e.target.value)} placeholder={field.placeholder} required={field.required} readOnly={field.readonly} />
+    </div>
+  );
+}
+
+function WorkflowUserSearchSelect(props: {
+  id: string;
+  label: string;
+  value: string;
+  users: WorkflowDirectoryUser[];
+  readonly?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<'top' | 'bottom'>('bottom');
+  const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+  const users = useMemo(() => props.users.filter((user) => !user.disabled), [props.users]);
+  const selected = findWorkflowUser(users, props.value);
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return users;
+    return users.filter((user) => `${user.name ?? ''} ${user.email} ${user.departmentName ?? ''} ${user.jobTitle ?? ''}`.toLowerCase().includes(keyword));
+  }, [query, users]);
+  const visible = filtered.slice(0, 40);
+
+  function choose(user: WorkflowDirectoryUser) {
+    props.onChange(user.id);
+    setQuery('');
+    setOpen(false);
+  }
+
+  function openPicker() {
+    const root = rootRef.current;
+    if (root) {
+      const rootRect = root.getBoundingClientRect();
+      const form = root.closest('form');
+      const footer = form?.querySelector<HTMLElement>('[data-workflow-form-footer]');
+      const formRect = form?.getBoundingClientRect();
+      const lowerBoundary = footer?.getBoundingClientRect().top ?? window.innerHeight - 16;
+      const upperBoundary = formRect?.top ?? 16;
+      const spaceBelow = lowerBoundary - rootRect.bottom;
+      const spaceAbove = rootRect.top - upperBoundary;
+      setPlacement(spaceBelow < 220 && spaceAbove > spaceBelow ? 'top' : 'bottom');
+    }
+    setOpen(true);
+  }
+
+  return (
+    <div
+      ref={rootRef}
+      className={`relative ${open ? 'z-[60]' : ''}`}
+      onBlur={(event) => {
+        const nextFocus = event.relatedTarget;
+        if (nextFocus instanceof Node && event.currentTarget.contains(nextFocus)) return;
+        setOpen(false);
+        setQuery('');
+      }}
+    >
+      <Label htmlFor={props.id}>{props.label}</Label>
+      <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+        <Search className="mr-2 h-4 w-4 shrink-0 text-ink-tertiary" />
+        <input
+          id={props.id}
+          value={open ? query : selected ? formatWorkflowUserDisplay(selected) : ''}
+          onFocus={() => {
+            if (props.readonly) return;
+            setQuery('');
+            openPicker();
+          }}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            openPicker();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setOpen(false);
+              setQuery('');
+            } else if (event.key === 'Enter' && open && visible[0]) {
+              event.preventDefault();
+              choose(visible[0]);
+            }
+          }}
+          placeholder="输入姓名、邮箱、部门或岗位"
+          disabled={props.readonly}
+          autoComplete="off"
+          className="min-w-0 flex-1 bg-transparent text-body text-ink-primary outline-none placeholder:text-ink-tertiary disabled:cursor-not-allowed"
+        />
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-ink-tertiary" />
+      </div>
+      {open && !props.readonly && (
+        <div role="listbox" aria-label={`${props.label}选项`} className={`absolute left-0 z-[70] w-full overflow-hidden rounded-md border border-border bg-surface-1 shadow-soft-xl ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+          <div className="max-h-64 overflow-y-auto p-1">
+            {visible.map((user) => (
+              <button
+                key={user.id}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => choose(user)}
+                className="flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-left hover:bg-surface-2"
+                role="option"
+                aria-selected={selected?.id === user.id}
+              >
+                <Check className={`h-4 w-4 shrink-0 text-brand-600 ${selected?.id === user.id ? 'opacity-100' : 'opacity-0'}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-body font-medium text-ink-primary">{formatWorkflowUserDisplay(user)}</span>
+                  <span className="block truncate text-caption text-ink-tertiary">{[user.departmentName, user.jobTitle].filter(Boolean).join(' / ') || '未设置部门和岗位'}</span>
+                </span>
+              </button>
+            ))}
+            {visible.length === 0 && <p className="px-3 py-8 text-center text-caption text-ink-tertiary">没有匹配人员</p>}
+            {filtered.length > visible.length && <p className="px-3 py-2 text-center text-caption text-ink-tertiary">还有 {filtered.length - visible.length} 人，请继续输入筛选</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowAttachmentInput(props: {
+  id: string;
+  label: string;
+  value: unknown;
+  readonly?: boolean;
+  onChange: (value: WorkflowFormAttachment[]) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const attachments = normalizeWorkflowAttachments(props.value);
+  const inputId = `${props.id}-upload`;
+
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    setError('');
+    const uploaded: WorkflowFormAttachment[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await fetch('/api/workflows/attachments', { method: 'POST', body: form });
+        const payload = await response.json().catch(() => ({})) as { attachment?: WorkflowFormAttachment; error?: string };
+        if (!response.ok || !payload.attachment) throw new Error(payload.error || `${file.name} 上传失败`);
+        uploaded.push(payload.attachment);
+      }
+      props.onChange([...attachments, ...uploaded]);
+    } catch (uploadError) {
+      props.onChange([...attachments, ...uploaded]);
+      setError(uploadError instanceof Error ? uploadError.message : '附件上传失败');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function remove(attachment: WorkflowFormAttachment) {
+    props.onChange(attachments.filter((item) => item.id !== attachment.id));
+    void fetch(attachment.url, { method: 'DELETE' }).catch(() => undefined);
+  }
+
+  return (
+    <div>
+      <Label htmlFor={inputId}>{props.label}</Label>
+      {!props.readonly && (
+        <div className="flex h-10 items-center rounded-md border border-dashed border-input bg-background px-2">
+          <input
+            id={inputId}
+            type="file"
+            multiple
+            disabled={uploading}
+            onChange={(event) => {
+              const input = event.currentTarget;
+              void upload(input.files).finally(() => { input.value = ''; });
+            }}
+            className="sr-only"
+          />
+          <label htmlFor={inputId} className={`inline-flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-body font-medium text-brand-600 hover:bg-surface-1 ${uploading ? 'pointer-events-none opacity-60' : ''}`}>
+            {uploading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {uploading ? '上传中...' : '选择文件'}
+          </label>
+          <span className="ml-auto text-caption text-ink-tertiary">单个文件不超过 25MB</span>
+        </div>
+      )}
+      {attachments.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {attachments.map((attachment) => (
+            <div key={attachment.id} className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-surface-1 px-2.5">
+              <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
+              <a href={attachment.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-caption font-medium text-ink-primary hover:text-brand-600 hover:underline">{attachment.name}</a>
+              <span className="shrink-0 text-caption text-ink-tertiary">{formatFileSize(attachment.size)}</span>
+              {!props.readonly && <button type="button" onClick={() => remove(attachment)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-ink-tertiary hover:bg-danger/10 hover:text-danger" aria-label={`移除附件 ${attachment.name}`} title="移除附件"><X className="h-4 w-4" /></button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {props.readonly && attachments.length === 0 && (
+        <div className="mt-1 flex h-10 items-center rounded-md border border-input bg-surface-0 px-3 text-caption text-ink-tertiary">
+          暂无附件
+        </div>
+      )}
+      {error && <p className="mt-1 text-caption text-danger">{error}</p>}
     </div>
   );
 }
@@ -3932,36 +4549,113 @@ function BindingList(props: {
   onStatus: (kind: 'binding', id: string, status: WorkflowConfigStatus) => Promise<void>;
   actions?: ReactNode;
 }) {
-  const workflowNames = Object.fromEntries(props.workflows.map((item) => [item.id, item.name]));
-  const formNames = Object.fromEntries(props.forms.map((item) => [item.id, item.name]));
-  const sceneLabels = Object.fromEntries(BUSINESS_SCENE_PRESETS.map((item) => [item.businessType, item.label]));
-  const actionLabels = Object.fromEntries(BUSINESS_ACTION_OPTIONS.map((item) => [item.value, item.label]));
+  const workflowNames = useMemo(() => Object.fromEntries(props.workflows.map((item) => [item.id, item.name])), [props.workflows]);
+  const formNames = useMemo(() => Object.fromEntries(props.forms.map((item) => [item.id, item.name])), [props.forms]);
+  const sceneLabels = useMemo(() => Object.fromEntries(BUSINESS_SCENE_PRESETS.map((item) => [item.businessType, item.label])), []);
+  const actionLabels = useMemo(() => Object.fromEntries(BUSINESS_ACTION_OPTIONS.map((item) => [item.value, item.label])), []);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(WORKFLOW_MODEL_PAGE_SIZE_OPTIONS[0]);
+  const filteredBindings = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return props.bindings.filter((binding) => {
+      const matchStatus = statusFilter === 'all' || (statusFilter === 'enabled' ? binding.enabled : !binding.enabled);
+      const workflowName = workflowNames[binding.workflowTemplateId] ?? '';
+      const formName = binding.formTemplateId ? formNames[binding.formTemplateId] ?? '' : '';
+      const sceneLabel = sceneLabels[binding.businessType] ?? '';
+      const actionLabel = actionLabels[binding.action] ?? '';
+      const text = `${binding.label ?? ''} ${binding.businessType} ${sceneLabel} ${binding.action} ${actionLabel} ${workflowName} ${formName}`.toLowerCase();
+      return matchStatus && (!keyword || text.includes(keyword));
+    });
+  }, [actionLabels, formNames, props.bindings, sceneLabels, search, statusFilter, workflowNames]);
+  const totalPages = Math.max(1, Math.ceil(filteredBindings.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pagedBindings = filteredBindings.slice(pageStart, pageStart + pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize, search, statusFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <SectionTitle title="业务流程绑定" description="把业务类型和动作映射到可发起的流程模型。" />
-        {props.actions}
-      </div>
-      {props.bindings.length === 0 ? <EmptyState text="暂无业务流程绑定。" /> : props.bindings.map((binding) => (
-        <Card key={binding.id} className="rounded-md">
-          <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-body font-medium text-ink-primary">{binding.label || `${sceneLabels[binding.businessType] || binding.businessType} · ${actionLabels[binding.action] || binding.action}`}</p>
-                <StatusBadge status={binding.enabled ? 'published' : 'disabled'} />
+      <SectionTitle title="业务流程绑定" description="把业务类型和动作映射到可发起的流程模型。" />
+      <div className="overflow-hidden rounded-md border border-border bg-surface-0">
+        <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
+          <label className="relative block min-w-[260px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-tertiary" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索绑定名称、业务场景、流程或表单" className="pl-9" />
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-body"
+            aria-label="业务绑定状态"
+          >
+            <option value="all">全部状态</option>
+            <option value="enabled">已启用</option>
+            <option value="disabled">已停用</option>
+          </select>
+          <span className="whitespace-nowrap text-body text-ink-secondary">共 {filteredBindings.length} 个绑定</span>
+          {props.actions}
+        </div>
+
+        {filteredBindings.length === 0 ? (
+          <div className="p-5"><EmptyState text="没有匹配的业务流程绑定。" /></div>
+        ) : (
+          <>
+            <div className="divide-y divide-border">
+              {pagedBindings.map((binding) => (
+                <div key={binding.id} className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-body font-medium text-ink-primary">{binding.label || `${sceneLabels[binding.businessType] || binding.businessType} · ${actionLabels[binding.action] || binding.action}`}</p>
+                      <StatusBadge status={binding.enabled ? 'published' : 'disabled'} />
+                    </div>
+                    <p className="mt-1 text-caption text-ink-tertiary">业务场景：{sceneLabels[binding.businessType] || binding.businessType} · 触发动作：{actionLabels[binding.action] || binding.action}</p>
+                    <p className="mt-1 text-caption text-ink-secondary">流程：{workflowNames[binding.workflowTemplateId] || binding.workflowTemplateId} · 表单：{binding.formTemplateId ? formNames[binding.formTemplateId] || binding.formTemplateId : '未绑定'}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => props.onEdit(binding)}>编辑</Button>
+                    <Button variant="outline" size="sm" onClick={() => void props.onStatus('binding', binding.id, binding.enabled ? 'disabled' : 'published')}>
+                      {binding.enabled ? '停用' : '启用'}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-caption text-ink-secondary">
+                显示 {pageStart + 1}-{Math.min(pageStart + pageSize, filteredBindings.length)} 条，共 {filteredBindings.length} 条
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-caption"
+                  aria-label="业务绑定每页条数"
+                >
+                  {WORKFLOW_MODEL_PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>{size} 条/页</option>
+                  ))}
+                </select>
+                <Button type="button" variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+                  上一页
+                </Button>
+                <span className="min-w-16 text-center text-caption text-ink-secondary">{currentPage} / {totalPages}</span>
+                <Button type="button" variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+                  下一页
+                </Button>
               </div>
-              <p className="mt-1 text-caption text-ink-tertiary">业务场景：{sceneLabels[binding.businessType] || binding.businessType} · 触发动作：{actionLabels[binding.action] || binding.action}</p>
-              <p className="mt-1 text-caption text-ink-secondary">流程：{workflowNames[binding.workflowTemplateId] || binding.workflowTemplateId} · 表单：{binding.formTemplateId ? formNames[binding.formTemplateId] || binding.formTemplateId : '未绑定'}</p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => props.onEdit(binding)}>编辑</Button>
-              <Button variant="outline" size="sm" onClick={() => void props.onStatus('binding', binding.id, binding.enabled ? 'disabled' : 'published')}>
-                {binding.enabled ? '停用' : '启用'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -3972,6 +4666,35 @@ function TextInput(props: { label: string; value: string; onChange: (value: stri
     <div>
       <Label htmlFor={id}>{props.label}{props.required ? ' *' : ''}</Label>
       <Input id={id} type={props.type ?? 'text'} value={props.value} onChange={(e) => props.onChange(e.target.value)} required={props.required} placeholder={props.placeholder} className="h-9" />
+    </div>
+  );
+}
+
+function OptionsInput(props: { fieldId: string; value: string[]; onCommit: (options: string[]) => void }) {
+  const value = props.value.join('，');
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  function commit() {
+    const options = splitOptions(draft);
+    setDraft(options.join('，'));
+    props.onCommit(options);
+  }
+
+  return (
+    <div>
+      <Label htmlFor={`field-options-${props.fieldId}`}>选项</Label>
+      <Input
+        id={`field-options-${props.fieldId}`}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        placeholder="用逗号分隔"
+        className="h-9"
+      />
     </div>
   );
 }
@@ -4152,7 +4875,9 @@ function formatWorkflowUserName(user: Pick<WorkflowDirectoryUser, 'email' | 'nam
 }
 
 function formatWorkflowUserDisplay(user: Pick<WorkflowDirectoryUser, 'email' | 'name'>): string {
-  return user.name ? `${user.name} <${user.email}>` : user.email;
+  const name = user.name?.trim();
+  const email = user.email.trim();
+  return name && email ? `${name}（${email}）` : name || email;
 }
 
 function formatAssigneeValue(value: string, users: WorkflowDirectoryUser[]): string {
@@ -4174,22 +4899,52 @@ function workflowInitial(name: string): string {
   return trimmed ? trimmed[0].toUpperCase() : '流';
 }
 
-function assigneeRulePeople(rule?: WorkflowTemplate['assigneeRules'][number]): string[] {
-  if (!rule) return ['待分配'];
-  if (rule.mode === 'initiator') return ['发起人自己'];
-  if (rule.mode === 'admin') return ['流程管理员'];
-  if (rule.mode === 'role') return [rule.value ? `角色：${rule.value}` : '指定角色'];
-  if (rule.mode === 'choice') return ['发起人自选'];
-  if (rule.mode === 'leader') return ['直属上级'];
-  if (rule.mode === 'orgLeader') return ['组织主管'];
-  if (rule.mode === 'formUser') return ['表单内人员'];
-  if (rule.mode === 'formRole') return ['表单内角色'];
-  if (rule.mode === 'autoReject') return ['自动拒绝'];
-  const people = parseAssigneeValues(rule.value ?? '');
-  return people.length ? people : ['指定人员'];
+function formatLaunchPreviewPerson(person: WorkflowLaunchPreview['initiator']): string {
+  return formatWorkflowApprovalPersonName(person.name, person.email);
 }
 
-function RuntimeLaunchPreviewRow(props: { title: string; people: string[]; active?: boolean; hasNext?: boolean }) {
+function launchPreviewPeople(
+  node: WorkflowLaunchPreview['approvalNodes'][number],
+  runtimeAssignees: Record<string, string[]>,
+  formData: Record<string, unknown>,
+  users: WorkflowDirectoryUser[],
+): string[] {
+  if (node.mode === 'choice') return workflowDirectoryPeople(runtimeAssignees[node.nodeId], users);
+  if (node.mode === 'formUser') return workflowDirectoryPeople(workflowFormValues(node.value ? formData[node.value] : undefined), users);
+  if (node.mode === 'formRole') {
+    const roles = workflowFormValues(node.value ? formData[node.value] : undefined);
+    return users
+      .filter((user) => (user.roles ?? []).some((role) => roles.includes(role)))
+      .map(formatWorkflowDirectoryPerson);
+  }
+  return node.people.map(formatLaunchPreviewPerson);
+}
+
+function workflowFormValues(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(workflowFormValues);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(workflowFormValues);
+  return String(value || '').split(/[,，、\n]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function workflowDirectoryPeople(values: string[] | undefined, users: WorkflowDirectoryUser[]): string[] {
+  const selected = new Set((values ?? []).map((value) => value.toLowerCase()));
+  return users.filter((user) => selected.has(user.id.toLowerCase()) || selected.has(user.email.toLowerCase())).map(formatWorkflowDirectoryPerson);
+}
+
+function formatWorkflowDirectoryPerson(user: WorkflowDirectoryUser): string {
+  return formatWorkflowApprovalPersonName(user.name, user.email);
+}
+
+function formatWorkflowApprovalPersonName(name?: string | null, email?: string | null): string {
+  const normalizedName = name?.trim();
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedName || normalizedName.includes('@') || normalizedName.toLowerCase() === normalizedEmail) {
+    return '人员信息已不可用';
+  }
+  return normalizedName;
+}
+
+function RuntimeLaunchPreviewRow(props: { title: string; people: string[]; action?: ReactNode; active?: boolean; hasNext?: boolean }) {
   return (
     <div className="flex gap-3">
       <div className="flex flex-col items-center">
@@ -4201,12 +4956,13 @@ function RuntimeLaunchPreviewRow(props: { title: string; people: string[]; activ
         {props.people.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {props.people.map((person) => (
-              <span key={person} title={person} className="max-w-[160px] truncate rounded-full bg-surface-1 px-2 py-1 text-caption text-ink-secondary">
+              <span key={person} title={person} className="max-w-full break-all rounded-md bg-surface-1 px-2 py-1 text-caption text-ink-secondary">
                 {person}
               </span>
             ))}
           </div>
         )}
+        {props.action && <div className="mt-2">{props.action}</div>}
       </div>
     </div>
   );
@@ -4277,6 +5033,39 @@ function formatFieldValue(value: unknown): string {
   return String(value);
 }
 
+function workflowFieldHasDisplayValue(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(workflowFieldHasDisplayValue);
+  if (typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (value && typeof value === 'object') return Object.values(value).some(workflowFieldHasDisplayValue);
+  return Boolean(String(value ?? '').trim());
+}
+
+function formatWorkflowPersonName(id: string, fallback: string, users: WorkflowDirectoryUser[]): string {
+  const user = findWorkflowUser(users, id) || findWorkflowUser(users, fallback);
+  return user ? formatWorkflowUserName(user) : fallback || '-';
+}
+
+function normalizeWorkflowAttachments(value: unknown): WorkflowFormAttachment[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is WorkflowFormAttachment => {
+    if (!item || typeof item !== 'object') return false;
+    const candidate = item as Partial<WorkflowFormAttachment>;
+    return typeof candidate.id === 'string'
+      && typeof candidate.name === 'string'
+      && typeof candidate.mimeType === 'string'
+      && typeof candidate.size === 'number'
+      && typeof candidate.url === 'string';
+  });
+}
+
+function formatFileSize(size: number): string {
+  if (!Number.isFinite(size) || size < 0) return '-';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(size / 1024 / 1024).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
 function formatDateTime(value?: string): string {
   if (!value) return '-';
   const date = new Date(value);
@@ -4294,18 +5083,20 @@ function formatDateTime(value?: string): string {
   return `${part('year')}/${part('month')}/${part('day')} ${part('hour')}:${part('minute')}:${part('second')}`;
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, label }: { status: string; label?: string }) {
   const tone =
     status === 'published' || status === 'completed'
       ? 'border-success/30 bg-success/10 text-success'
       : status === 'running' || status === 'open'
         ? 'border-brand-500/30 bg-brand-500/10 text-brand-500'
-        : status === 'rejected' || status === 'cancelled'
+        : status === 'returned'
+          ? 'border-warning/30 bg-warning/10 text-warning'
+          : status === 'rejected' || status === 'cancelled'
           ? 'border-danger/30 bg-danger/10 text-danger'
           : 'border-border bg-surface-2 text-ink-secondary';
   return (
     <Badge variant="outline" className={`rounded-full ${tone}`}>
-      {STATUS_LABELS[status] ?? status}
+      {label ?? STATUS_LABELS[status] ?? status}
     </Badge>
   );
 }

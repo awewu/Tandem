@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole, type AuthContext } from '@/lib/auth/require-auth';
 import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { listDepts, type HrDept } from '@/lib/org/departments';
 import { getStore } from '@/lib/storage/repository';
 import type { AuthUser, Repository } from '@/lib/storage/repository';
 import type {
@@ -182,7 +183,17 @@ export async function upsertBusinessWorkflowBinding(input: Partial<BusinessWorkf
 export async function setWorkflowConfigStatus(kind: WorkflowConfigKind, id: string, status: WorkflowConfigStatus, actor: WorkflowActor) {
   if (!CONFIG_STATUSES.includes(status)) throw new Error('配置状态无效');
   if (kind === 'form') return upsertWorkflowForm({ ...(await getRequired(workflowRepos(actor.tenantId).forms, id, '表单')), status }, actor);
-  if (kind === 'workflow') return upsertWorkflowTemplate({ ...(await getRequired(workflowRepos(actor.tenantId).workflows, id, '流程模型')), status }, actor);
+  if (kind === 'workflow') {
+    const workflow = await getRequired(workflowRepos(actor.tenantId).workflows, id, '流程模型');
+    if (status === 'published') {
+      const formIds = Array.from(new Set(workflow.nodeForms.flatMap((binding) => binding.formTemplateIds)));
+      await Promise.all(formIds.map(async (formId) => {
+        const form = await workflowRepos(actor.tenantId).forms.get(formId);
+        if (form && form.status !== 'published') await upsertWorkflowForm({ ...form, status: 'published' }, actor);
+      }));
+    }
+    return upsertWorkflowTemplate({ ...workflow, status }, actor);
+  }
   const binding = await getRequired(workflowRepos(actor.tenantId).bindings, id, '业务绑定');
   return upsertBusinessWorkflowBinding({ ...binding, enabled: status !== 'disabled' }, actor);
 }
@@ -190,13 +201,16 @@ export async function setWorkflowConfigStatus(kind: WorkflowConfigKind, id: stri
 export async function getWorkflowRuntimeSnapshot(actor: WorkflowActor): Promise<WorkflowRuntimeSnapshot> {
   const repos = workflowRepos(actor.tenantId);
   const canManageWorkflows = actor.demo || actor.roles.some((role) => ADMIN_ROLES.includes(role));
-  const [instancesRaw, tasksRaw, ccsRaw, taskForms, config] = await Promise.all([
+  const [instancesRaw, tasksRaw, ccsRaw, taskForms, config, directoryUsers] = await Promise.all([
     repos.instances.list(),
     repos.tasks.list(),
     repos.ccs.list(),
     repos.taskForms.list(),
     getWorkflowConfig(actor.tenantId),
+    usersForTenant(actor.tenantId),
   ]);
+  const actorUser = findWorkflowIdentity(directoryUsers, actor.id, actor.email);
+  const launchActor = { ...actor, name: actorUser?.name || actor.name };
   const instanceById = new Map(instancesRaw.map((item) => [item.id, item]));
   const tasks = tasksRaw.map((task) => enrichTask(task, instanceById.get(task.instanceId)));
   const myStarted = instancesRaw.filter((item) => item.initiatorId === actor.id || sameEmail(item.initiatorEmail, actor.email));
@@ -215,6 +229,35 @@ export async function getWorkflowRuntimeSnapshot(actor: WorkflowActor): Promise<
   myCc.forEach((item) => participantIds.add(item.instanceId));
   const instances = canManageWorkflows ? instancesRaw : instancesRaw.filter((item) => participantIds.has(item.id));
   const visibleTasks = canManageWorkflows ? tasks : tasks.filter((item) => participantIds.has(item.instanceId));
+  const workflows = config.workflows.filter((item) => item.status === 'published' && ['manual', 'both'].includes(item.launchMode));
+  const launchFormIds = new Set(workflows.flatMap((workflow) => workflow.nodeForms.flatMap((binding) => binding.formTemplateIds)));
+  const needsDepartments = workflows.some((workflow) => workflow.assigneeRules.some((rule) => rule.mode === 'orgLeader'));
+  const directory = {
+    users: directoryUsers,
+    departments: needsDepartments ? await listDepts(actor.tenantId) : [],
+  };
+  const launchPreviews = await Promise.all(workflows.map(async (workflow) => ({
+    workflowTemplateId: workflow.id,
+    initiator: { id: launchActor.id, email: launchActor.email, name: launchActor.name },
+    approvalNodes: await Promise.all(workflow.nodes
+      .filter((node) => node.type === 'approval')
+      .map(async (node) => {
+        const rule = workflow.assigneeRules.find((item) => item.nodeId === node.id) || { nodeId: node.id, mode: 'admin' as const };
+        return {
+          nodeId: node.id,
+          nodeLabel: node.label,
+          mode: rule.mode,
+          value: rule.value,
+          people: await resolveAssignees(workflow, node, launchActor, {
+            initiatorId: launchActor.id,
+            initiatorEmail: launchActor.email,
+            initiatorName: launchActor.name,
+            formData: {},
+            runtimeAssignees: {},
+          }, directory),
+        };
+      })),
+  })));
   return {
     instances: sortByUpdated(instances),
     myStarted: sortByUpdated(myStarted),
@@ -222,8 +265,9 @@ export async function getWorkflowRuntimeSnapshot(actor: WorkflowActor): Promise<
     myCc: myCc.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     visibleTasks,
     taskForms: canManageWorkflows ? taskForms : taskForms.filter((item) => participantIds.has(item.instanceId)),
-    workflows: config.workflows.filter((item) => item.status === 'published' && ['manual', 'both'].includes(item.launchMode)),
-    forms: config.forms.filter((item) => item.status === 'published'),
+    workflows,
+    forms: config.forms.filter((item) => item.status === 'published' || launchFormIds.has(item.id)),
+    launchPreviews,
     canManageWorkflows,
   };
 }
@@ -237,6 +281,7 @@ export async function startWorkflowInstance(input: {
   businessId?: string;
   businessAction?: string;
   launchSource?: 'manual' | 'business';
+  runtimeAssignees?: Record<string, string | string[]>;
 }, actor: WorkflowActor) {
   const repos = workflowRepos(actor.tenantId);
   const config = await getWorkflowConfig(actor.tenantId);
@@ -278,6 +323,7 @@ export async function startWorkflowInstance(input: {
     launchSource,
     formTemplateId: formTemplate?.id,
     formData,
+    runtimeAssignees: cloneJson(input.runtimeAssignees || {}),
     createdAt: now,
     updatedAt: now,
     completedAt: firstNode ? undefined : now,
@@ -306,7 +352,14 @@ export async function startWorkflowInstance(input: {
     instance.businessFormInstanceId = formInstance.id;
   }
   const saved = await repos.instances.create(instance);
-  const created = firstNode ? await createWorkForNode(saved, workflow, firstNode, actor, now) : { tasks: [], cc: null };
+  let created: Awaited<ReturnType<typeof createWorkForNode>> = { tasks: [], cc: null };
+  try {
+    created = firstNode ? await createWorkForNode(saved, workflow, firstNode, actor, now) : created;
+  } catch (error) {
+    await repos.instances.delete(saved.id);
+    if (formInstance) await repos.formInstances.delete(formInstance.id);
+    throw error;
+  }
   await audit('workflow.instance_started', actor.id, { targetId: saved.id, targetType: 'workflow_instance', tenantId: actor.tenantId });
   return { instance: saved, tasks: created.tasks, task: created.tasks[0] ?? null, cc: created.cc, formInstance };
 }
@@ -465,7 +518,6 @@ async function completeTaskAs(
     createdBy: actor.id,
     createdAt: now,
   });
-  await cancelSiblingTasks(task, actor, now);
 
   if (input.decision === 'rejected') {
     await cancelOpenTasks(instance.id, actor, now);
@@ -494,6 +546,32 @@ async function completeTaskAs(
     await syncFormInstanceStatus(rejected, actor);
     await audit('workflow.task_completed', actor.id, { targetId: task.id, targetType: 'workflow_task', tenantId: actor.tenantId });
     return { instance: rejected, completedTask, nextTasks: [] };
+  }
+
+  if (input.decision === 'approved') {
+    const node = workflow.nodes.find((item) => item.id === task.nodeId);
+    if (node?.type === 'approval' && await keepApprovalNodeOpen(task, node, actor, now)) {
+      const waiting = await repos.instances.update(instance.id, {
+        formData: { ...(instance.formData || {}), ...(input.formData || {}) },
+        updatedAt: now,
+        decision: input.decision,
+        comment,
+        history: appendHistory(instance, {
+          at: now,
+          action: adminOverride ? 'admin_approved' : 'task_approved',
+          by: actor.email,
+          note: comment,
+          taskId: task.id,
+          nodeId: task.nodeId,
+          nodeLabel: task.nodeLabel,
+        }),
+      });
+      await syncFormInstanceStatus(waiting, actor);
+      await audit('workflow.task_completed', actor.id, { targetId: task.id, targetType: 'workflow_task', tenantId: actor.tenantId });
+      return { instance: waiting, completedTask, nextTasks: [] };
+    }
+  } else {
+    await cancelSiblingTasks(task, actor, now);
   }
 
   const nextNode = input.decision === 'returned'
@@ -564,9 +642,11 @@ async function createWorkForNode(instance: WorkflowInstance, workflow: WorkflowT
   }
   if (node.type === 'end') return { tasks: [], cc: null };
   const assignees = await resolveAssignees(workflow, node, actor, instance);
+  if (assignees.length === 0) throw new Error(`节点“${node.label}”未找到处理人，请检查组织上级、表单字段或发起人自选配置`);
   const repos = workflowRepos(actor.tenantId);
   const tasks: WorkflowTask[] = [];
-  for (const assignee of assignees) {
+  for (let assigneeOrder = 0; assigneeOrder < assignees.length; assigneeOrder += 1) {
+    const assignee = assignees[assigneeOrder];
     tasks.push(await repos.tasks.create({
       tenantId: actor.tenantId,
       instanceId: instance.id,
@@ -583,12 +663,13 @@ async function createWorkForNode(instance: WorkflowInstance, workflow: WorkflowT
       nodeId: node.id,
       nodeLabel: node.label,
       nodeType: node.type,
-      status: 'open',
+      status: node.type === 'approval' && (node.multiApprovalMode || 'sequential') === 'sequential' && assigneeOrder > 0 ? 'queued' : 'open',
       assigneeId: assignee.id,
       assigneeEmail: assignee.email,
       assigneeName: assignee.name,
       assigneeMode: workflow.assigneeRules.find((rule) => rule.nodeId === node.id)?.mode,
       assigneeValue: workflow.assigneeRules.find((rule) => rule.nodeId === node.id)?.value,
+      assigneeOrder,
       createdAt: now,
       updatedAt: now,
     }));
@@ -617,23 +698,85 @@ async function createCcForNode(instance: WorkflowInstance, workflow: WorkflowTem
   });
 }
 
-async function resolveAssignees(workflow: WorkflowTemplate, node: WorkflowNode, actor: WorkflowActor, instance: WorkflowInstance): Promise<Array<{ id: string; email: string; name?: string }>> {
+async function resolveAssignees(
+  workflow: WorkflowTemplate,
+  node: WorkflowNode,
+  actor: WorkflowActor,
+  instance: Pick<WorkflowInstance, 'initiatorId' | 'initiatorEmail' | 'initiatorName' | 'formData' | 'runtimeAssignees'>,
+  directory?: { users: AuthUser[]; departments: HrDept[] },
+): Promise<Array<{ id: string; email: string; name?: string }>> {
   const rule = workflow.assigneeRules.find((item) => item.nodeId === node.id) || { nodeId: node.id, mode: 'admin' } as WorkflowAssigneeRule;
   if (rule.mode === 'initiator') return [{ id: instance.initiatorId, email: instance.initiatorEmail, name: instance.initiatorName }];
-  if (rule.mode === 'user' && rule.value) {
-    const users = await usersForTenant(actor.tenantId);
-    const wanted = normalizeUserList(rule.value);
-    const matches = users.filter((user) => wanted.includes(user.id) || wanted.includes(user.email.toLowerCase()));
-    if (matches.length) return matches.map(userSummary);
-  }
-  if (rule.mode === 'role' && rule.value) {
-    const users = await usersForTenant(actor.tenantId);
-    const matches = users.filter((user) => (user.roles || []).includes(rule.value!));
-    if (matches.length) return matches.map(userSummary);
-  }
-  const admins = await usersForTenant(actor.tenantId);
-  const admin = admins.find((user) => (user.roles || []).some((role) => role === 'owner' || role === 'admin'));
+  const users = directory?.users ?? await usersForTenant(actor.tenantId);
+  if (rule.mode === 'admin') return adminAssignees(users, actor);
+  if (rule.mode === 'user') return usersMatchingValues(users, rule.value);
+  if (rule.mode === 'role') return usersMatchingRoles(users, rule.value);
+  if (rule.mode === 'choice') return usersMatchingValues(users, instance.runtimeAssignees?.[node.id]);
+  if (rule.mode === 'formUser') return usersMatchingValues(users, rule.value ? instance.formData?.[rule.value] : undefined);
+  if (rule.mode === 'formRole') return usersMatchingRoles(users, rule.value ? instance.formData?.[rule.value] : undefined);
+  if (rule.mode === 'leader') return resolveManagerAssignee(users, instance, node.leaderLevel ?? 1);
+  if (rule.mode === 'orgLeader') return resolveDepartmentHeadAssignee(users, actor.tenantId, instance, node.orgLeaderLevel ?? 1, directory?.departments);
+  return [];
+}
+
+function adminAssignees(users: AuthUser[], actor: WorkflowActor) {
+  const admin = users.find((user) => (user.roles || []).some((role) => role === 'owner' || role === 'admin'));
   return admin ? [userSummary(admin)] : [{ id: actor.id, email: actor.email, name: actor.name }];
+}
+
+function valuesFromUnknown(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(valuesFromUnknown);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(valuesFromUnknown);
+  return normalizeUserList(String(value || ''));
+}
+
+function usersMatchingValues(users: AuthUser[], value: unknown) {
+  const wanted = valuesFromUnknown(value);
+  return users
+    .filter((user) => wanted.includes(user.id.toLowerCase()) || wanted.includes(user.email.toLowerCase()))
+    .map(userSummary);
+}
+
+function usersMatchingRoles(users: AuthUser[], value: unknown) {
+  const roles = valuesFromUnknown(value);
+  return users.filter((user) => (user.roles || []).some((role) => roles.includes(role.toLowerCase()))).map(userSummary);
+}
+
+function findWorkflowIdentity(users: AuthUser[], id: string, email: string) {
+  return users.find((user) => user.id === id || sameEmail(user.email, email));
+}
+
+function resolveManagerAssignee(
+  users: AuthUser[],
+  instance: Pick<WorkflowInstance, 'initiatorId' | 'initiatorEmail'>,
+  level: number,
+) {
+  let current = findWorkflowIdentity(users, instance.initiatorId, instance.initiatorEmail);
+  for (let index = 0; index < Math.max(1, level); index += 1) {
+    if (!current?.managerId) return [];
+    current = users.find((user) => user.id === current?.managerId);
+  }
+  return current ? [userSummary(current)] : [];
+}
+
+async function resolveDepartmentHeadAssignee(
+  users: AuthUser[],
+  tenantId: string,
+  instance: Pick<WorkflowInstance, 'initiatorId' | 'initiatorEmail'>,
+  level: number,
+  directoryDepartments?: HrDept[],
+) {
+  const initiator = findWorkflowIdentity(users, instance.initiatorId, instance.initiatorEmail);
+  if (!initiator?.departmentId) return [];
+  const departments = directoryDepartments ?? await listDepts(tenantId);
+  const byId = new Map(departments.map((department) => [department.id, department]));
+  let department = byId.get(initiator.departmentId);
+  for (let index = 1; index < Math.max(1, level); index += 1) {
+    department = department?.parentId ? byId.get(department.parentId) : undefined;
+  }
+  if (!department?.headId) return [];
+  const head = users.find((user) => user.id === department?.headId);
+  return head ? [userSummary(head)] : [];
 }
 
 async function syncFormInstanceStatus(instance: WorkflowInstance, actor: WorkflowActor) {
@@ -647,14 +790,40 @@ async function syncFormInstanceStatus(instance: WorkflowInstance, actor: Workflo
 
 async function cancelOpenTasks(instanceId: string, actor: WorkflowActor, now: string) {
   const repo = workflowRepos(actor.tenantId).tasks;
-  const tasks = await repo.list({ instanceId, status: 'open' } as Partial<WorkflowTask>);
+  const tasks = (await repo.list({ instanceId } as Partial<WorkflowTask>)).filter((task) => task.status === 'open' || task.status === 'queued');
   await Promise.all(tasks.map((task) => repo.update(task.id, { status: 'cancelled', updatedAt: now, completedAt: now, completedById: actor.id, completedByEmail: actor.email, completedByName: actor.name })));
 }
 
 async function cancelSiblingTasks(task: WorkflowTask, actor: WorkflowActor, now: string) {
   const repo = workflowRepos(actor.tenantId).tasks;
-  const siblings = (await repo.list({ instanceId: task.instanceId, nodeId: task.nodeId, status: 'open' } as Partial<WorkflowTask>)).filter((item) => item.id !== task.id);
+  const siblings = (await repo.list({ instanceId: task.instanceId, nodeId: task.nodeId } as Partial<WorkflowTask>))
+    .filter((item) => item.id !== task.id && (item.status === 'open' || item.status === 'queued'));
   await Promise.all(siblings.map((item) => repo.update(item.id, { status: 'cancelled', updatedAt: now, completedAt: now, completedById: actor.id, completedByEmail: actor.email, completedByName: actor.name })));
+}
+
+async function keepApprovalNodeOpen(task: WorkflowTask, node: WorkflowNode, actor: WorkflowActor, now: string): Promise<boolean> {
+  const repo = workflowRepos(actor.tenantId).tasks;
+  const tasks = await repo.list({ instanceId: task.instanceId, nodeId: task.nodeId } as Partial<WorkflowTask>);
+  const mode = node.multiApprovalMode || 'sequential';
+  if (mode === 'single') {
+    await cancelSiblingTasks(task, actor, now);
+    return false;
+  }
+  if (mode === 'sequential') {
+    const next = tasks
+      .filter((item) => item.status === 'queued')
+      .sort((a, b) => (a.assigneeOrder ?? 0) - (b.assigneeOrder ?? 0))[0];
+    if (next) {
+      await repo.update(next.id, { status: 'open', updatedAt: now });
+      return true;
+    }
+    return tasks.some((item) => item.id !== task.id && item.status === 'open');
+  }
+  const approved = tasks.filter((item) => item.status === 'completed' && item.decision === 'approved').length;
+  const required = Math.max(1, Math.ceil(tasks.length * Math.min(100, Math.max(1, node.multiApprovalPercent ?? 100)) / 100));
+  if (approved < required) return true;
+  await cancelSiblingTasks(task, actor, now);
+  return false;
 }
 
 function workflowRepos(tenantId: string) {

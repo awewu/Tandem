@@ -13,10 +13,10 @@
  */
 
 import { db } from '../infra/drizzle-client';
-import { pmsOpportunities, pmsDuplicateChecks, pmsContracts } from '../infra/drizzle-schema';
-import { and, eq, inArray, isNull, desc, sql } from 'drizzle-orm';
-import { listAppeals } from './duplicate-appeal-service';
+import { pmsOpportunities, pmsDuplicateChecks, pmsContracts, pmsDuplicateAppeals } from '../infra/drizzle-schema';
+import { and, eq, inArray, isNull, desc, sql, count } from 'drizzle-orm';
 import { REVIEW_REMINDER_DAYS, REVIEW_WARNING_DAYS, REVIEW_RELEASE_DAYS } from './public-pool-service';
+import { getStore } from '../storage/repository';
 
 // ---------------------------------------------------------------------------
 // 阈值 + 纯函数 (可测)
@@ -41,6 +41,27 @@ export function classifyLifecycle(days: number): 'ok' | 'blue' | 'yellow' | 'red
   return 'ok';
 }
 
+export interface DealDeskPageMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
+export type DealDeskListKey = 'appeals' | 'duplicates' | 'lifecycle' | 'dataQuality' | 'pendingReviews';
+
+export type DealDeskPagination = Partial<Record<DealDeskListKey, { page?: number; pageSize?: number }>>;
+
+function resolvePage(pagination: DealDeskPagination | undefined, key: DealDeskListKey) {
+  const page = Math.max(1, Math.floor(pagination?.[key]?.page ?? 1));
+  const pageSize = Math.max(1, Math.min(50, Math.floor(pagination?.[key]?.pageSize ?? 20)));
+  return { page, pageSize, offset: (page - 1) * pageSize };
+}
+
+function pageMeta(total: number, page: number, pageSize: number): DealDeskPageMeta {
+  return { page, pageSize, total, hasMore: page * pageSize < total };
+}
+
 // ---------------------------------------------------------------------------
 // DB 装配
 // ---------------------------------------------------------------------------
@@ -49,60 +70,93 @@ export interface DealDeskData {
   generatedAt: string;
   appeals: {
     total: number;
+    page: DealDeskPageMeta;
     items: Array<{ id: string; duplicateCheckId: string; appealerId: string; reason: string; status: string; createdAt: string }>;
   };
   duplicates: {
     total: number;
+    page: DealDeskPageMeta;
     items: Array<{ id: string; status: string; similarityScore: number; dimensions: string[]; duplicateOpportunityId?: string; createdAt: string }>;
   };
   lifecycle: {
     blue: number;
     yellow: number;
     red: number;
+    total: number;
+    page: DealDeskPageMeta;
     items: Array<{ id: string; customerName: string; projectName: string; stage: string; days: number; level: 'blue' | 'yellow' | 'red' }>;
   };
   dataQuality: {
     missingContact: number;
     orphan: number;
+    total: number;
+    page: DealDeskPageMeta;
     items: Array<{ id: string; customerName: string; projectName: string; issues: string[] }>;
   };
   contracts: { pending: number; amount: number };
   pendingReviews: {
     total: number;
-    items: Array<{ id: string; customerName: string; projectName: string; dealerOrgId: string; estimatedAmount: number; createdAt: string }>;
+    page: DealDeskPageMeta;
+    items: Array<{ id: string; customerName: string; projectName: string; dealerOrgId: string; dealerOrgName?: string; estimatedAmount: number; createdAt: string }>;
   };
 }
 
-export async function assembleDealDesk(input: { tenantId: string; now?: Date }): Promise<DealDeskData> {
+export async function assembleDealDesk(input: { tenantId: string; now?: Date; pagination?: DealDeskPagination }): Promise<DealDeskData> {
   const { tenantId } = input;
   const now = input.now ?? new Date();
+  const appealPage = resolvePage(input.pagination, 'appeals');
+  const duplicatePage = resolvePage(input.pagination, 'duplicates');
+  const lifecyclePage = resolvePage(input.pagination, 'lifecycle');
+  const dataQualityPage = resolvePage(input.pagination, 'dataQuality');
+  const pendingReviewPage = resolvePage(input.pagination, 'pendingReviews');
 
   // 1) 待仲裁申诉 (pending + under_review)
-  const [pendingA, reviewA] = await Promise.all([
-    listAppeals({ tenantId, status: 'pending', limit: 50 }),
-    listAppeals({ tenantId, status: 'under_review', limit: 50 }),
+  const appealWhere = and(
+    eq(pmsDuplicateAppeals.tenantId, tenantId),
+    inArray(pmsDuplicateAppeals.status, ['pending', 'under_review']),
+  );
+  const [appealRows, appealCountRows] = await Promise.all([
+    db
+      .select()
+      .from(pmsDuplicateAppeals)
+      .where(appealWhere)
+      .orderBy(desc(pmsDuplicateAppeals.createdAt))
+      .limit(appealPage.pageSize)
+      .offset(appealPage.offset),
+    db
+      .select({ total: count() })
+      .from(pmsDuplicateAppeals)
+      .where(appealWhere),
   ]);
-  const appealItems = [...pendingA, ...reviewA]
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .map((a) => ({
-      id: a.id,
-      duplicateCheckId: a.duplicateCheckId,
-      appealerId: a.appealerId,
-      reason: a.reason,
-      status: a.status,
-      createdAt: a.createdAt,
-    }));
+  const appealTotal = Number(appealCountRows[0]?.total ?? 0);
+  const appealItems = appealRows.map((a) => ({
+    id: a.id,
+    duplicateCheckId: a.duplicateCheckId,
+    appealerId: a.appealerId,
+    reason: a.reason,
+    status: a.status,
+    createdAt: a.createdAt.toISOString(),
+  }));
 
   // 2) 未解决查重冲突 (warning/duplicate)
-  const dupRows = await db
-    .select()
-    .from(pmsDuplicateChecks)
-    .where(and(
-      eq(pmsDuplicateChecks.tenantId, tenantId),
-      inArray(pmsDuplicateChecks.status, ['suspect', 'warning', 'duplicate']),
-    ))
-    .orderBy(desc(pmsDuplicateChecks.createdAt))
-    .limit(50);
+  const duplicateWhere = and(
+    eq(pmsDuplicateChecks.tenantId, tenantId),
+    inArray(pmsDuplicateChecks.status, ['suspect', 'warning', 'duplicate']),
+  );
+  const [dupRows, duplicateCountRows] = await Promise.all([
+    db
+      .select()
+      .from(pmsDuplicateChecks)
+      .where(duplicateWhere)
+      .orderBy(desc(pmsDuplicateChecks.createdAt))
+      .limit(duplicatePage.pageSize)
+      .offset(duplicatePage.offset),
+    db
+      .select({ total: count() })
+      .from(pmsDuplicateChecks)
+      .where(duplicateWhere),
+  ]);
+  const duplicateTotal = Number(duplicateCountRows[0]?.total ?? 0);
   const dupItems = dupRows.map((d) => ({
     id: d.id,
     status: d.status,
@@ -153,30 +207,52 @@ export async function assembleDealDesk(input: { tenantId: string; now?: Date }):
     }
   }
   lifecycleItems.sort((a, b) => b.days - a.days);
+  const lifecycleTotal = lifecycleItems.length;
+  const lifecyclePageItems = lifecycleItems.slice(lifecyclePage.offset, lifecyclePage.offset + lifecyclePage.pageSize);
+  const dataQualityTotal = dqItems.length;
+  const dataQualityPageItems = dqItems.slice(dataQualityPage.offset, dataQualityPage.offset + dataQualityPage.pageSize);
 
   // 4.5) 待审报备 (pending_review) — 前置审核关卡
-  const reviewRows = await db
-    .select({
-      id: pmsOpportunities.id,
-      customerName: pmsOpportunities.customerName,
-      projectName: pmsOpportunities.projectName,
-      dealerOrgId: pmsOpportunities.dealerOrgId,
-      estimatedAmount: pmsOpportunities.estimatedAmount,
-      createdAt: pmsOpportunities.createdAt,
-    })
-    .from(pmsOpportunities)
-    .where(and(
-      eq(pmsOpportunities.tenantId, tenantId),
-      eq(pmsOpportunities.reviewStatus, 'pending_review'),
-      isNull(pmsOpportunities.archivedAt),
-    ))
-    .orderBy(desc(pmsOpportunities.createdAt))
-    .limit(50);
+  const pendingReviewWhere = and(
+    eq(pmsOpportunities.tenantId, tenantId),
+    eq(pmsOpportunities.reviewStatus, 'pending_review'),
+    isNull(pmsOpportunities.archivedAt),
+  );
+  const [reviewRows, reviewCountRows] = await Promise.all([
+    db
+      .select({
+        id: pmsOpportunities.id,
+        customerName: pmsOpportunities.customerName,
+        projectName: pmsOpportunities.projectName,
+        dealerOrgId: pmsOpportunities.dealerOrgId,
+        estimatedAmount: pmsOpportunities.estimatedAmount,
+        createdAt: pmsOpportunities.createdAt,
+      })
+      .from(pmsOpportunities)
+      .where(pendingReviewWhere)
+      .orderBy(desc(pmsOpportunities.createdAt))
+      .limit(pendingReviewPage.pageSize)
+      .offset(pendingReviewPage.offset),
+    db
+      .select({ total: count() })
+      .from(pmsOpportunities)
+      .where(pendingReviewWhere),
+  ]);
+  const reviewTotal = Number(reviewCountRows[0]?.total ?? 0);
+  const dealerOrgIds = Array.from(new Set(reviewRows.map((r) => r.dealerOrgId).filter(Boolean)));
+  const dealerOrgNameById = new Map<string, string>();
+  if (dealerOrgIds.length > 0) {
+    const orgs = await getStore().organizations.list({ tenantId });
+    orgs
+      .filter((org) => dealerOrgIds.includes(org.id))
+      .forEach((org) => dealerOrgNameById.set(org.id, org.name));
+  }
   const reviewItems = reviewRows.map((r) => ({
     id: r.id,
     customerName: r.customerName,
     projectName: r.projectName,
     dealerOrgId: r.dealerOrgId,
+    dealerOrgName: dealerOrgNameById.get(r.dealerOrgId),
     estimatedAmount: r.estimatedAmount ? parseFloat(r.estimatedAmount) : 0,
     createdAt: r.createdAt.toISOString(),
   }));
@@ -195,11 +271,11 @@ export async function assembleDealDesk(input: { tenantId: string; now?: Date }):
 
   return {
     generatedAt: now.toISOString(),
-    appeals: { total: appealItems.length, items: appealItems.slice(0, 20) },
-    duplicates: { total: dupItems.length, items: dupItems.slice(0, 20) },
-    lifecycle: { blue, yellow, red, items: lifecycleItems.slice(0, 20) },
-    dataQuality: { missingContact, orphan, items: dqItems.slice(0, 20) },
+    appeals: { total: appealTotal, page: pageMeta(appealTotal, appealPage.page, appealPage.pageSize), items: appealItems },
+    duplicates: { total: duplicateTotal, page: pageMeta(duplicateTotal, duplicatePage.page, duplicatePage.pageSize), items: dupItems },
+    lifecycle: { blue, yellow, red, total: lifecycleTotal, page: pageMeta(lifecycleTotal, lifecyclePage.page, lifecyclePage.pageSize), items: lifecyclePageItems },
+    dataQuality: { missingContact, orphan, total: dataQualityTotal, page: pageMeta(dataQualityTotal, dataQualityPage.page, dataQualityPage.pageSize), items: dataQualityPageItems },
     contracts: { pending: Number(contractAgg[0]?.n ?? 0), amount: Math.round(Number(contractAgg[0]?.amt ?? 0)) },
-    pendingReviews: { total: reviewItems.length, items: reviewItems.slice(0, 20) },
+    pendingReviews: { total: reviewTotal, page: pageMeta(reviewTotal, pendingReviewPage.page, pendingReviewPage.pageSize), items: reviewItems },
   };
 }

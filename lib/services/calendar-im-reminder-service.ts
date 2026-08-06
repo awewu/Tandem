@@ -14,7 +14,7 @@ export interface CalendarImReminderResult {
   reused: boolean;
 }
 
-const CALENDAR_IM_TOPIC_PREFIX = 'calendar:event:';
+export const CALENDAR_IM_TOPIC_PREFIX = 'calendar:event:';
 const ACTIVE_EVENT_STATUSES = new Set<CalendarEvent['status']>(['confirmed', 'tentative']);
 
 class CalendarImReminderError extends DomainError {
@@ -24,15 +24,19 @@ class CalendarImReminderError extends DomainError {
 }
 
 export class CalendarImReminderService {
-  constructor(private readonly ctx: CalendarImReminderContext) {}
+  constructor(
+    private readonly ctx: CalendarImReminderContext,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
 
-  async listCandidates(actorId: string, tenantId: string): Promise<CalendarEvent[]> {
-    await this.cleanupExpiredOneTimeMeetingGroups(tenantId);
+  async listCandidates(actorId: string, tenantId: string, now = this.now()): Promise<CalendarEvent[]> {
     const events = await this.ctx.calendarRepo.list({ tenantId });
     const cancellationMarkers = await listCancellationMarkers(tenantId, events);
     return events
       .filter((event) => (event.ownerId === actorId || event.attendees.includes(actorId)))
       .filter((event) => ACTIVE_EVENT_STATUSES.has(event.status))
+      .filter((event) => !isEndedEvent(event, now))
+      .filter((event) => event.attendees.length > 0)
       .filter((event) => !cancellationMarkers.eventIds.has(event.id))
       .filter((event) => !event.seriesId || !cancellationMarkers.seriesIds.has(event.seriesId))
       .sort((a, b) => a.startAt.localeCompare(b.startAt));
@@ -43,6 +47,7 @@ export class CalendarImReminderService {
     if (!event) throw new NotFoundError('CalendarEvent', eventId);
     if ((event.tenantId ?? 'default') !== tenantId) throw new NotFoundError('CalendarEvent', eventId);
     if (!ACTIVE_EVENT_STATUSES.has(event.status)) throw new ValidationError('已取消会议不可提醒');
+    if (isEndedEvent(event, this.now())) throw new ValidationError('已结束会议不可提醒');
     if (event.ownerId !== actorId && !event.attendees.includes(actorId)) {
       throw new ForbiddenError('只能提醒自己发起或参与的会议');
     }
@@ -51,11 +56,11 @@ export class CalendarImReminderService {
     }
 
     const memberIds = Array.from(new Set([actorId, event.ownerId, ...event.attendees].filter(Boolean)));
-    const topic = topicForEvent(event.id);
+    const topic = topicForEvent(event);
     let existing: ImChannel | null = null;
     let channel: ImChannel;
     try {
-      existing = await this.findExistingChannel(topic, tenantId);
+      existing = await this.findExistingChannel(event.id, tenantId);
       channel = existing
         ? await this.ensureMembers(existing, memberIds)
         : await createChannel({
@@ -68,6 +73,13 @@ export class CalendarImReminderService {
             tenantId,
             autoCreated: true,
           });
+      if (existing && channel.topic !== topic) {
+        channel = await getStore().imChannels.update(channel.id, {
+          name: `会议：${event.title}`,
+          topic,
+          updatedAt: new Date().toISOString(),
+        });
+      }
     } catch (error) {
       throw new CalendarImReminderError('IM_CHANNEL_CREATE_FAILED', 'IM 群创建失败，请稍后重试', {
         cause: error instanceof Error ? error.message : String(error),
@@ -103,9 +115,14 @@ export class CalendarImReminderService {
         continue;
       }
 
-      const eventId = channel.topic.slice(CALENDAR_IM_TOPIC_PREFIX.length);
+      const eventId = eventIdFromTopic(channel.topic);
       const event = await this.ctx.calendarRepo.findById(eventId);
-      if (!event || (event.tenantId ?? 'default') !== tenantId || !isExpiredOneTimeEvent(event, now)) {
+      if (
+        event &&
+        (event.tenantId ?? 'default') === tenantId &&
+        event.status !== 'cancelled' &&
+        !isExpiredOneTimeEvent(event, now)
+      ) {
         continue;
       }
 
@@ -119,9 +136,10 @@ export class CalendarImReminderService {
     return archivedCount;
   }
 
-  private async findExistingChannel(topic: string, tenantId: string): Promise<ImChannel | null> {
-    const channels = await getStore().imChannels.list({ tenantId, topic });
-    return channels.find((channel) => !channel.archivedAt) ?? null;
+  private async findExistingChannel(eventId: string, tenantId: string): Promise<ImChannel | null> {
+    const channels = await getStore().imChannels.list({ tenantId });
+    const marker = `${CALENDAR_IM_TOPIC_PREFIX}${eventId}`;
+    return channels.find((channel) => !channel.archivedAt && channel.topic?.startsWith(marker)) ?? null;
   }
 
   private async ensureMembers(channel: ImChannel, requiredMemberIds: string[]): Promise<ImChannel> {
@@ -138,6 +156,7 @@ export class CalendarImReminderService {
           id,
           channelId: channel.id,
           userId,
+          tenantId: channel.tenantId ?? 'default',
           role: 'member',
           joinedAt: now,
           unreadCount: 0,
@@ -153,12 +172,48 @@ export class CalendarImReminderService {
   }
 }
 
-function topicForEvent(eventId: string): string {
-  return `${CALENDAR_IM_TOPIC_PREFIX}${eventId}`;
+function topicForEvent(event: CalendarEvent): string {
+  return `${CALENDAR_IM_TOPIC_PREFIX}${event.id}|${calendarTopicTitle(event.title)}|${formatDateRange(event.startAt, event.endAt, event.timezone)}`;
+}
+
+function calendarTopicTitle(title: string): string {
+  return title.replace(/\|/g, '/').trim() || '未命名会议';
+}
+
+export function eventIdFromTopic(topic: string): string {
+  return topic.slice(CALENDAR_IM_TOPIC_PREFIX.length).split('|', 1)[0] ?? '';
+}
+
+function formatDateRange(startIso: string, endIso: string, timeZone?: string | null): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${startIso} - ${endIso}`;
+  }
+  const localeOptions = timeZone ? { timeZone } : undefined;
+  const startDay = start.toLocaleDateString('zh-CN', localeOptions);
+  const endDay = end.toLocaleDateString('zh-CN', localeOptions);
+  const sameDay = startDay === endDay;
+  const startLabel = start.toLocaleString('zh-CN', {
+    ...localeOptions,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const endLabel = end.toLocaleString('zh-CN', sameDay
+    ? { ...localeOptions, hour: '2-digit', minute: '2-digit' }
+    : { ...localeOptions, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `${startLabel} - ${endLabel}`;
 }
 
 function isExpiredOneTimeEvent(event: CalendarEvent, now: Date): boolean {
   if (event.seriesId || event.recurrenceIndex != null || event.recurringRule) return false;
+  return isEndedEvent(event, now);
+}
+
+function isEndedEvent(event: CalendarEvent, now: Date): boolean {
   const endAt = new Date(event.endAt).getTime();
   return Number.isFinite(endAt) && endAt <= now.getTime();
 }
@@ -213,18 +268,19 @@ function buildReminderMessage(event: CalendarEvent): string {
   return [
     `【会议提醒】${event.title}`,
     '',
-    `开始时间：${formatDateTime(event.startAt)}`,
-    `结束时间：${formatDateTime(event.endAt)}`,
+    `开始时间：${formatDateTime(event.startAt, event.timezone)}`,
+    `结束时间：${formatDateTime(event.endAt, event.timezone)}`,
     `地点/会议方式：${place}`,
     '',
     '请相关参会人准时参加。',
   ].join('\n');
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string, timeZone?: string | null): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString('zh-CN', {
+    ...(timeZone ? { timeZone } : undefined),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

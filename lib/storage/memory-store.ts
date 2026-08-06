@@ -426,6 +426,7 @@ export function createInMemoryStore(): TandemStore {
     workflowTasks: new InMemoryRepository(),
     workflowTaskForms: new InMemoryRepository(),
     workflowCcs: new InMemoryRepository(),
+    workflowAttachments: new InMemoryRepository(),
     meetingBookings: new InMemoryRepository(),
     aiSettings: new InMemoryRepository(),
     hardRefuseConfig: new InMemoryRepository(),

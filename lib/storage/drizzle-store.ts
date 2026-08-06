@@ -1543,6 +1543,7 @@ export function createDrizzleStore(): TandemStore {
     workflowTasks: new DrizzleKvRepository('workflow_tasks'),
     workflowTaskForms: new DrizzleKvRepository('workflow_task_forms'),
     workflowCcs: new DrizzleKvRepository('workflow_ccs'),
+    workflowAttachments: new DrizzleKvRepository('workflow_attachments'),
     meetingBookings: new DrizzleKvRepository('meeting_bookings'),
     aiSettings: new DrizzleKvRepository('ai_settings'),
     hardRefuseConfig: new DrizzleKvRepository('hard_refuse_config'),
