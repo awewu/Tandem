@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1778,7 +1778,6 @@ function StartTab(props: {
               </div>
               <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-10">
                 {rows.map((workflow) => {
-                  const selected = props.selectedWorkflowId === workflow.id;
                   const launchFormId = workflow.nodeForms[0]?.formTemplateIds[0];
                   const launchForm = launchFormId ? props.forms.find((form) => form.id === launchFormId) : undefined;
                   const disabled = !launchForm;
@@ -1791,9 +1790,7 @@ function StartTab(props: {
                       onClick={() => selectWorkflow(workflow)}
                       className="group min-w-0 rounded-md text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55"
                     >
-                      <span className={`mx-auto flex h-12 w-12 items-center justify-center rounded-md text-title-3 font-bold transition-colors ${
-                        selected ? 'bg-brand-500 text-white' : 'bg-brand-500/10 text-brand-600 group-hover:bg-brand-500 group-hover:text-white group-focus-visible:bg-brand-500 group-focus-visible:text-white'
-                      }`}>
+                      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-brand-500/10 text-title-3 font-bold text-brand-600 transition-colors group-hover:bg-brand-500 group-hover:text-white group-active:bg-brand-500 group-active:text-white group-focus-visible:bg-brand-500 group-focus-visible:text-white">
                         {workflowInitial(workflow.name)}
                       </span>
                       <span className="mt-2 block truncate text-caption font-semibold text-ink-primary">{workflow.name}</span>
@@ -1904,7 +1901,7 @@ function WorkflowStartDialog(props: {
             </aside>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-border bg-surface-0 px-5 py-4">
+          <div data-workflow-form-footer className="flex justify-end gap-2 border-t border-border bg-surface-1 px-5 py-4">
             <Button type="button" variant="outline" onClick={props.onClose}>取消</Button>
             <Button type="submit" disabled={props.saving} className="bg-brand-500 text-white hover:bg-brand-600">
               <Send className="mr-2 h-4 w-4" />
@@ -4070,12 +4067,12 @@ function workflowTimelineNodeState(instance: WorkflowInstance, node: WorkflowNod
 
 function workflowTimelineParticipants(instance: WorkflowInstance, node: WorkflowNode, tasks: WorkflowTask[], users: WorkflowDirectoryUser[]): WorkflowTimelineParticipant[] {
   if (node.type === 'start') {
-    return [{ key: instance.initiatorId, label: formatWorkflowPersonDisplay(instance.initiatorId, instance.initiatorName || instance.initiatorEmail, users) }];
+    return [{ key: instance.initiatorId, label: formatWorkflowTimelinePerson(instance.initiatorId, instance.initiatorName, users) }];
   }
   if (tasks.length > 0) {
     return tasks.map((task) => ({
       key: task.id,
-      label: task.assigneeName && task.assigneeEmail ? `${task.assigneeName}（${task.assigneeEmail}）` : task.assigneeName || task.assigneeEmail,
+      label: formatWorkflowTimelinePerson(task.assigneeId, task.assigneeName, users),
       status: workflowTaskProgressLabel(task),
     }));
   }
@@ -4088,15 +4085,15 @@ function workflowTimelineParticipants(instance: WorkflowInstance, node: Workflow
 
 function workflowTimelineRuleReferences(instance: WorkflowInstance, nodeId: string, mode: WorkflowAssigneeMode, value: string | undefined, users: WorkflowDirectoryUser[]): string[] {
   const values = parseAssigneeValues(value ?? '');
-  if (mode === 'initiator') return [formatWorkflowPersonDisplay(instance.initiatorId, instance.initiatorName || instance.initiatorEmail, users)];
+  if (mode === 'initiator') return [formatWorkflowTimelinePerson(instance.initiatorId, instance.initiatorName, users)];
   if (mode === 'user') return workflowPeopleFromReferences(values, users);
   if (mode === 'choice') return workflowPeopleFromReferences(workflowFormValues(instance.runtimeAssignees?.[nodeId]), users);
-  if (mode === 'role') return users.filter((user) => (user.roles ?? []).some((role) => values.includes(role))).map(formatWorkflowUserDisplay);
-  if (mode === 'admin') return users.filter((user) => (user.roles ?? []).some((role) => ['admin', 'owner'].includes(role))).map(formatWorkflowUserDisplay);
+  if (mode === 'role') return users.filter((user) => (user.roles ?? []).some((role) => values.includes(role))).map(formatWorkflowTimelineUserName);
+  if (mode === 'admin') return users.filter((user) => (user.roles ?? []).some((role) => ['admin', 'owner'].includes(role))).map(formatWorkflowTimelineUserName);
   if (mode === 'formUser') return workflowPeopleFromReferences(workflowFormValues(value ? instance.formData?.[value] : undefined), users);
   if (mode === 'formRole') {
     const roles = workflowFormValues(value ? instance.formData?.[value] : undefined);
-    return users.filter((user) => (user.roles ?? []).some((role) => roles.includes(role))).map(formatWorkflowUserDisplay);
+    return users.filter((user) => (user.roles ?? []).some((role) => roles.includes(role))).map(formatWorkflowTimelineUserName);
   }
   if (mode === 'leader') return ['直属上级（流转时确定）'];
   if (mode === 'orgLeader') return ['组织主管（流转时确定）'];
@@ -4107,8 +4104,17 @@ function workflowTimelineRuleReferences(instance: WorkflowInstance, nodeId: stri
 function workflowPeopleFromReferences(references: string[], users: WorkflowDirectoryUser[]): string[] {
   return references.map((reference) => {
     const user = findWorkflowUser(users, reference);
-    return user ? formatWorkflowUserDisplay(user) : '人员信息已不可用';
+    return user ? formatWorkflowTimelineUserName(user) : '人员信息已不可用';
   });
+}
+
+function formatWorkflowTimelinePerson(id: string, fallbackName: string | undefined, users: WorkflowDirectoryUser[]): string {
+  const user = findWorkflowUser(users, id);
+  return user ? formatWorkflowTimelineUserName(user) : formatWorkflowApprovalPersonName(fallbackName);
+}
+
+function formatWorkflowTimelineUserName(user: Pick<WorkflowDirectoryUser, 'email' | 'name'>): string {
+  return formatWorkflowApprovalPersonName(user.name, user.email);
 }
 
 function workflowTaskProgressLabel(task: WorkflowTask): string {
@@ -4300,7 +4306,9 @@ function WorkflowUserSearchSelect(props: {
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<'top' | 'bottom'>('bottom');
   const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
   const users = useMemo(() => props.users.filter((user) => !user.disabled), [props.users]);
   const selected = findWorkflowUser(users, props.value);
   const filtered = useMemo(() => {
@@ -4316,9 +4324,26 @@ function WorkflowUserSearchSelect(props: {
     setOpen(false);
   }
 
+  function openPicker() {
+    const root = rootRef.current;
+    if (root) {
+      const rootRect = root.getBoundingClientRect();
+      const form = root.closest('form');
+      const footer = form?.querySelector<HTMLElement>('[data-workflow-form-footer]');
+      const formRect = form?.getBoundingClientRect();
+      const lowerBoundary = footer?.getBoundingClientRect().top ?? window.innerHeight - 16;
+      const upperBoundary = formRect?.top ?? 16;
+      const spaceBelow = lowerBoundary - rootRect.bottom;
+      const spaceAbove = rootRect.top - upperBoundary;
+      setPlacement(spaceBelow < 220 && spaceAbove > spaceBelow ? 'top' : 'bottom');
+    }
+    setOpen(true);
+  }
+
   return (
     <div
-      className="relative"
+      ref={rootRef}
+      className={`relative ${open ? 'z-[60]' : ''}`}
       onBlur={(event) => {
         const nextFocus = event.relatedTarget;
         if (nextFocus instanceof Node && event.currentTarget.contains(nextFocus)) return;
@@ -4335,11 +4360,11 @@ function WorkflowUserSearchSelect(props: {
           onFocus={() => {
             if (props.readonly) return;
             setQuery('');
-            setOpen(true);
+            openPicker();
           }}
           onChange={(event) => {
             setQuery(event.target.value);
-            setOpen(true);
+            openPicker();
           }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
@@ -4358,7 +4383,7 @@ function WorkflowUserSearchSelect(props: {
         <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-ink-tertiary" />
       </div>
       {open && !props.readonly && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-border bg-surface-0 shadow-xl">
+        <div role="listbox" aria-label={`${props.label}选项`} className={`absolute left-0 z-[70] w-full overflow-hidden rounded-md border border-border bg-surface-1 shadow-soft-xl ${placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <div className="max-h-64 overflow-y-auto p-1">
             {visible.map((user) => (
               <button
@@ -4366,7 +4391,9 @@ function WorkflowUserSearchSelect(props: {
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(user)}
-                className="flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-left hover:bg-surface-1"
+                className="flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-left hover:bg-surface-2"
+                role="option"
+                aria-selected={selected?.id === user.id}
               >
                 <Check className={`h-4 w-4 shrink-0 text-brand-600 ${selected?.id === user.id ? 'opacity-100' : 'opacity-0'}`} />
                 <span className="min-w-0 flex-1">
@@ -4873,8 +4900,7 @@ function workflowInitial(name: string): string {
 }
 
 function formatLaunchPreviewPerson(person: WorkflowLaunchPreview['initiator']): string {
-  const name = person.name?.trim();
-  return name && name !== person.email ? `${name}（${person.email}）` : person.email;
+  return formatWorkflowApprovalPersonName(person.name, person.email);
 }
 
 function launchPreviewPeople(
@@ -4906,8 +4932,16 @@ function workflowDirectoryPeople(values: string[] | undefined, users: WorkflowDi
 }
 
 function formatWorkflowDirectoryPerson(user: WorkflowDirectoryUser): string {
-  const name = user.name?.trim();
-  return name && user.email ? `${name}（${user.email}）` : name || user.email;
+  return formatWorkflowApprovalPersonName(user.name, user.email);
+}
+
+function formatWorkflowApprovalPersonName(name?: string | null, email?: string | null): string {
+  const normalizedName = name?.trim();
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedName || normalizedName.includes('@') || normalizedName.toLowerCase() === normalizedEmail) {
+    return '人员信息已不可用';
+  }
+  return normalizedName;
 }
 
 function RuntimeLaunchPreviewRow(props: { title: string; people: string[]; action?: ReactNode; active?: boolean; hasNext?: boolean }) {
@@ -5010,12 +5044,6 @@ function workflowFieldHasDisplayValue(value: unknown): boolean {
 function formatWorkflowPersonName(id: string, fallback: string, users: WorkflowDirectoryUser[]): string {
   const user = findWorkflowUser(users, id) || findWorkflowUser(users, fallback);
   return user ? formatWorkflowUserName(user) : fallback || '-';
-}
-
-function formatWorkflowPersonDisplay(id: string, fallback: string, users: WorkflowDirectoryUser[]): string {
-  const user = findWorkflowUser(users, id) || findWorkflowUser(users, fallback);
-  if (user) return formatWorkflowUserDisplay(user);
-  return fallback || '人员信息已不可用';
 }
 
 function normalizeWorkflowAttachments(value: unknown): WorkflowFormAttachment[] {
