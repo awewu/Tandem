@@ -16,6 +16,7 @@ import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import { StartDmDialog } from '@/components/im/start-dm-dialog';
 import ImSearchOverlay from '@/components/im/ImSearchOverlay';
+import { ImCombinedSearchOverlay } from '@/components/im/ImCombinedSearchOverlay';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
@@ -126,7 +127,10 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const [showDm, setShowDm] = useState(false);
   const [showSeedOrg, setShowSeedOrg] = useState(false);
   const [showMsgSearch, setShowMsgSearch] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
+  const channelsLoadInFlightRef = useRef<Promise<void> | null>(null);
+  const showMsgSearchRef = useRef(false);
 
   const activeId = searchParams?.get('ch') ?? null;
   const isImRoute = pathname?.startsWith('/im') ?? false;
@@ -136,7 +140,15 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     setShowCreate(true);
   });
 
-  const loadChannels = useCallback(async () => {
+  useEffect(() => {
+    showMsgSearchRef.current = showMsgSearch;
+  }, [showMsgSearch]);
+
+  const loadChannels = useCallback(async (options: { force?: boolean } = {}) => {
+    if (showMsgSearchRef.current && !options.force) return;
+    if (channelsLoadInFlightRef.current) return channelsLoadInFlightRef.current;
+
+    const request = (async () => {
     try {
       const res = await fetch(`/api/im/channels?userId=${ME}`, { cache: 'no-store' });
       const data = await res.json();
@@ -151,40 +163,24 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         if (isDesktop) router.replace(`/im?ch=${list[0].id}`);
       }
     } catch { /* ignore */ }
+    })().finally(() => {
+      channelsLoadInFlightRef.current = null;
+    });
+    channelsLoadInFlightRef.current = request;
+    return request;
   }, [ME, activeId, isImRoute, router]);
 
-  useEffect(() => { void loadChannels(); }, [loadChannels]);
+  useEffect(() => { void loadChannels({ force: true }); }, [loadChannels]);
 
-  // 兜底刷新会话列表。当前聊天区标已读/发消息后会派发事件立即刷新。
+  // 简单兜底刷新: 初次加载 + 30s 轮询。搜索弹层打开时暂停，避免干扰搜索。
   useEffect(() => {
-    const refresh = () => void loadChannels();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    window.addEventListener('tandem:im-channels-refresh', refresh);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', onVisibilityChange);
     const id = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       void loadChannels();
     }, 30_000);
     return () => {
-      window.removeEventListener('tandem:im-channels-refresh', refresh);
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(id);
     };
-  }, [loadChannels]);
-
-  useEffect(() => {
-    const es = new EventSource('/api/im/stream');
-    const refresh = () => void loadChannels();
-    es.addEventListener('unread', refresh);
-    es.addEventListener('channel', refresh);
-    es.onerror = () => {
-      es.close();
-    };
-    return () => es.close();
   }, [loadChannels]);
 
   const filteredChannels = useMemo(() => {
@@ -235,19 +231,41 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     router.replace(`/im?ch=${encodeURIComponent(id)}`);
   }
 
-  // 全局消息全文/语义搜索 (与顶部"搜索"频道名过滤不同): 命中后带 ?msg= 跳转并高亮定位。
-  function openMessageSearch() {
+  // 全局消息词面搜索 (与顶部"搜索"频道名过滤不同): 命中后带 ?msg= 跳转并高亮定位。
+  function openMessageSearch(initialQuery = '') {
+    const nextQuery = initialQuery.trim() || search.trim();
+    if (!nextQuery) return;
+    setMessageSearchQuery(nextQuery);
     setShowMsgSearch(true);
   }
   const messageSearchOverlay = showMsgSearch ? (
-    <ImSearchOverlay
-      nameOf={nameOf}
-      onClose={() => setShowMsgSearch(false)}
-      onSelect={(chId, messageId) => {
-        setShowMsgSearch(false);
-        router.push(`/im?ch=${encodeURIComponent(chId)}&msg=${encodeURIComponent(messageId)}`);
-      }}
-    />
+    collapsed ? (
+      <ImSearchOverlay
+        nameOf={nameOf}
+        initialQuery={messageSearchQuery}
+        onClose={() => setShowMsgSearch(false)}
+        onSelect={(chId, messageId) => {
+          setShowMsgSearch(false);
+          router.push(`/im?ch=${encodeURIComponent(chId)}&msg=${encodeURIComponent(messageId)}`);
+        }}
+      />
+    ) : (
+      <ImCombinedSearchOverlay
+        query={messageSearchQuery}
+        channels={channels}
+        currentUserId={ME}
+        nameOf={nameOf}
+        onClose={() => setShowMsgSearch(false)}
+        onSelectChannel={(chId) => {
+          setShowMsgSearch(false);
+          router.replace(`/im?ch=${encodeURIComponent(chId)}`);
+        }}
+        onSelectMessage={(chId, messageId) => {
+          setShowMsgSearch(false);
+          router.push(`/im?ch=${encodeURIComponent(chId)}&msg=${encodeURIComponent(messageId)}`);
+        }}
+      />
+    )
   ) : null;
 
   if (collapsed) {
@@ -256,7 +274,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       <div className="flex flex-col items-center gap-1 py-2">
         <button
           type="button"
-          onClick={openMessageSearch}
+          onClick={() => openMessageSearch()}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
           title="搜索聊天记录"
         >
@@ -316,19 +334,19 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           onOpenChange={(v) => { setShowCreate(v); if (!v) setHandoffDraft(null); }}
           currentUserId={ME}
           prefillDraft={handoffDraft}
-          onCreated={(id) => { void loadChannels(); selectChannel(id); }}
+          onCreated={(id) => { void loadChannels({ force: true }); selectChannel(id); }}
         />
         <StartDmDialog
           open={showDm}
           onOpenChange={setShowDm}
           currentUserId={ME}
-          onStarted={(id) => { void loadChannels(); selectChannel(id); }}
+          onStarted={(id) => { void loadChannels({ force: true }); selectChannel(id); }}
         />
         <SeedFromOrgDialog
           open={showSeedOrg}
           onOpenChange={setShowSeedOrg}
           currentUserId={ME}
-          onSeeded={() => void loadChannels()}
+          onSeeded={() => void loadChannels({ force: true })}
         />
         {messageSearchOverlay}
       </div>
@@ -336,18 +354,18 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   }
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col">
+    <div className="flex h-full w-full min-w-0 overflow-hidden flex-col">
       {/* 顶栏: 标题 + 新建 */}
-      <div className="flex shrink-0 items-center justify-between px-3 pb-2 pt-1">
-        <span className="text-[13px] font-semibold text-ink-primary">
-          消息
+      <div className="flex min-w-0 shrink-0 items-center justify-between gap-1 px-3 pb-2 pt-1">
+        <span className="flex min-w-0 items-center text-[13px] font-semibold text-ink-primary">
+          <span className="min-w-0 truncate whitespace-nowrap">消息</span>
           {totalUnread > 0 && (
-            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+            <span className="ml-1.5 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
               {totalUnread > 99 ? '99+' : totalUnread}
             </span>
           )}
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"
             onClick={() => setShowDm(true)}
@@ -385,143 +403,149 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
 
       {/* 搜索框 (会话名过滤) + 全局消息搜索入口 */}
       <div className="shrink-0 px-2 pb-2">
-        <div className="flex items-center gap-1.5 rounded-md bg-surface-3 px-2.5 py-1.5">
+        <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-surface-3 px-2.5 py-1.5">
           <Search className="h-3 w-3 shrink-0 text-ink-tertiary" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (showMsgSearch) setMessageSearchQuery(e.target.value);
+            }}
             placeholder="搜索会话"
-            className="flex-1 bg-transparent text-[12px] text-ink-primary placeholder:text-ink-tertiary outline-none"
+            className="min-w-0 flex-1 truncate bg-transparent text-[12px] text-ink-primary placeholder:text-ink-tertiary outline-none"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                openMessageSearch(search);
+              }
+            }}
           />
+          <button
+            type="button"
+            onClick={() => openMessageSearch(search)}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary"
+            title="搜索聊天记录"
+          >
+            <Search className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={openMessageSearch}
-          className="mt-1.5 flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[11.5px] text-ink-tertiary transition-colors hover:bg-surface-3 hover:text-ink-secondary"
-          title="全文 + 语义搜索聊天记录"
-        >
-          <Search className="h-3 w-3 shrink-0" />
-          <span>搜索聊天记录…</span>
-        </button>
       </div>
 
       {/* 分组 tabs */}
-      <div className="shrink-0 overflow-x-auto px-2 pb-2">
-        <div className="flex gap-1">
-          {FILTER_TABS.map(({ id, label, icon: Icon }) => {
-            const cnt = groupCounts[id as keyof typeof groupCounts];
-            const active = activeFilter === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveFilter(active ? 'all' : id)}
-                className={cn(
-                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                  active
-                    ? 'bg-brand-100 text-brand-700'
-                    : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 hover:text-ink-primary',
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                {label}
-                {cnt > 0 && (
-                  <span className={cn(
-                    'inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] font-bold',
-                    active ? 'bg-brand-500 text-white' : 'bg-danger text-white',
-                  )}>
-                    {cnt > 99 ? '99+' : cnt}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 会话列表 */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredChannels.length === 0 && (
-          <div className="px-3 py-8 text-center text-[12px] text-ink-tertiary">
-            {search
-              ? '无匹配结果'
-              : activeFilter === 'unread' ? '没有未读消息'
-              : activeFilter === 'at' ? '没有 @ 我的消息'
-              : activeFilter === 'dm' ? '还没有单聊'
-              : activeFilter === 'group' ? '还没有群聊'
-              : activeFilter === 'dept' ? '还没有部门群'
-              : activeFilter === 'marked' ? '还没有标记的会话'
-              : '还没有会话'}
+          <div className="shrink-0 overflow-x-auto px-2 pb-2">
+            <div className="flex gap-1">
+              {FILTER_TABS.map(({ id, label, icon: Icon }) => {
+                const cnt = groupCounts[id as keyof typeof groupCounts];
+                const active = activeFilter === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveFilter(active ? 'all' : id)}
+                    className={cn(
+                      'flex max-w-24 shrink-0 items-center gap-1 overflow-hidden rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                      active
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 hover:text-ink-primary',
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span className="min-w-0 truncate whitespace-nowrap">{label}</span>
+                    {cnt > 0 && (
+                      <span className={cn(
+                        'inline-flex h-3.5 min-w-3.5 shrink-0 items-center justify-center px-0.5 text-[9px] font-bold text-ink-secondary',
+                      )}>
+                        {cnt > 99 ? '99+' : cnt}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
-        {filteredChannels.map((c) => {
-          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : displayImChannelName(c);
-          const u = unreadStyle(c);
-          const active = activeId === c.id;
 
-          return (
-            <Link
-              key={c.id}
-              href={`/im?ch=${encodeURIComponent(c.id)}`}
-              scroll={false}
-              className={cn(
-                'flex w-full items-center gap-2.5 px-2 py-2 text-left transition-colors',
-                active
-                  ? 'bg-brand-50'
-                  : 'hover:bg-surface-3',
-              )}
-            >
-              <ConvAvatar channel={c} name={displayName} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1">
-                  <span className={cn(
-                    'truncate text-[12.5px]',
-                    active ? 'font-semibold text-brand-700' : u.show !== 'none' ? 'font-semibold text-ink-primary' : 'text-ink-primary',
-                  )}>
-                    {displayName}
-                  </span>
-                  <span className="shrink-0 text-[10px] text-ink-tertiary">
-                    {c.lastMessageAt ? formatRelative(c.lastMessageAt) : ''}
-                  </span>
-                </div>
-                <div className="mt-0.5 flex items-center justify-between gap-1">
-                  <span className="truncate text-[11px] text-ink-secondary">
-                    {c.lastMessagePreview ?? ''}
-                  </span>
-                  {u.show !== 'none' && (
-                    <span className={cn(
-                      'flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white',
-                      u.show === 'urgent' ? 'bg-danger' : 'bg-success',
-                    )}>
-                      {(u.count ?? 0) > 99 ? '99+' : u.count}
-                    </span>
-                  )}
-                </div>
+          {/* 会话列表 */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredChannels.length === 0 && (
+              <div className="px-3 py-8 text-center text-[12px] text-ink-tertiary">
+                {search
+                  ? '无匹配结果'
+                  : activeFilter === 'unread' ? '没有未读消息'
+                  : activeFilter === 'at' ? '没有 @ 我的消息'
+                  : activeFilter === 'dm' ? '还没有单聊'
+                  : activeFilter === 'group' ? '还没有群聊'
+                  : activeFilter === 'dept' ? '还没有部门群'
+                  : activeFilter === 'marked' ? '还没有标记的会话'
+                  : '还没有会话'}
               </div>
-            </Link>
-          );
-        })}
-      </div>
+            )}
+            {filteredChannels.map((c) => {
+              const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : displayImChannelName(c);
+              const u = unreadStyle(c);
+              const active = activeId === c.id;
 
+              return (
+                <Link
+                  key={c.id}
+                  href={`/im?ch=${encodeURIComponent(c.id)}`}
+                  scroll={false}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-2 py-2 text-left transition-colors',
+                    active
+                      ? 'bg-brand-50'
+                      : 'hover:bg-surface-3',
+                  )}
+                >
+                  <ConvAvatar channel={c} name={displayName} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className={cn(
+                        'truncate text-[12.5px]',
+                        active ? 'font-semibold text-brand-700' : u.show !== 'none' ? 'font-semibold text-ink-primary' : 'text-ink-primary',
+                      )}>
+                        {displayName}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-ink-tertiary">
+                        {c.lastMessageAt ? formatRelative(c.lastMessageAt) : ''}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-1">
+                      <span className="truncate text-[11px] text-ink-secondary">
+                        {c.lastMessagePreview ?? ''}
+                      </span>
+                      {u.show !== 'none' && (
+                        <span className={cn(
+                          'flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white',
+                          u.show === 'urgent' ? 'bg-danger' : 'bg-success',
+                        )}>
+                          {(u.count ?? 0) > 99 ? '99+' : u.count}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
       <CreateChannelDialog
         open={showCreate}
         onOpenChange={(v) => { setShowCreate(v); if (!v) setHandoffDraft(null); }}
         currentUserId={ME}
         prefillDraft={handoffDraft}
-        onCreated={(id) => { void loadChannels(); selectChannel(id); }}
+        onCreated={(id) => { void loadChannels({ force: true }); selectChannel(id); }}
       />
       <StartDmDialog
         open={showDm}
         onOpenChange={setShowDm}
         currentUserId={ME}
-        onStarted={(id) => { void loadChannels(); selectChannel(id); }}
+        onStarted={(id) => { void loadChannels({ force: true }); selectChannel(id); }}
       />
       <SeedFromOrgDialog
         open={showSeedOrg}
         onOpenChange={setShowSeedOrg}
         currentUserId={ME}
-        onSeeded={() => void loadChannels()}
+        onSeeded={() => void loadChannels({ force: true })}
       />
       {messageSearchOverlay}
     </div>

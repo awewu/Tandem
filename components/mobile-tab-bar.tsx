@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { hasExternalRole, hasInternalRole } from '@/lib/auth/roles';
 import { haptic } from '@/lib/haptics';
+import { useImUnreadCount } from '@/components/im/use-im-unread-count';
 
 interface Tab {
   id: string;
@@ -98,7 +99,7 @@ const CENTER_TAB: Tab = {
   matches: (p) => p.startsWith('/report'),
 };
 
-function TabItem({ tab, pathname }: { tab: Tab; pathname: string }) {
+function TabItem({ tab, pathname, badgeCount = 0 }: { tab: Tab; pathname: string; badgeCount?: number }) {
   const Icon = tab.icon;
   const active = tab.matches(pathname);
   return (
@@ -114,7 +115,14 @@ function TabItem({ tab, pathname }: { tab: Tab; pathname: string }) {
           : 'text-ink-tertiary dark:text-white/40',
       )}
     >
-      <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+      <span className="relative">
+        <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
+        {badgeCount > 0 && (
+          <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] px-1 text-[9px] font-semibold leading-none text-white">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
+      </span>
       <span className="leading-none">{tab.label}</span>
     </Link>
   );
@@ -125,6 +133,7 @@ export function MobileTabBar() {
   const { user } = useCurrentUser();
   const roles = user?.roles ?? [];
   const pureExternal = hasExternalRole(roles) && !hasInternalRole(roles);
+  const imUnread = useImUnreadCount(pureExternal ? null : user?.id);
 
   const centerActive = CENTER_TAB.matches(pathname);
   const CenterIcon = CENTER_TAB.icon;
@@ -201,7 +210,7 @@ export function MobileTabBar() {
 
       {/* 右侧 2 tab */}
       {RIGHT_TABS.map((t) => (
-        <TabItem key={t.id} tab={t} pathname={pathname} />
+        <TabItem key={t.id} tab={t} pathname={pathname} badgeCount={t.id === 'im' ? imUnread : 0} />
       ))}
     </nav>
   );

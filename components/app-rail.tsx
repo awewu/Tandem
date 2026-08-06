@@ -29,6 +29,7 @@ import {
 import { BrandLogo } from './brand-logo';
 import { UserMenu } from './user-menu';
 import { toast } from '@/hooks/use-toast';
+import { useImUnreadCount } from '@/components/im/use-im-unread-count';
 
 export default function AppRail() {
   const pathname = usePathname();
@@ -36,6 +37,7 @@ export default function AppRail() {
   const fetched = useAuthStore((s) => s.fetched);
   const [unreadCount, setUnreadCount] = useState(0);
   const [mailUnread, setMailUnread] = useState(0);
+  const imUnread = useImUnreadCount(user?.id);
 
   const userRoles: Role[] = useMemo(
     () =>
@@ -182,6 +184,11 @@ export default function AppRail() {
                 {m.id === 'mail' && mailUnread > 0 && (
                   <span className="absolute right-1.5 top-1 rounded-full bg-[rgb(var(--brand-500))] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
                     {mailUnread > 99 ? '99+' : mailUnread}
+                  </span>
+                )}
+                {m.id === 'im' && imUnread > 0 && (
+                  <span className="absolute right-1.5 top-1 rounded-full bg-[rgb(var(--brand-500))] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
+                    {imUnread > 99 ? '99+' : imUnread}
                   </span>
                 )}
                 <span className="text-[10px] font-medium leading-tight tracking-wide">

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * IM 搜索浮层 (§Sprint1 Megaplan · 全文 + 语义消息搜索)
+ * IM 搜索浮层 (§Sprint1 Megaplan · 词面消息搜索)
  *
  * - 输入 debounce 300ms → GET /api/im/search
  * - 结果点击 → onSelect(channelId, messageId) (页面导航并高亮定位)
@@ -26,6 +26,7 @@ export interface ImSearchResult {
 interface Props {
   /** 限定单频道搜索 (在频道内点搜索时传入)。不传 = 全部可见频道。 */
   channelId?: string;
+  initialQuery?: string;
   nameOf?: (userId: string) => string | undefined;
   onSelect: (channelId: string, messageId: string) => void;
   onClose: () => void;
@@ -45,8 +46,8 @@ function escapeRegExp(s: string): string {
 }
 
 /**
- * 高亮预览中命中的关键词 (词面一路才会命中; 语义只命中无字面化 → 不高亮。
- * 多词按空白拆分后做 alternation 匹配。split 捕获组使奇数位为命中段。
+ * 高亮预览中命中的关键词。多词按空白拆分后做 alternation 匹配。
+ * split 捕获组使奇数位为命中段。
  */
 function highlightMatch(text: string, query: string): ReactNode {
   const terms = query.trim().split(/\s+/).filter((t) => t.length > 0).map(escapeRegExp);
@@ -64,11 +65,12 @@ function highlightMatch(text: string, query: string): ReactNode {
   );
 }
 
-export default function ImSearchOverlay({ channelId, nameOf, onSelect, onClose }: Props) {
-  const [q, setQ] = useState('');
+export default function ImSearchOverlay({ channelId, initialQuery = '', nameOf, onSelect, onClose }: Props) {
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState<ImSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,23 +83,35 @@ export default function ImSearchOverlay({ channelId, nameOf, onSelect, onClose }
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    setQ(initialQuery);
+  }, [initialQuery]);
+
   const runSearch = useCallback(
     async (query: string) => {
       const term = query.trim();
       if (!term) {
         setResults([]);
         setSearched(false);
+        setError(null);
         return;
       }
       setLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams({ q: term });
         if (channelId) params.set('channelId', channelId);
         const res = await fetch(`/api/im/search?${params.toString()}`, { cache: 'no-store' });
         const data = await res.json();
-        setResults(res.ok ? (data.results ?? []) : []);
+        if (!res.ok) {
+          setResults([]);
+          setError(data.error ?? '搜索失败');
+          return;
+        }
+        setResults(data.results ?? []);
       } catch {
         setResults([]);
+        setError('搜索暂时不可用');
       } finally {
         setLoading(false);
         setSearched(true);
@@ -146,7 +160,19 @@ export default function ImSearchOverlay({ channelId, nameOf, onSelect, onClose }
 
         {/* 结果 */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {searched && !loading && results.length === 0 && (
+          {loading && (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-ink-tertiary">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <p className="text-[13px]">正在搜索聊天记录…</p>
+            </div>
+          )}
+          {error && !loading && (
+            <div className="flex flex-col items-center justify-center gap-1 py-12 text-ink-tertiary">
+              <Search className="h-6 w-6" />
+              <p className="text-[13px]">{error}</p>
+            </div>
+          )}
+          {searched && !loading && !error && results.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-1 py-12 text-ink-tertiary">
               <Search className="h-6 w-6" />
               <p className="text-[13px]">没有找到相关消息</p>
@@ -175,7 +201,7 @@ export default function ImSearchOverlay({ channelId, nameOf, onSelect, onClose }
           {!searched && !loading && (
             <div className="flex flex-col items-center justify-center gap-1 py-12 text-ink-tertiary">
               <p className="text-[13px]">输入关键词搜索历史消息</p>
-              <p className="text-[11px]">支持关键词与语义搜索</p>
+              <p className="text-[11px]">支持正文关键词和成员相关记录搜索</p>
             </div>
           )}
         </div>

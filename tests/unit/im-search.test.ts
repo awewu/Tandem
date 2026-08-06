@@ -1,12 +1,13 @@
 /**
- * IM 搜索 · 全文 + 语义混合检索测试 (§Sprint1 Megaplan)
+ * IM 搜索 · 正文词面检索测试 (§Sprint1 Megaplan)
  *
- * 覆盖 (memory-store; embedding 未配 → 纯词面一路):
+ * 覆盖 (memory-store; 不走语义向量搜索):
  *   - 跨频道关键词搜索只返回【当前用户可见频道】的消息 (权限边界)
  *   - channelId 过滤: 指定越权频道 → 空结果 (不泄露存在性)
  *   - 无匹配关键词 → 空
  *   - 撤回 (软删) 后不再被召回
  *   - 大小写不敏感子串匹配
+ *   - 搜成员名/ID 不返回正文未命中的聊天记录
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -20,18 +21,21 @@ beforeEach(() => {
 });
 
 /** u1 在 c1(与 u2); u3 在 c2(与 u2). u1 对 c2 无权。 */
-async function seedChannels() {
+async function seedChannels(userIds: { me?: string; other?: string; outsider?: string } = {}) {
+  const u1 = userIds.me ?? 'u1';
+  const u2 = userIds.other ?? 'u2';
+  const u3 = userIds.outsider ?? 'u3';
   const c1 = await createChannel({
     type: 'group',
     name: '产品群',
-    memberIds: ['u1', 'u2'],
-    createdBy: 'u1',
+    memberIds: [u1, u2],
+    createdBy: u1,
   });
   const c2 = await createChannel({
     type: 'group',
     name: '财务群',
-    memberIds: ['u2', 'u3'],
-    createdBy: 'u3',
+    memberIds: [u2, u3],
+    createdBy: u3,
   });
   return { c1, c2 };
 }
@@ -106,5 +110,17 @@ describe('searchMessages', () => {
     await sendMessage({ channelId: c1.id, senderId: 'u1', body: 'Deploy PIPELINE ready' });
     const results = await searchMessages({ userId: 'u1', tenantId: 'default', query: 'pipeline' });
     expect(results).toHaveLength(1);
+  });
+
+  it('搜成员名时不返回正文未命中的聊天记录', async () => {
+    const { c1 } = await seedChannels();
+    await sendMessage({ channelId: c1.id, senderId: 'u1', body: '这里也没有搜索词' });
+
+    const results = await searchMessages({
+      userId: 'u1',
+      tenantId: 'default',
+      query: '李煜涛',
+    });
+    expect(results).toEqual([]);
   });
 });

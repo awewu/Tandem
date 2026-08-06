@@ -7,7 +7,7 @@
  * 差异化: hover 消息 → 开议事室 / 沉淀 Memory / @AI分身 / 已读回执
  */
 
-import { Suspense, memo, useCallback, useState, useEffect, useMemo, useRef, type ComponentType, type CSSProperties } from 'react';
+import { Suspense, memo, useCallback, useState, useEffect, useLayoutEffect, useMemo, useRef, type ComponentType, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -251,6 +251,7 @@ function ImInner() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingInitialScrollChannelRef = useRef<string | null>(null);
   const typingLastSentRef = useRef(0);
   const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [typingIds, setTypingIds] = useState<string[]>([]);
@@ -479,10 +480,41 @@ function ImInner() {
   const INITIAL_PAGE = 50;
   const OLDER_PAGE = 50;
   const REFRESH_PAGE = 80;
+
+  useLayoutEffect(() => {
+    if (!activeId || msgParam || pendingInitialScrollChannelRef.current !== activeId) return;
+
+    const scrollToLatest = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    };
+
+    scrollToLatest();
+    const frame = requestAnimationFrame(() => {
+      scrollToLatest();
+      requestAnimationFrame(scrollToLatest);
+    });
+    const settleTimer = window.setTimeout(scrollToLatest, 80);
+    const finalTimer = window.setTimeout(() => {
+      scrollToLatest();
+      if (pendingInitialScrollChannelRef.current === activeId) {
+        pendingInitialScrollChannelRef.current = null;
+      }
+    }, 250);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+      window.clearTimeout(finalTimer);
+    };
+  }, [activeId, messages.length, msgParam]);
+
   async function loadMessages(chId: string) {
     const res = await fetch(`/api/im/channels/${chId}/messages?limit=${INITIAL_PAGE}`, { cache: 'no-store' });
     const data = await res.json();
     const msgs = (data.messages ?? []) as Message[];
+    if (!msgParam) pendingInitialScrollChannelRef.current = chId;
     setMessages(msgs);
     setHasMoreOlder(msgs.length >= INITIAL_PAGE);
     setLoadingOlder(false);
@@ -490,9 +522,6 @@ function ImInner() {
     // §B5 切频道回到贴底态, 清零新消息计数
     setNewMsgCount(0);
     setAtBottom(true);
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-    }, 30);
     void markActiveChannelRead(chId);
   }
 
