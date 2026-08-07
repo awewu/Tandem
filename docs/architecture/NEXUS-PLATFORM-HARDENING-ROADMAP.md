@@ -44,7 +44,7 @@
 ### A7. 双运行时收敛(legacy Express → NestJS)/ 老世界清除 — 🟡 进行中
 - 现状:legacy `server/`(Express+MongoDB, ~48k LOC)仍是**生产入口**(`node server-production.js`),且被 `packages/engines` 硬依赖(re-export `server/core/{ExportEngine,PromotionEngine}` + `server/engines/EconetPricingEngine`),这些引擎又服务于 charter 保留的**客户赋能独立产品线**(`services/api/src/modules/quote` 等,停挂载但目录留存)。→ 不能硬删 `server/`,须按序 cutover。
 - **M0(已完成):清老世界死掉的部署层** —— 删 legacy 6systems/V9 部署栈:`Dockerfile`(V9 单体)、`Dockerfile.frontend`(legacy nginx 静态)、`docker-compose.prod.yml`(6systems)、`docker/{mongo-init,nginx,nginx-frontend}`;dev `docker-compose.yml` 移除 legacy `app` 单体服务。生产运行时(server-production.js)与 guard:ledger 不受影响(35/0)。
-- **M1:引擎搬离 server/** —— 把 `ExportEngine/PromotionEngine/EconetPricingEngine` 从 `server/` 迁入 `packages/engines`(或独立产品线包),切断 `packages/engines → server/` 反向依赖。
+- **M1(已完成):引擎搬离 server/** —— `ExportEngine/PromotionEngine/EconetPricingEngine` 迁入 `packages/engines/src/`,`index` 改指本地,**切断 `packages/engines → server/` 反向依赖**(server/ 原件留到 M4)。顺带修复 `ExportEngine` 导出文档的旧 Rheem 红 `#C41230`→官方 `#E4002B`(11 处)。验证:`@rhautt/engines` 独立解析、test:api-units 189/189、guard:ledger 35/0。
 - **M2:NestJS 成为生产入口** —— server-production.js 的静态服务/兼容路由/v2 挂载迁到 NestJS(或前置反代);`start` 改指 NestJS。
 - **M3:剩余业务路由 + 数据** —— 逐路由 parity 测试后迁移;数据迁出 MongoDB → PostgreSQL;流量切换。
 - **M4:删 legacy `server/` 主体 + MongoDB 退役。**

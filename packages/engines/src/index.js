@@ -4,12 +4,12 @@
  * 目的：NestJS 目标端通过 `require('@rhautt/engines')` 干净消费计算引擎，
  * 取代散落在各服务里的深层相对 require（`../../../../../server/core/X`）。
  *
- * 当前实现：从 legacy `server/core` / `server/engines` 重导出——单一收口点。
- * 后续：引擎逐个迁入本包，重导出替换为真实实现（消费方 import 路径不变）。
+ * 实现：引擎已迁入本包（cutover M1），不再依赖 legacy `server/`。
+ * legacy `server/` 内部仍保留各自副本供其自用，随 server/ 退役(M4)一并清除。
  */
-const ExportEngine = require('../../../server/core/ExportEngine');
-const PromotionEngine = require('../../../server/core/PromotionEngine');
-const EconetPricingEngine = require('../../../server/engines/EconetPricingEngine');
+const ExportEngine = require('./ExportEngine');
+const PromotionEngine = require('./PromotionEngine');
+const EconetPricingEngine = require('./EconetPricingEngine');
 
 module.exports = {
   ExportEngine,

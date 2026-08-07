@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-// Compatibility exports while the retained calculation engines are migrated from legacy JS.
-export const ExportEngine = require('../../../server/core/ExportEngine');
-export const PromotionEngine = require('../../../server/core/PromotionEngine');
-export const EconetPricingEngine = require('../../../server/engines/EconetPricingEngine');
+// 精算引擎已迁入本包（cutover M1）；不再依赖 legacy server/。
+export const ExportEngine = require('./ExportEngine');
+export const PromotionEngine = require('./PromotionEngine');
+export const EconetPricingEngine = require('./EconetPricingEngine');
