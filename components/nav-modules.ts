@@ -156,8 +156,8 @@ export const NAV_MODULES: NavModule[] = [
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/tti', '/report', '/story-chain'],
     items: [
-      // 四象限工作法 = 先填 TTI 四要素, 再拆成本周工作 / 未来计划 / 当前进展.
-      { name: '四象限工作法',      href: '/tti',     icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
+      // OKR·四象限驾驶舱 = 先填 TTI 四要素, 再拆成本周工作 / 未来计划 / 当前进展.
+      { name: 'OKR·四象限驾驶舱', href: '/tti',     icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },

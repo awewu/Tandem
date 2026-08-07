@@ -51,7 +51,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { TrustBanner } from '@/components/trust-banner';
 import { useOKRStore, type Initiative as StoreInitiative } from '@/lib/store';
 import { bucketByWeekOf, startOfWeek, type WorkHorizon } from '@/lib/okr/work-method';
 import {
@@ -128,6 +127,8 @@ const CONFIDENCE_META: Record<Confidence, { label: string; color: string }> = {
 
 const HISTORY_PAGE_SIZE = 5;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const WORK_METHOD_QUADRANT_CLASS = 'flex h-[18rem] min-h-0 flex-col overflow-hidden rounded-lg border bg-background p-3';
+const WORK_METHOD_QUADRANT_BODY_CLASS = 'mt-3 min-h-0 flex-1 overflow-y-auto pr-1';
 
 const INITIATIVE_STATUS_META: Record<StoreInitiative['status'], { label: string; className: string }> = {
   todo: { label: '待办', className: 'text-muted-foreground' },
@@ -216,6 +217,17 @@ function progressOf(kr: KeyResult): number {
   return Math.round(Math.max(0, Math.min(1.5, r)) * 100);
 }
 
+function objectiveTtiProgress(krs: KeyResult[]): number {
+  if (krs.length === 0) return 0;
+  const positiveWeight = krs.reduce((sum, kr) => sum + Math.max(0, kr.weight || 0), 0);
+  if (positiveWeight > 0) {
+    return Math.round(
+      krs.reduce((sum, kr) => sum + progressOf(kr) * Math.max(0, kr.weight || 0), 0) / positiveWeight,
+    );
+  }
+  return Math.round(krs.reduce((sum, kr) => sum + progressOf(kr), 0) / krs.length);
+}
+
 function currentValueFromProgress(kr: KeyResult, progressPct: number): string {
   if (kr.targetValue === kr.startValue) {
     return (progressPct >= 100 ? kr.targetValue : kr.startValue).toString();
@@ -280,6 +292,7 @@ export default function TtiPage() {
   const [deletingCheckInId, setDeletingCheckInId] = useState<string | null>(null);
   const [historyExpandedByKr, setHistoryExpandedByKr] = useState<Record<string, boolean>>({});
   const [historyPageByKr, setHistoryPageByKr] = useState<Record<string, number>>({});
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState('');
 
   const load = useCallback(async () => {
     if (!me) return;
@@ -460,6 +473,38 @@ export default function TtiPage() {
     return m;
   }, [krs]);
 
+  useEffect(() => {
+    if (objectives.length === 0) {
+      if (selectedObjectiveId) setSelectedObjectiveId('');
+      return;
+    }
+    if (objectives.some((obj) => obj.id === selectedObjectiveId)) return;
+    const firstWithKr = objectives.find((obj) => (krsByObjective.get(obj.id) ?? []).length > 0);
+    setSelectedObjectiveId((firstWithKr ?? objectives[0]).id);
+  }, [objectives, krsByObjective, selectedObjectiveId]);
+
+  const selectedObjective = useMemo(
+    () => objectives.find((obj) => obj.id === selectedObjectiveId) ?? objectives[0],
+    [objectives, selectedObjectiveId],
+  );
+
+  const selectedObjectiveKrs = useMemo(
+    () => (selectedObjective ? krsByObjective.get(selectedObjective.id) ?? [] : []),
+    [krsByObjective, selectedObjective],
+  );
+
+  const selectedObjectiveCheckIns = useMemo(() => {
+    const krIds = new Set(selectedObjectiveKrs.map((kr) => kr.id));
+    return Object.values(checkInsByKr)
+      .flat()
+      .filter((item) => krIds.has(item.scopeId))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [checkInsByKr, selectedObjectiveKrs]);
+
+  const selectedObjectiveProgress = objectiveTtiProgress(selectedObjectiveKrs);
+  const selectedObjectiveHealth = ttiHealth(selectedObjectiveProgress);
+  const selectedRiskCount = selectedObjectiveKrs.filter((kr) => kr.confidence !== 'on-track').length;
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -469,7 +514,7 @@ export default function TtiPage() {
       <header>
         <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
           <CalendarCheck className="h-6 w-6 text-primary" />
-          四象限工作法
+          OKR·四象限驾驶舱
         </h1>
         <p className="text-caption text-muted-foreground mt-1">
           先完成 TTI 四要素填报，再拆成本周工作、未来计划和当前进展
@@ -477,26 +522,11 @@ export default function TtiPage() {
         </p>
         {/* 三入口互链: 澄清"在哪写进展" (对标审计 P1-1 迷路问题) */}
         <nav className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-footnote text-muted-foreground">
-          <span className="font-medium text-foreground">当前: 四象限工作法</span>
+          <span className="font-medium text-foreground">当前: OKR·四象限驾驶舱</span>
           <a href="/okr" className="hover:text-primary hover:underline">目标与对齐 → OKR</a>
           <a href="/report" className="hover:text-primary hover:underline">写今日进展 → 日报</a>
         </nav>
       </header>
-
-      <TrustBanner tone="trust" charter="CHARTER §3.2">
-        主管可以看到你的填报, 但 <strong>不会驳回</strong> 也 <strong>不会因此扣奖金</strong>.
-        TTI 是为了让你 / 主管 / 公司一起看清你的成长方向, 不是用来考核的.
-      </TrustBanner>
-
-      <div className="flex items-center justify-between">
-        <div className="text-caption text-muted-foreground">
-          属于你的 Objective: <strong>{objectives.length}</strong> · KR: <strong>{krs.length}</strong>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          刷新
-        </Button>
-      </div>
 
       {error && (
         <Card className="border-danger/30 bg-danger/5">
@@ -513,391 +543,390 @@ export default function TtiPage() {
             加载中…
           </CardContent>
         </Card>
-      ) : krs.length === 0 ? (
+      ) : objectives.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-caption text-muted-foreground">
-            你还没有 KR (TTI). 去{' '}
+            你还没有 Objective. 去{' '}
             <a href="/okr" className="text-primary underline">
               /okr
             </a>{' '}
             页创建一个 Objective + KR 开始.
           </CardContent>
         </Card>
-      ) : (
-        objectives.map((obj) => {
-          const objKrs = krsByObjective.get(obj.id) ?? [];
-          if (objKrs.length === 0) return null;
-          return (
-            <Card key={obj.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-body flex items-start gap-2">
-                  <Compass className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
-                  <div className="space-y-0.5">
-                    <div>{obj.title}</div>
-                    {obj.description && (
-                      <div className="text-footnote text-muted-foreground font-normal">
-                        <span className="font-medium">改进实现:</span> {obj.description}
-                      </div>
-                    )}
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {objKrs.map((kr) => {
-                  const f = getForm(kr.id);
+      ) : selectedObjective ? (
+        <>
+          <section className="rounded-lg border bg-card p-3 shadow-sm">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-footnote font-medium text-muted-foreground">
+                <Compass className="h-4 w-4 text-primary" />
+                Objective · {objectives.length} O · {krs.length} KR
+              </div>
+              <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                刷新
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {objectives.map((obj) => {
+                const active = obj.id === selectedObjective.id;
+                const objKrs = krsByObjective.get(obj.id) ?? [];
+                const pct = objectiveTtiProgress(objKrs);
+                return (
+                  <button
+                    key={obj.id}
+                    type="button"
+                    onClick={() => setSelectedObjectiveId(obj.id)}
+                    className={`inline-flex max-w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-caption transition ${
+                      active
+                        ? 'border-primary/40 bg-primary/10 text-primary shadow-sm'
+                        : 'border-border bg-background text-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    <span className="truncate font-medium">{obj.title}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {objKrs.length} KR · {pct}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="bg-primary/5 text-primary">
+                TTI
+              </Badge>
+              <Badge variant="outline" className={selectedObjectiveHealth.color}>
+                {selectedObjectiveHealth.label} {selectedObjectiveProgress}%
+              </Badge>
+              {selectedRiskCount > 0 && (
+                <Badge variant="outline" className="border-warning/20 bg-warning/5 text-warning">
+                  {selectedRiskCount} 个 KR 有风险
+                </Badge>
+              )}
+              <h2 className="min-w-0 max-w-xl truncate text-body font-semibold text-foreground">
+                {selectedObjective.title}
+              </h2>
+              <span className="ml-auto hidden text-[11px] text-muted-foreground lg:inline">
+                60-70% 健康 · 与奖金分离 · 四要素: 改进 / 推进 / 障碍 / 目标 / 进度 / 信心
+              </span>
+            </div>
+            {selectedObjective.description && (
+              <p className="mt-1 truncate text-footnote text-muted-foreground">
+                {selectedObjective.description}
+              </p>
+            )}
+
+            {selectedObjectiveKrs.length === 0 ? (
+              <div className="mt-3 rounded-md border border-dashed p-4 text-center text-caption text-muted-foreground">
+                当前 Objective 下还没有 KR，先去 <a href="/okr" className="text-primary underline">/okr</a> 补齐 TTI。
+              </div>
+            ) : (
+              <div className="mt-2 grid gap-2 lg:grid-cols-3">
+                {selectedObjectiveKrs.map((kr) => {
                   const progress = progressOf(kr);
-                  const health = ttiHealth(progress);
                   const conf = CONFIDENCE_META[kr.confidence];
-                  const recent = checkInsByKr[kr.id] ?? [];
-                  const historyTotalPages = Math.max(1, Math.ceil(recent.length / HISTORY_PAGE_SIZE));
-                  const requestedHistoryPage = historyPageByKr[kr.id] ?? 1;
-                  const historyPage = Math.min(Math.max(requestedHistoryPage, 1), historyTotalPages);
-                  const historyExpanded = historyExpandedByKr[kr.id] ?? recent.length <= HISTORY_PAGE_SIZE;
-                  const pagedRecent = recent.slice(
-                    (historyPage - 1) * HISTORY_PAGE_SIZE,
-                    historyPage * HISTORY_PAGE_SIZE,
-                  );
                   return (
-                    <div key={kr.id} className="border rounded-lg p-4 space-y-4">
-                      {/* KR 头部 + 进度 */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium flex items-center gap-2">
-                            <Target className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            {kr.title}
-                          </div>
-                          <div className="text-footnote text-muted-foreground mt-1 tabular-nums">
-                            起 {kr.startValue.toLocaleString()} → 目标{' '}
-                            <strong>{kr.targetValue.toLocaleString()}</strong>
-                            {kr.unit && <span> {kr.unit}</span>} · 当前{' '}
-                            <strong>{kr.currentValue.toLocaleString()}</strong>
+                    <div key={kr.id} className="min-w-0 rounded-md border bg-background p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-footnote font-medium text-foreground">{kr.title}</div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
+                            {kr.currentValue.toLocaleString()} / {kr.targetValue.toLocaleString()}
+                            {kr.unit && <span> {kr.unit}</span>}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Badge variant="outline" className={health.color}>
-                            {health.label} {progress}%
-                          </Badge>
-                          <Badge variant="outline" className={`${conf.color} text-footnote`}>
-                            {conf.label}
-                          </Badge>
-                        </div>
+                        <Badge variant="outline" className={`${conf.color} shrink-0 text-[11px]`}>
+                          {conf.label}
+                        </Badge>
                       </div>
-                      <Progress value={Math.min(100, progress)} className="h-2" />
-                      <p className="text-footnote text-muted-foreground italic">{health.hint}</p>
-
-                      {/* 四要素引导表单 */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t">
-                        {/* 推进事项 (本期取得了什么) */}
-                        <div className="space-y-1.5">
-                          <Label className="text-footnote flex items-center gap-1.5">
-                            <Zap className="h-3.5 w-3.5 text-success" />
-                            推进事项 · 本期取得了什么
-                            <span className="text-danger">*</span>
-                          </Label>
-                          <Textarea
-                            required
-                            rows={3}
-                            value={f.achievements}
-                            onChange={(e) =>
-                              setForm(kr.id, { achievements: e.target.value, error: null })
-                            }
-                            placeholder="例: 完成了 3 次客户访谈, 拿到了 2 个内部 align"
-                          />
-                        </div>
-
-                        {/* 关键障碍 */}
-                        <div className="space-y-1.5">
-                          <Label className="text-footnote flex items-center gap-1.5">
-                            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                            关键障碍 · 在阻挠你的是什么
-                          </Label>
-                          <Textarea
-                            rows={3}
-                            value={f.blockers}
-                            onChange={(e) => setForm(kr.id, { blockers: e.target.value })}
-                            placeholder="例: 部门 A 还没给数据 / 客户暂时无法配合"
-                          />
-                        </div>
-
-                        {/* 实际进度 */}
-                        <div className="space-y-1.5">
-                          <Label className="text-footnote flex items-center gap-1.5">
-                            <TrendingUp className="h-3.5 w-3.5 text-info" />
-                            实际进度 · 当前数值
-                          </Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={f.currentValue}
-                            onKeyDown={(e) => {
-                              if (e.key === '-') e.preventDefault();
-                            }}
-                            onChange={(e) => {
-                              const value = sanitizeProgressValue(e.currentTarget.value);
-                              if (value !== e.currentTarget.value) e.currentTarget.value = value;
-                              setForm(kr.id, { currentValue: value, error: null });
-                            }}
-                            onBlur={(e) => {
-                              const value = sanitizeProgressValue(e.currentTarget.value);
-                              if (value !== f.currentValue) setForm(kr.id, { currentValue: value });
-                            }}
-                            placeholder={kr.currentValue.toString()}
-                          />
-                        </div>
-
-                        {/* 信心度 */}
-                        <div className="space-y-1.5">
-                          <Label className="text-footnote flex items-center gap-1.5">
-                            <Activity className="h-3.5 w-3.5 text-brand-700" />
-                            信心度
-                          </Label>
-                          <Select
-                            value={f.confidenceAfter}
-                            onValueChange={(v) =>
-                              setForm(kr.id, { confidenceAfter: v as Confidence })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="on-track">正常 · 按计划推进</SelectItem>
-                              <SelectItem value="at-risk">有风险 · 可能延期</SelectItem>
-                              <SelectItem value="off-track">严重偏离 · 需要帮助</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* 推进事项 - 下一步 (推进事项 第二维) */}
-                        <div className="space-y-1.5 md:col-span-2">
-                          <Label className="text-footnote flex items-center gap-1.5">
-                            <Compass className="h-3.5 w-3.5 text-primary" />
-                            推进事项 · 下一步做什么
-                          </Label>
-                          <Textarea
-                            rows={2}
-                            value={f.nextSteps}
-                            onChange={(e) => setForm(kr.id, { nextSteps: e.target.value })}
-                            placeholder="例: 周二前出方案 PPT, 周四对齐部门 B"
-                          />
-                        </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Progress value={Math.min(100, progress)} className="h-1.5" />
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{progress}%</span>
                       </div>
-
-                      {f.error && (
-                        <div className="text-caption text-danger bg-danger/5 px-3 py-2 rounded-md flex items-center gap-1.5">
-                          <AlertCircle className="h-4 w-4" />
-                          {f.error}
-                        </div>
-                      )}
-                      {f.ok && (
-                        <div className="text-caption text-success bg-success/10 px-3 py-2 rounded-md flex items-center gap-1.5">
-                          <CheckCircle2 className="h-4 w-4" />
-                          {f.ok}
-                        </div>
-                      )}
-                      {f.checkInId && (
-                        <div className="text-caption text-info bg-info/10 px-3 py-2 rounded-md flex items-center gap-2">
-                          <Pencil className="h-4 w-4" />
-                          正在修改已填报记录
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-auto h-7 px-2 text-info hover:text-info"
-                            onClick={() =>
-                              setForm(kr.id, {
-                                ...EMPTY_FORM,
-                                confidenceAfter: kr.confidence,
-                              })
-                            }
-                          >
-                            <X className="h-3.5 w-3.5 mr-1" />
-                            取消修改
-                          </Button>
-                        </div>
-                      )}
-
-                      <div className="flex justify-end">
-                        <Button
-                          onClick={() => void submitCheckIn(kr)}
-                          disabled={f.submitting}
-                        >
-                          {f.submitting ? '记录中…' : '记录本期进展'}
-                        </Button>
-                      </div>
-
-                      <TtiWorkMethodGate
-                        unlocked={recent.length > 0 || Boolean(f.ok)}
-                        objective={obj}
-                        kr={kr}
-                        recent={recent}
-                      />
-
-                      {/* 历史 check-in：默认收纳, 每页 5 条 */}
-                      {recent.length > 0 && (
-                        <div className="border-t pt-3">
-                          <div className="mb-2 flex items-center gap-2">
-                            <button
-                              type="button"
-                              className="flex min-w-0 items-center gap-1.5 text-footnote text-muted-foreground hover:text-foreground"
-                              onClick={() =>
-                                setHistoryExpandedByKr((prev) => ({
-                                  ...prev,
-                                  [kr.id]: !(prev[kr.id] ?? recent.length <= HISTORY_PAGE_SIZE),
-                                }))
-                              }
-                            >
-                              <ChevronDown
-                                className={`h-3.5 w-3.5 transition-transform ${historyExpanded ? '' : '-rotate-90'}`}
-                              />
-                              <span>近期填报 · {recent.length} 次</span>
-                              {recent.length > HISTORY_PAGE_SIZE && historyExpanded && (
-                                <span className="text-[11px] text-muted-foreground">
-                                  第 {historyPage} / {historyTotalPages} 页
-                                </span>
-                              )}
-                            </button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="ml-auto h-7 px-2 text-footnote"
-                              onClick={() =>
-                                setHistoryExpandedByKr((prev) => ({
-                                  ...prev,
-                                  [kr.id]: !(prev[kr.id] ?? recent.length <= HISTORY_PAGE_SIZE),
-                                }))
-                              }
-                            >
-                              {historyExpanded ? '收起' : '展开'}
-                            </Button>
-                          </div>
-                          {historyExpanded && (
-                            <>
-                              <ul className="space-y-2">
-                                {pagedRecent.map((c) => (
-                                  <li
-                                    key={c.id}
-                                    className="text-footnote text-muted-foreground border-l-2 pl-3 py-1"
-                                  >
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="tabular-nums">
-                                        {c.progressBefore}% → <strong>{c.progressAfter}%</strong>
-                                      </span>
-                                      <Badge
-                                        variant="outline"
-                                        className={`${CONFIDENCE_META[c.confidenceAfter].color} text-footnote`}
-                                      >
-                                        {CONFIDENCE_META[c.confidenceAfter].label}
-                                      </Badge>
-                                      <span className="ml-auto">
-                                        {new Date(c.createdAt).toLocaleDateString()}
-                                      </span>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2"
-                                        onClick={() =>
-                                          setForm(kr.id, {
-                                            checkInId: c.id,
-                                            progressBefore: c.progressBefore,
-                                            confidenceBefore: c.confidenceBefore,
-                                            currentValue: currentValueFromProgress(kr, c.progressAfter),
-                                            confidenceAfter: c.confidenceAfter,
-                                            achievements: c.achievements ?? '',
-                                            blockers: c.blockers ?? '',
-                                            nextSteps: c.nextSteps ?? '',
-                                            error: null,
-                                            ok: null,
-                                          })
-                                        }
-                                      >
-                                        <Pencil className="h-3.5 w-3.5 mr-1" />
-                                        修改
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 text-danger hover:text-danger"
-                                        disabled={deletingCheckInId === c.id}
-                                        onClick={() => void deleteCheckIn(kr, c)}
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                        {deletingCheckInId === c.id ? '删除中…' : '删除'}
-                                      </Button>
-                                    </div>
-                                    {c.achievements && (
-                                      <div className="mt-1">
-                                        <span className="text-success">取得:</span> {c.achievements}
-                                      </div>
-                                    )}
-                                    {c.blockers && (
-                                      <div className="mt-0.5">
-                                        <span className="text-warning">障碍:</span> {c.blockers}
-                                      </div>
-                                    )}
-                                    {c.nextSteps && (
-                                      <div className="mt-0.5">
-                                        <span className="text-primary">下一步:</span> {c.nextSteps}
-                                      </div>
-                                    )}
-                                  </li>
-                                ))}
-                              </ul>
-                              {recent.length > HISTORY_PAGE_SIZE && (
-                                <div className="mt-3 flex items-center justify-end gap-2 text-footnote text-muted-foreground">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    disabled={historyPage <= 1}
-                                    onClick={() =>
-                                      setHistoryPageByKr((prev) => ({
-                                        ...prev,
-                                        [kr.id]: Math.max(1, historyPage - 1),
-                                      }))
-                                    }
-                                  >
-                                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-                                    上一页
-                                  </Button>
-                                  <span className="tabular-nums">
-                                    {historyPage} / {historyTotalPages}
-                                  </span>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    disabled={historyPage >= historyTotalPages}
-                                    onClick={() =>
-                                      setHistoryPageByKr((prev) => ({
-                                        ...prev,
-                                        [kr.id]: Math.min(historyTotalPages, historyPage + 1),
-                                      }))
-                                    }
-                                  >
-                                    下一页
-                                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                                  </Button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
-              </CardContent>
-            </Card>
-          );
-        })
-      )}
+              </div>
+            )}
+          </section>
+
+          <ObjectiveWorkMethod
+            objective={selectedObjective}
+            krs={selectedObjectiveKrs}
+            recent={selectedObjectiveCheckIns}
+          />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function ObjectiveWorkMethod({
+  objective,
+  krs,
+  recent,
+}: {
+  objective: Objective;
+  krs: KeyResult[];
+  recent: CheckIn[];
+}) {
+  const krIds = useMemo(() => new Set(krs.map((kr) => kr.id)), [krs]);
+  const initiatives = useOKRStore((s) =>
+    s.initiatives.filter((i) => i.scope === 'kr' && krIds.has(i.scopeId)),
+  );
+  const updateInitiative = useOKRStore((s) => s.updateInitiative);
+  const deleteInitiative = useOKRStore((s) => s.deleteInitiative);
+  const [now, setNow] = useState<number | null>(null);
+  const [addingTo, setAddingTo] = useState<'this-week' | 'future' | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [selectedKrId, setSelectedKrId] = useState(krs[0]?.id ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setNow(Date.now()), []);
+  useEffect(() => {
+    if (krs.some((kr) => kr.id === selectedKrId)) return;
+    setSelectedKrId(krs[0]?.id ?? '');
+  }, [krs, selectedKrId]);
+
+  const view = useMemo(() => (now == null ? null : splitKrInitiatives(initiatives, now)), [initiatives, now]);
+  const thisWeekStart = now == null ? null : startOfWeek(now);
+  const futureStart = thisWeekStart == null ? null : thisWeekStart + WEEK_MS;
+  const krOptions = useMemo(() => krs.map((kr) => ({ id: kr.id, title: kr.title })), [krs]);
+  const objectiveProgress = objectiveTtiProgress(krs);
+  const objectiveHealth = ttiHealth(objectiveProgress);
+
+  async function createPlan() {
+    if (now == null || !draftTitle.trim() || !addingTo || !selectedKrId) return;
+    const kr = krs.find((item) => item.id === selectedKrId);
+    if (!kr) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const weekOf = addingTo === 'this-week' ? thisWeekStart : futureStart;
+      await persistCreateInitiative({
+        keyResultId: kr.id,
+        title: draftTitle.trim(),
+        ownerId: kr.ownerId,
+        status: 'todo',
+        weekOf: weekOf ?? undefined,
+      });
+      setDraftTitle('');
+      setAddingTo(null);
+      await hydrateOkrFromApi(true);
+    } catch (e) {
+      setError(`新增失败：${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updatePlan(
+    item: StoreInitiative,
+    patch: { weekOf?: number | null; status?: StoreInitiative['status'] },
+  ) {
+    const localPatch: Partial<StoreInitiative> = {};
+    if ('weekOf' in patch) localPatch.weekOf = patch.weekOf ?? undefined;
+    if (patch.status) localPatch.status = patch.status;
+    updateInitiative(item.id, localPatch);
+    setError(null);
+    try {
+      await persistUpdateInitiative(item.id, patch);
+      await hydrateOkrFromApi(true);
+    } catch (e) {
+      setError(`保存失败：${(e as Error).message}`);
+      await hydrateOkrFromApi(true);
+    }
+  }
+
+  async function deletePlan(item: StoreInitiative) {
+    if (!confirm(`确认删除工作项「${item.title}」？`)) return;
+    deleteInitiative(item.id);
+    setError(null);
+    try {
+      await persistDeleteInitiative(item.id);
+      await hydrateOkrFromApi(true);
+    } catch (e) {
+      setError(`删除失败：${(e as Error).message}`);
+      await hydrateOkrFromApi(true);
+    }
+  }
+
+  if (now == null || !view) {
+    return (
+      <div className="rounded-lg border bg-muted/20 p-3 text-footnote text-muted-foreground">
+        加载 OKR·四象限驾驶舱…
+      </div>
+    );
+  }
+
+  return (
+    <section className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-body font-semibold flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-primary" />
+            OKR·四象限驾驶舱
+          </h3>
+          <p className="mt-1 text-footnote text-muted-foreground">
+            选中 Objective 后，把它下面的 KR 拆成本周工作、未来计划和当前进展。
+          </p>
+        </div>
+        <Badge variant="outline" className="bg-background text-footnote">
+          本周 {view.thisWeek.length} 项 · 未来/待规划 {view.planning.length} 项
+        </Badge>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-danger/5 px-3 py-2 text-caption text-danger">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:grid-rows-[18rem_18rem]">
+        <PlanQuadrant
+          icon={CalendarCheck}
+          title="本周工作"
+          hint="遗留 + 本周"
+          items={view.thisWeek}
+          adding={addingTo === 'this-week'}
+          draftTitle={draftTitle}
+          saving={saving}
+          onAdd={() => {
+            setAddingTo('this-week');
+            setDraftTitle('');
+            setSelectedKrId(krs[0]?.id ?? '');
+          }}
+          onDraftTitle={setDraftTitle}
+          onSubmit={() => void createPlan()}
+          onCancel={() => {
+            setAddingTo(null);
+            setDraftTitle('');
+          }}
+          krOptions={krOptions}
+          selectedKrId={selectedKrId}
+          onSelectedKrId={setSelectedKrId}
+          actionIcon={PinOff}
+          actionLabel="移出本周"
+          onAction={(item) => void updatePlan(item, { weekOf: null })}
+          onStatus={(item, status) => void updatePlan(item, { status })}
+          onDelete={(item) => void deletePlan(item)}
+        />
+
+        <section className={WORK_METHOD_QUADRANT_CLASS}>
+          <QuadrantTitle icon={Target} title="OKR" hint={`${krs.length} KR · ${objectiveProgress}%`} />
+          <div className={WORK_METHOD_QUADRANT_BODY_CLASS}>
+            <div>
+              <div className="font-medium text-foreground">{objective.title}</div>
+              {objective.description && (
+                <div className="mt-1 line-clamp-2 text-footnote text-muted-foreground">
+                  {objective.description}
+                </div>
+              )}
+              <div className="mt-2 flex items-center gap-2">
+                <Badge variant="outline" className={objectiveHealth.color}>
+                  {objectiveHealth.label} {objectiveProgress}%
+                </Badge>
+              </div>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {krs.map((kr, index) => {
+                const progress = progressOf(kr);
+                const conf = CONFIDENCE_META[kr.confidence];
+                return (
+                  <li key={kr.id} className="rounded-md border bg-muted/20 p-2 text-footnote">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground line-clamp-2">
+                          KR{index + 1} {kr.title}
+                        </div>
+                        <div className="mt-1 text-[11px] text-muted-foreground tabular-nums">
+                          {kr.currentValue.toLocaleString()} / {kr.targetValue.toLocaleString()}
+                          {kr.unit && <span> {kr.unit}</span>}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={`${conf.color} shrink-0 text-footnote`}>
+                        {conf.label}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Progress value={Math.min(100, progress)} className="h-1.5" />
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{progress}%</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+
+        <PlanQuadrant
+          icon={CalendarRange}
+          title="未来四周 / 待规划"
+          hint="下一步排程"
+          items={view.planning}
+          adding={addingTo === 'future'}
+          draftTitle={draftTitle}
+          saving={saving}
+          onAdd={() => {
+            setAddingTo('future');
+            setDraftTitle('');
+            setSelectedKrId(krs[0]?.id ?? '');
+          }}
+          onDraftTitle={setDraftTitle}
+          onSubmit={() => void createPlan()}
+          onCancel={() => {
+            setAddingTo(null);
+            setDraftTitle('');
+          }}
+          krOptions={krOptions}
+          selectedKrId={selectedKrId}
+          onSelectedKrId={setSelectedKrId}
+          actionIcon={Pin}
+          actionLabel="钉到本周"
+          onAction={(item) => void updatePlan(item, { weekOf: thisWeekStart })}
+          onStatus={(item, status) => void updatePlan(item, { status })}
+          onDelete={(item) => void deletePlan(item)}
+        />
+
+        <section className={WORK_METHOD_QUADRANT_CLASS}>
+          <QuadrantTitle icon={ClipboardCheck} title="当前进展" hint={`最近 ${Math.min(5, recent.length)} / ${recent.length} 条`} />
+          <div className={WORK_METHOD_QUADRANT_BODY_CLASS}>
+            {recent.length === 0 ? (
+              <div className="rounded-md border border-dashed p-4 text-center text-footnote text-muted-foreground">
+                暂无进展记录
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {recent.slice(0, 5).map((item) => {
+                  const kr = krs.find((candidate) => candidate.id === item.scopeId);
+                  return (
+                    <li key={item.id} className="rounded-md border bg-muted/20 p-2 text-footnote">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate font-medium text-foreground">
+                          {kr?.title ?? '关键成果'}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {item.progressBefore}% → <strong>{item.progressAfter}%</strong>
+                        </span>
+                      </div>
+                      {item.achievements && <div className="mt-1 line-clamp-2">推进：{item.achievements}</div>}
+                      {item.blockers && <div className="mt-0.5 line-clamp-1 text-warning">障碍：{item.blockers}</div>}
+                      {item.nextSteps && <div className="mt-0.5 line-clamp-1 text-primary">下一步：{item.nextSteps}</div>}
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {new Date(item.createdAt).toLocaleString()}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -915,7 +944,7 @@ function TtiWorkMethodGate({
   if (!unlocked) {
     return (
       <div className="rounded-lg border border-dashed bg-muted/20 p-3 text-footnote text-muted-foreground">
-        完成本期 TTI 填报后，会在这里展开「四象限工作法」：把这个 KR 拆成本周工作、未来计划和后续进展。
+        完成本期 TTI 填报后，会在这里展开「OKR·四象限驾驶舱」：把这个 KR 拆成本周工作、未来计划和后续进展。
       </div>
     );
   }
@@ -1005,7 +1034,7 @@ function InlineWorkMethod({
   if (now == null || !view) {
     return (
       <div className="rounded-lg border bg-muted/20 p-3 text-footnote text-muted-foreground">
-        加载四象限工作法…
+        加载 OKR·四象限驾驶舱…
       </div>
     );
   }
@@ -1016,7 +1045,7 @@ function InlineWorkMethod({
         <div>
           <h3 className="text-body font-semibold flex items-center gap-2">
             <CalendarCheck className="h-4 w-4 text-primary" />
-            四象限工作法
+            OKR·四象限驾驶舱
           </h3>
           <p className="mt-1 text-footnote text-muted-foreground">
             TTI 已完成填报，继续把这个 KR 拆到周计划和进展跟踪。
@@ -1165,6 +1194,9 @@ function PlanQuadrant({
   onDraftTitle,
   onSubmit,
   onCancel,
+  krOptions,
+  selectedKrId,
+  onSelectedKrId,
   actionIcon: ActionIcon,
   actionLabel,
   onAction,
@@ -1182,6 +1214,9 @@ function PlanQuadrant({
   onDraftTitle: (value: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  krOptions?: Array<{ id: string; title: string }>;
+  selectedKrId?: string;
+  onSelectedKrId?: (value: string) => void;
   actionIcon: React.ComponentType<{ className?: string }>;
   actionLabel: string;
   onAction: (item: StoreInitiative) => void;
@@ -1189,8 +1224,8 @@ function PlanQuadrant({
   onDelete: (item: StoreInitiative) => void;
 }) {
   return (
-    <section className="rounded-lg border bg-background p-3">
-      <div className="flex items-center justify-between gap-2">
+    <section className={WORK_METHOD_QUADRANT_CLASS}>
+      <div className="flex shrink-0 items-center justify-between gap-2">
         <QuadrantTitle icon={icon} title={title} hint={`${items.length} 项 · ${hint}`} />
         <button
           type="button"
@@ -1202,80 +1237,96 @@ function PlanQuadrant({
         </button>
       </div>
 
-      {adding && (
-        <div className="mt-3 rounded-md border bg-muted/20 p-2">
-          <Input
-            autoFocus
-            value={draftTitle}
-            onChange={(e) => onDraftTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onSubmit();
-              if (e.key === 'Escape') onCancel();
-            }}
-            placeholder="输入要推进的具体工作"
-          />
-          <div className="mt-2 flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
-              取消
-            </Button>
-            <Button type="button" size="sm" onClick={onSubmit} disabled={saving || !draftTitle.trim()}>
-              {saving ? '保存中…' : '保存'}
-            </Button>
+      <div className={WORK_METHOD_QUADRANT_BODY_CLASS}>
+        {adding && (
+          <div className="rounded-md border bg-muted/20 p-2">
+            {krOptions && krOptions.length > 1 && onSelectedKrId && (
+              <select
+                value={selectedKrId ?? ''}
+                onChange={(e) => onSelectedKrId(e.currentTarget.value)}
+                className="mb-2 w-full rounded-md border bg-background px-2 py-1.5 text-footnote text-foreground"
+                title="归属 KR"
+              >
+                {krOptions.map((kr) => (
+                  <option key={kr.id} value={kr.id}>
+                    {kr.title}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Input
+              autoFocus
+              value={draftTitle}
+              onChange={(e) => onDraftTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSubmit();
+                if (e.key === 'Escape') onCancel();
+              }}
+              placeholder="输入要推进的具体工作"
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+                取消
+              </Button>
+              <Button type="button" size="sm" onClick={onSubmit} disabled={saving || !draftTitle.trim()}>
+                {saving ? '保存中…' : '保存'}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {items.length === 0 && !adding ? (
-        <div className="mt-3 rounded-md border border-dashed p-4 text-center text-footnote text-muted-foreground">
-          暂无工作项
-        </div>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {items.map((item) => {
-            const meta = INITIATIVE_STATUS_META[item.status];
-            return (
-              <li key={item.id} className="rounded-md border bg-muted/20 p-2 text-footnote">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-medium text-foreground line-clamp-2">{item.title}</div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {formatShortDate(item.weekOf)} · {item.dueDate ? `截止 ${formatShortDate(item.dueDate)}` : '未设截止'}
+        {items.length === 0 && !adding ? (
+          <div className="rounded-md border border-dashed p-4 text-center text-footnote text-muted-foreground">
+            暂无工作项
+          </div>
+        ) : (
+          <ul className={`${adding ? 'mt-3' : ''} space-y-2`}>
+            {items.map((item) => {
+              const meta = INITIATIVE_STATUS_META[item.status];
+              return (
+                <li key={item.id} className="rounded-md border bg-muted/20 p-2 text-footnote">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground line-clamp-2">{item.title}</div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {formatShortDate(item.weekOf)} · {item.dueDate ? `截止 ${formatShortDate(item.dueDate)}` : '未设截止'}
+                      </div>
                     </div>
+                    <select
+                      value={item.status}
+                      onChange={(e) => onStatus(item, e.currentTarget.value as StoreInitiative['status'])}
+                      className={`shrink-0 rounded-md border bg-background px-1.5 py-1 text-[11px] ${meta.className}`}
+                      title="状态"
+                    >
+                      {Object.entries(INITIATIVE_STATUS_META).map(([value, option]) => (
+                        <option key={value} value={value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value={item.status}
-                    onChange={(e) => onStatus(item, e.currentTarget.value as StoreInitiative['status'])}
-                    className={`shrink-0 rounded-md border bg-background px-1.5 py-1 text-[11px] ${meta.className}`}
-                    title="状态"
-                  >
-                    {Object.entries(INITIATIVE_STATUS_META).map(([value, option]) => (
-                      <option key={value} value={value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mt-2 flex justify-end gap-1.5">
-                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => onAction(item)}>
-                    <ActionIcon className="h-3.5 w-3.5 mr-1" />
-                    {actionLabel}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-danger hover:text-danger"
-                    onClick={() => onDelete(item)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    删除
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  <div className="mt-2 flex justify-end gap-1.5">
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => onAction(item)}>
+                      <ActionIcon className="h-3.5 w-3.5 mr-1" />
+                      {actionLabel}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-danger hover:text-danger"
+                      onClick={() => onDelete(item)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      删除
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
