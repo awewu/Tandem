@@ -27,8 +27,9 @@ POSTGRES_USER=rhautt POSTGRES_PASSWORD=*** POSTGRES_HOST=*** npm run db:migrate
 npm run db:migrate:status   # 应 0 pending
 ```
 - [ ] 076–088 全部 applied、0 pending。
-- **验收**:抽查新表 `relforcerowsecurity=true`(FORCE RLS)+ `rhautt_app` 有 SELECT/INSERT/UPDATE/DELETE。
-  `npm run guard:rls-enforcement`(连生产/staging 库)通过 —— 确认 rhautt_app 无法绕 RLS。
+- **验收①(快检)**:`npm run db:verify`(用属主/管理员连) → `rhautt_app` 增删改查权限**全表齐全**(缺权限=阻断);并输出"有 tenant_id 但未启用 RLS"的表清单**供复核**(如 `products`/`products_archive` 为品牌公开事实按设计跨租户共享 = 正常;其余须确认非漏配)。
+- **验收②(权威硬门禁)**:`npm run guard:rls-enforcement`(连生产/staging 库)通过 —— 确认 `rhautt_app` 无法绕 RLS,租户真隔离。
+- 注:本轮新增 13 张表(cdp/insight/channel/positioning/gtmplan/content/activation/metrics 等)均已 ENABLE+FORCE RLS + 授权(db:verify 无告警)。
 
 ## 3. 多租户 outbox 枚举（堵 🔴4）
 - [ ] 为**每个运营租户**设 `<SLUG>_TENANT_ID`(见 .env.production.example)。
