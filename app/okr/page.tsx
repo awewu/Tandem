@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   useOKRStore, useOrgStore,
   type Objective, type KeyResult, type CheckIn, type Confidence,
@@ -215,6 +216,16 @@ function ConfidencePill({ confidence }: { confidence: Confidence }) {
   );
 }
 
+function normalizeTag(raw: string): string | null {
+  const tag = raw.trim();
+  if (!tag) return null;
+  if (/^\d+$/.test(tag)) return null;
+  if (tag.length > 24) return null;
+  if (/[+/=]/.test(tag)) return null;
+  if (/^[A-Za-z0-9]{16,}$/.test(tag) && /[A-Za-z]/.test(tag) && /\d/.test(tag)) return null;
+  return tag;
+}
+
 // =============================================================
 // 主页面
 // =============================================================
@@ -241,8 +252,9 @@ export default function OKRPage() {
   // 移动端: 详情右栏在 <md 隐藏, 选中后用全屏浮层展示 (桌面无此浮层, md:hidden 守卫).
   // 与 selectedObjId 分离: 首屏 auto-select 不应弹出浮层, 仅用户主动点选才开.
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  // 移动端顶部次要操作 (模板/AI起草/校准/健康度/导入导出) 收进"更多"下拉 (桌面走 md:flex 平铺).
+  // 顶部次要操作收进"更多"; 桌面用弹窗, 移动端保留轻量下拉.
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const [view, setView] = useState<'tree' | 'list'>('tree');
   type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti' | 'retro' | 'monthly' | 'alignment';
@@ -257,6 +269,7 @@ export default function OKRPage() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const ownerFilterInitializedRef = useRef(false);
+  const defaultCycleInitializedRef = useRef(false);
   const ownerFilterPickerRef = useRef<HTMLDivElement | null>(null);
   const [ownerFilterOpen, setOwnerFilterOpen] = useState(false);
   const [ownerFilterSearch, setOwnerFilterSearch] = useState('');
@@ -280,6 +293,21 @@ export default function OKRPage() {
     }
     ownerFilterInitializedRef.current = true;
   }, [meUserId, objectives]);
+
+  useEffect(() => {
+    if (defaultCycleInitializedRef.current) return;
+    if (objectives.length === 0) return;
+    const preferred = cycles.find((c) => c.name.trim() === '2026');
+    if (!preferred) {
+      defaultCycleInitializedRef.current = true;
+      return;
+    }
+    const preferredHasData = objectives.some((o) => o.cycleId === preferred.id);
+    if (preferredHasData && activeCycleId !== preferred.id) {
+      setActiveCycleId(preferred.id);
+    }
+    defaultCycleInitializedRef.current = true;
+  }, [activeCycleId, cycles, objectives, setActiveCycleId]);
 
   // OKR 在同租户内公开可读; 写权限仍由后端 owner/admin 路由校验.
   const canViewAllOwners = true;
@@ -509,9 +537,20 @@ export default function OKRPage() {
   // 全部标签
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    for (const o of objectives) o.tags.forEach((t) => set.add(t));
+    for (const o of cycleObjectives) {
+      for (const raw of o.tags) {
+        const tag = normalizeTag(raw);
+        if (tag) set.add(tag);
+      }
+    }
     return Array.from(set).sort();
-  }, [objectives]);
+  }, [cycleObjectives]);
+
+  useEffect(() => {
+    if (filterTag && !allTags.includes(filterTag)) {
+      setFilterTag('');
+    }
+  }, [allTags, filterTag]);
 
   // ===== 创建/编辑弹窗 =====
   const [editing, setEditing] = useState<
@@ -673,31 +712,54 @@ export default function OKRPage() {
     reader.readAsText(file, 'utf-8');
   };
 
+  const cycleOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const items: Cycle[] = [];
+    const active = cycles.find((c) => c.id === activeCycleId);
+    if (active) {
+      seen.add(active.name.trim());
+      items.push(active);
+    }
+    for (const cycle of cycles) {
+      const key = cycle.name.trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push(cycle);
+    }
+    return items;
+  }, [activeCycleId, cycles]);
+
   // ===== 渲染：周期切换器 =====
+  const activeCycleOptionLabel =
+    cycles.find((c) => c.id === activeCycleId)?.name ?? '选择周期';
   const renderCycleSwitcher = () => (
     <div className="flex items-center gap-2 flex-wrap">
-      {cycles.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => setActiveCycleId(c.id)}
-          className={cn(
-            'px-3 py-1 text-footnote rounded-full border transition-colors',
-            c.id === activeCycleId
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background hover:bg-muted'
-          )}
-        >
-          {c.name}
-        </button>
-      ))}
+      <Select value={activeCycleId} onValueChange={(value) => setActiveCycleId(value)}>
+        <SelectTrigger className="h-7 w-36 text-footnote">
+          <SelectValue placeholder={activeCycleOptionLabel} />
+        </SelectTrigger>
+        <SelectContent>
+          {cycleOptions.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button
-        size="sm" variant="ghost" className="h-6 text-footnote"
+        size="sm" variant="ghost" className="h-7 text-footnote"
         onClick={() => {
           const name = prompt('新周期名（如 2027 / 2027-Q1）');
           if (!name?.trim()) return;
+          const normalizedName = name.trim();
+          const existing = cycles.find((c) => c.name.trim() === normalizedName);
+          if (existing) {
+            setActiveCycleId(existing.id);
+            return;
+          }
           const c = addCycle({
-            name: name.trim(),
-            type: name.includes('Q') ? 'quarter' : name.includes('H') ? 'half' : name.includes('-') ? 'month' : 'year',
+            name: normalizedName,
+            type: normalizedName.includes('Q') ? 'quarter' : normalizedName.includes('H') ? 'half' : normalizedName.includes('-') ? 'month' : 'year',
             startDate: Date.now(), endDate: Date.now() + 90 * 86400000, isActive: false,
           });
           setActiveCycleId(c.id);
@@ -1141,9 +1203,8 @@ export default function OKRPage() {
     );
   };
 
-  // Health 折叠面板 (含 EVO-2 智能纠偏)
-  const renderHealthDrawer = () => {
-    if (!showHealth) return null;
+  // Health 弹窗 (含 EVO-2 智能纠偏)
+  const renderHealthDialog = () => {
     const jumpToTarget = (kind: 'objective' | 'kr', id: string) => {
       if (kind === 'objective') {
         setSelectedObjId(id);
@@ -1155,40 +1216,140 @@ export default function OKRPage() {
           setDetailTab('overview');
         }
       }
+      setShowHealth(false);
     };
     return (
-      <div className="border-b bg-muted/30 px-4 py-3 max-h-96 overflow-auto space-y-3">
-        <OKRHealthPanel cycleId={activeCycleId} onJump={jumpToTarget} />
-        <OKRDiagnosisPanel
-          cycleId={activeCycleId}
-          onApply={(sug) => {
-            // 守则: 不自动改写 OKR, 仅做"跳转 + 打开正确入口"
-            const targetId = sug.action.targetId;
-            const obj = cycleObjectives.find((o) => o.id === targetId);
-            const kr = keyResults.find((k) => k.id === targetId);
-            const scopeObjId = obj?.id ?? kr?.objectiveId ?? null;
-            if (!scopeObjId) return;
-            switch (sug.action.kind) {
-              case 'open-checkin':
-                if (kr) setCheckinFor({ scope: 'kr', scopeId: kr.id });
-                else setCheckinFor({ scope: 'objective', scopeId: scopeObjId });
-                break;
-              case 'open-discussion':
-                setSelectedObjId(scopeObjId);
-                setDetailTab('comments');
-                break;
-              case 'open-kr-editor':
-              case 'open-objective-editor':
-              case 'jump-to-objective':
-              case 'jump-to-kr':
-              default:
-                setSelectedObjId(scopeObjId);
-                setDetailTab('overview');
-                break;
-            }
-          }}
-        />
-      </div>
+      <Dialog open={showHealth} onOpenChange={setShowHealth}>
+        <DialogContent className="flex max-h-[82vh] w-[calc(100vw-2rem)] max-w-4xl flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+            <DialogTitle className="flex items-center gap-2 text-headline">
+              <Stethoscope className="h-4 w-4 text-primary" />
+              健康度检查
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+            <OKRHealthPanel cycleId={activeCycleId} objectives={filteredObjectives} onJump={jumpToTarget} />
+            <OKRDiagnosisPanel
+              cycleId={activeCycleId}
+              onApply={(sug) => {
+                // 守则: 不自动改写 OKR, 仅做"跳转 + 打开正确入口"
+                const targetId = sug.action.targetId;
+                const obj = cycleObjectives.find((o) => o.id === targetId);
+                const kr = keyResults.find((k) => k.id === targetId);
+                const scopeObjId = obj?.id ?? kr?.objectiveId ?? null;
+                if (!scopeObjId) return;
+                switch (sug.action.kind) {
+                  case 'open-checkin':
+                    if (kr) setCheckinFor({ scope: 'kr', scopeId: kr.id });
+                    else setCheckinFor({ scope: 'objective', scopeId: scopeObjId });
+                    break;
+                  case 'open-discussion':
+                    setSelectedObjId(scopeObjId);
+                    setDetailTab('comments');
+                    break;
+                  case 'open-kr-editor':
+                  case 'open-objective-editor':
+                  case 'jump-to-objective':
+                  case 'jump-to-kr':
+                  default:
+                    setSelectedObjId(scopeObjId);
+                    setDetailTab('overview');
+                    break;
+                }
+                setShowHealth(false);
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const renderMoreActionsDialog = () => {
+    const close = () => setMoreActionsOpen(false);
+    const openTemplates = () => {
+      close();
+      setShowTemplates(true);
+    };
+    const openBulkCreate = () => {
+      close();
+      setShowBulkCreate(true);
+    };
+    const openHealth = () => {
+      close();
+      setShowHealth(true);
+    };
+    const openImport = () => {
+      close();
+      importInputRef.current?.click();
+    };
+    const actionClass = 'h-auto min-h-11 w-full justify-start px-3 py-2 text-left';
+
+    return (
+      <Dialog open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl p-0">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="flex items-center gap-2 text-headline">
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              更多功能
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2 px-5 py-4 sm:grid-cols-2">
+            <Button variant="outline" className={actionClass} onClick={openTemplates}>
+              <Sparkles className="mr-2 h-4 w-4 text-warning" />
+              <span className="flex-1">模板库</span>
+            </Button>
+            <Button variant="outline" className={actionClass} onClick={openBulkCreate}>
+              <Sparkles className="mr-2 h-4 w-4 text-[rgb(var(--brand-500))]" />
+              <span className="flex-1">AI 起草 4 套</span>
+            </Button>
+            <Button asChild variant="outline" className={actionClass} onClick={close}>
+              <a href="/okr/calibration">
+                <CalendarRange className="mr-2 h-4 w-4" />
+                <span className="flex-1">校准下属</span>
+              </a>
+            </Button>
+            <Button variant="outline" className={actionClass} onClick={openHealth}>
+              <Stethoscope className="mr-2 h-4 w-4" />
+              <span className="flex-1">健康度</span>
+            </Button>
+            <Button asChild variant="outline" className={actionClass} onClick={close}>
+              <a href="/insights">
+                <Sparkles className="mr-2 h-4 w-4 text-brand-500" />
+                <span className="flex-1">AI 信号</span>
+              </a>
+            </Button>
+            <Button asChild variant="outline" className={actionClass} onClick={close}>
+              <a href="/tti">
+                <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                <span className="flex-1">TTI 填报</span>
+              </a>
+            </Button>
+            <Button asChild variant="outline" className={actionClass} onClick={close}>
+              <a href="/report">
+                <Edit3 className="mr-2 h-4 w-4" />
+                <span className="flex-1">写日报</span>
+              </a>
+            </Button>
+            <Button variant="outline" className={actionClass} onClick={() => { close(); handleExportJSON(); }}>
+              <FileJson className="mr-2 h-4 w-4" />
+              <span className="flex-1">导出 JSON</span>
+            </Button>
+            <Button variant="outline" className={actionClass} onClick={() => { close(); handleExportCSV(); }}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              <span className="flex-1">导出 CSV</span>
+            </Button>
+            <Button variant="outline" className={actionClass} onClick={openImport}>
+              <Upload className="mr-2 h-4 w-4" />
+              <span className="flex-1">导入 CSV/JSON</span>
+            </Button>
+            <Button variant="outline" className={actionClass} disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
+              <Cloud className="mr-2 h-4 w-4" />
+              <span className="flex-1">同步 Tita</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     );
   };
 
@@ -1205,55 +1366,19 @@ export default function OKRPage() {
           </div>
           <div className="flex-1" />
           {/* 主 CTA: mobile + desktop 都显示 */}
-          <Button size="sm" variant="default" onClick={() => startNewObjective()}>
+          <Button size="sm" variant="default" className="h-8 px-3 text-footnote" onClick={() => startNewObjective()}>
             <Plus className="h-3 w-3 mr-1" /> 新目标
           </Button>
-          {/* 次要按钮: 仅 md+ 显示, mobile 走抽屉 (下版本补) */}
+          {/* 次要操作收进"更多功能"弹窗 */}
           <div className="hidden md:flex items-center gap-2 flex-wrap">
-            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => setShowTemplates(true)} title="从模板库新建">
-              <Sparkles className="h-3 w-3 mr-1 text-warning" /> 模板库
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => setShowBulkCreate(true)} title="AI 起草 4 套 OKR 候选 (季初推荐)">
-              <Sparkles className="h-3 w-3 mr-1 text-[rgb(var(--brand-500))]" /> AI 起草 4 套
-            </Button>
-            <a
-              href="/okr/calibration"
-              className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40"
-              title="经理一屏校准下属 OKR 评分 (季末推荐)"
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 px-3 text-footnote"
+              onClick={() => setMoreActionsOpen(true)}
+              title="展开更多操作"
             >
-              <CalendarRange className="h-3 w-3" /> 校准下属
-            </a>
-            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
-              <Stethoscope className="h-3 w-3 mr-1" /> 健康度
-            </Button>
-            <a
-              href="/insights"
-              className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40"
-              title="AI 智能层 · 跨模块信号"
-            >
-              <Sparkles className="h-3 w-3 text-brand-500" /> AI 信号
-            </a>
-            {/* 三入口互链 (对标审计 P1-1): 从"目标与对齐"跳到"填报进展"的两个专用视图 */}
-            <a href="/tti" className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40" title="TTI 四要素填报视图">
-              <Sparkles className="h-3 w-3 text-primary" /> TTI 填报
-            </a>
-            <a href="/report" className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40" title="5 分钟日报 → 推流 OKR 进度">
-              <Edit3 className="h-3 w-3" /> 写日报
-            </a>
-            <div className="flex border rounded">
-              <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={handleExportJSON} title="导出 JSON 全量备份">
-                <FileJson className="h-3 w-3 mr-1" /> JSON
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={handleExportCSV} title="导出 Tita 兼容 CSV">
-                <FileSpreadsheet className="h-3 w-3 mr-1" /> CSV
-              </Button>
-            </div>
-            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => importInputRef.current?.click()} title="导入 Tita CSV 或 JSON">
-              <Upload className="h-3 w-3 mr-1" /> 导入
-            </Button>
-            <input ref={importInputRef} type="file" accept=".csv,.json" className="hidden" onChange={handleImportFile} title="选择 Tita CSV 或 JSON 文件" />
-            <Button size="sm" variant="outline" className="h-7 text-footnote" disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
-              <Cloud className="h-3 w-3 mr-1" /> 同步 Tita
+              <MoreHorizontal className="h-3 w-3 mr-1" /> 更多功能
             </Button>
           </div>
 
@@ -1279,7 +1404,7 @@ export default function OKRPage() {
                 <a href="/okr/calibration" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => setMobileMenuOpen(false)}>
                   <CalendarRange className="h-3.5 w-3.5" /> 校准下属
                 </a>
-                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); setShowHealth((v) => !v); }}>
+                <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => { setMobileMenuOpen(false); setShowHealth(true); }}>
                   <Stethoscope className="h-3.5 w-3.5" /> 健康度诊断
                 </button>
                 <a href="/insights" className="flex w-full items-center gap-2 px-3 py-2 text-left text-footnote hover:bg-muted" onClick={() => setMobileMenuOpen(false)}>
@@ -1304,6 +1429,7 @@ export default function OKRPage() {
               </div>
             )}
           </div>
+          <input ref={importInputRef} type="file" accept=".csv,.json" className="hidden" onChange={handleImportFile} title="选择 Tita CSV 或 JSON 文件" />
         </div>
 
         {/* mobile-only cycle switcher (独立一行, 横滚) */}
@@ -1428,9 +1554,6 @@ export default function OKRPage() {
           </div>
         </div>
       </div>
-
-      {/* ===== 健康度抽屉（顶部可折叠）===== */}
-      {renderHealthDrawer()}
 
       {/* ===== 主体 ===== */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -1611,6 +1734,8 @@ export default function OKRPage() {
 
       {/* 品牌化确认对话框 (替换原生 confirm) */}
       {confirmDialogEl}
+      {renderMoreActionsDialog()}
+      {renderHealthDialog()}
 
       {/* ===== 模板库弹窗 ===== */}
       <OKRTemplatePicker

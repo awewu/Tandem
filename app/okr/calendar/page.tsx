@@ -20,9 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Target,
-  CheckCircle2, AlertTriangle, MessageSquare,
+  MessageSquare,
 } from 'lucide-react';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
+import { useCurrentUser, useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { buildCurrentOkrOwnerIds } from '@/lib/calendar/okr-calendar-events';
 
 const CONF_DOT: Record<string, string> = {
   'on-track': 'bg-success',
@@ -44,7 +46,9 @@ interface CellEvent {
 }
 
 export default function OKRCalendarPage() {
-  const { cycles, objectives, keyResults, checkIns } = useOKRStore();
+  const { cycles, objectives, keyResults, checkIns, activeCycleId } = useOKRStore();
+  const { user } = useCurrentUser();
+  const currentUserId = useCurrentUserId();
   const { nameOf } = useOwnerDirectory();
   const [year, setYear] = useState<number>(0);
   const [month, setMonth] = useState<number>(0); // 0-11
@@ -63,6 +67,45 @@ export default function OKRCalendarPage() {
     return m;
   }, [objectives]);
 
+  const currentOkrOwnerIds = useMemo(() => buildCurrentOkrOwnerIds({
+    legacyCurrentUserId: currentUserId,
+    authUserId: user?.id,
+    authEmail: user?.email,
+  }), [currentUserId, user?.email, user?.id]);
+  const currentOkrOwnerIdSet = useMemo(() => new Set(currentOkrOwnerIds), [currentOkrOwnerIds]);
+  const matchesOwnerId = useMemo(() => {
+    return (ownerId: string | undefined | null) => {
+      if (!ownerId) return false;
+      return currentOkrOwnerIdSet.has(ownerId) || currentOkrOwnerIdSet.has(ownerId.startsWith('person:') ? ownerId.slice(7) : `person:${ownerId}`);
+    };
+  }, [currentOkrOwnerIdSet]);
+
+  const currentCycle = useMemo(
+    () => cycles.find((cycle) => cycle.id === activeCycleId) ?? null,
+    [activeCycleId, cycles],
+  );
+  const currentCycleObjectives = useMemo(
+    () => objectives.filter((objective) => objective.cycleId === activeCycleId),
+    [activeCycleId, objectives],
+  );
+  const currentCycleObjectiveIdSet = useMemo(
+    () => new Set(currentCycleObjectives.map((objective) => objective.id)),
+    [currentCycleObjectives],
+  );
+  const currentCycleMyObjectiveIdSet = useMemo(() => {
+    const ids = new Set<string>();
+    for (const objective of currentCycleObjectives) {
+      if (matchesOwnerId(objective.ownerId)) ids.add(objective.id);
+    }
+    for (const kr of keyResults) {
+      if (!currentCycleObjectiveIdSet.has(kr.objectiveId)) continue;
+      if (matchesOwnerId(kr.ownerId) || (kr.collaborators ?? []).some((ownerId) => matchesOwnerId(ownerId))) {
+        ids.add(kr.objectiveId);
+      }
+    }
+    return ids;
+  }, [currentCycleObjectiveIdSet, currentCycleObjectives, keyResults, matchesOwnerId]);
+
   /** 当月每日事件 */
   const eventsByDay = useMemo(() => {
     const map = new Map<number, CellEvent[]>();
@@ -70,6 +113,21 @@ export default function OKRCalendarPage() {
 
     const monthStart = new Date(year, month, 1).getTime();
     const monthEnd = new Date(year, month + 1, 0, 23, 59, 59).getTime();
+    const myObjectiveIds = new Set(currentCycleMyObjectiveIdSet);
+    const myKeyResults = keyResults.filter((kr) => currentCycleObjectiveIdSet.has(kr.objectiveId) && (
+      myObjectiveIds.has(kr.objectiveId) ||
+      matchesOwnerId(kr.ownerId) ||
+      (kr.collaborators ?? []).some((ownerId) => matchesOwnerId(ownerId))
+    ));
+    const myKeyResultIds = new Set(myKeyResults.map((kr) => kr.id));
+    for (const kr of myKeyResults) {
+      myObjectiveIds.add(kr.objectiveId);
+    }
+    const myCycleIds = new Set(
+      objectives
+        .filter((objective) => myObjectiveIds.has(objective.id))
+        .map((objective) => objective.cycleId),
+    );
 
     const push = (day: number, ev: CellEvent) => {
       const arr = map.get(day) ?? [];
@@ -78,7 +136,7 @@ export default function OKRCalendarPage() {
     };
 
     // KR dueDate
-    for (const kr of keyResults) {
+    for (const kr of myKeyResults) {
       if (!kr || !kr.dueDate) continue;
       const d = typeof kr.dueDate === 'number' ? kr.dueDate : Date.parse(kr.dueDate as unknown as string);
       if (Number.isNaN(d)) continue;
@@ -99,11 +157,12 @@ export default function OKRCalendarPage() {
       const d = typeof ci.createdAt === 'number' ? ci.createdAt : Date.parse(ci.createdAt as unknown as string);
       if (Number.isNaN(d)) continue;
       if (d < monthStart || d > monthEnd) continue;
+      if (ci.scope === 'objective' ? !myObjectiveIds.has(ci.scopeId) : !myKeyResultIds.has(ci.scopeId)) continue;
       const day = new Date(d).getDate();
       const targetTitle =
         ci.scope === 'objective'
           ? objectiveById.get(ci.scopeId)
-          : keyResults.find((k) => k.id === ci.scopeId)?.title;
+          : myKeyResults.find((k) => k.id === ci.scopeId)?.title;
       push(day, {
         type: 'checkin',
         label: `${ci.scope === 'objective' ? 'O' : 'KR'} check-in: ${targetTitle ?? ''}`,
@@ -114,6 +173,7 @@ export default function OKRCalendarPage() {
     // 周期切换
     for (const c of cycles) {
       if (!c.startDate || !c.endDate) continue;
+      if (!myCycleIds.has(c.id)) continue;
       if (c.startDate >= monthStart && c.startDate <= monthEnd) {
         push(new Date(c.startDate).getDate(), {
           type: 'cycle-start',
@@ -129,7 +189,7 @@ export default function OKRCalendarPage() {
     }
 
     return map;
-  }, [year, month, keyResults, checkIns, cycles, objectiveById, nameOf]);
+  }, [year, month, keyResults, checkIns, cycles, objectives, currentCycleMyObjectiveIdSet, currentCycleObjectiveIdSet, matchesOwnerId, objectiveById, nameOf]);
 
   /** 月份数据 */
   const monthGrid = useMemo(() => {
@@ -207,6 +267,11 @@ export default function OKRCalendarPage() {
             <MessageSquare className="h-3 w-3" />
             本月 {Array.from(eventsByDay.values()).flat().filter(e => e.type === 'checkin').length} 次 check-in
           </Badge>
+          {currentCycle && (
+            <Badge variant="outline" className="gap-1">
+              {currentCycle.name}
+            </Badge>
+          )}
         </div>
 
         <Card>

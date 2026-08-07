@@ -7,7 +7,7 @@
 import { getStore } from '../storage/repository';
 import type { Persona } from '../types/persona';
 import type { MemoryEntry } from '../types/memory';
-import type { Cycle, Objective, KeyResult, TTI } from '../types/okr-tti';
+import type { Cycle, Objective, KeyResult, TTI, CheckIn } from '../types/okr-tti';
 import type { DecisionCard } from '../types/decision-card';
 import type { Kpi, KpiCycle, KpiSubject, KpiSnapshot, KpiScope } from '../types/kpi';
 import type { AgentTemplate } from '../types/agent-template';
@@ -226,6 +226,8 @@ export async function seedDevData(): Promise<void> {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   } as Omit<TTI, 'id'>);
+
+  await seedReportRecapFixturesIfEmpty();
 
   // Persona for demo-user
   await s.personas.create({
@@ -588,6 +590,135 @@ export async function seedDevData(): Promise<void> {
   await seedAgentTemplatesIfEmpty();
   await seedPmsIfEmpty();
   await seedPmsProductCatalogIfEmpty();
+  await seedReportRecapFixturesIfEmpty();
+}
+
+export async function seedReportRecapFixturesIfEmpty(): Promise<void> {
+  const s = getStore();
+  const existing = await s.checkIns.list();
+  if (existing.some((c) => ['demo-star', 'demo-burnout', 'demo-mismatch', 'demo-intervene'].includes(c.authorId))) {
+    return;
+  }
+
+  const cycle = (await s.cycles.list()).find((c) => c.name === '2026 Q2');
+  if (!cycle) return;
+
+  const recapDay = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+  const recapSpecs = [
+    {
+      ownerId: 'demo-star',
+      objectiveTitle: '明星：高增长商机推进',
+      krTitle: '新增有效商机 18 个',
+      startValue: 6,
+      targetValue: 18,
+      currentValue: 15,
+      confidence: 'on-track' as const,
+      checkIns: [
+        { before: 11, after: 14, achievements: '推进 3 个重点商机进入方案比价', blockers: undefined, nextSteps: '完成样板客户演示', mood: 'happy' as const, day: 6 },
+        { before: 14, after: 15, achievements: '新增 1 个渠道转介绍商机', blockers: undefined, nextSteps: '锁定下周签约节奏', mood: 'happy' as const, day: 2 },
+      ],
+    },
+    {
+      ownerId: 'demo-burnout',
+      objectiveTitle: '风险枯萎：高产出下的节奏修复',
+      krTitle: '稳定交付节奏',
+      startValue: 4,
+      targetValue: 10,
+      currentValue: 8,
+      confidence: 'at-risk' as const,
+      checkIns: [
+        { before: 6, after: 7, achievements: '按时交付核心版本', blockers: '连续加班导致评审排期后移', nextSteps: '补一个质量回归窗口', mood: 'neutral' as const, day: 5 },
+        { before: 7, after: 8, achievements: '完成一轮问题修复', blockers: '跨部门依赖响应偏慢', nextSteps: '拉齐供应链与研发接口人', mood: 'sad' as const, day: 1 },
+      ],
+    },
+    {
+      ownerId: 'demo-mismatch',
+      objectiveTitle: '人岗错位：补齐转化与执行',
+      krTitle: '关键项目推进完成率',
+      startValue: 2,
+      targetValue: 10,
+      currentValue: 5,
+      confidence: 'at-risk' as const,
+      checkIns: [
+        { before: 3, after: 4, achievements: '完成项目资料整理', blockers: '销售转化跟进偏弱', nextSteps: '补一轮客户跟进', mood: 'neutral' as const, day: 6 },
+        { before: 4, after: 5, achievements: '推动 1 个需求确认', blockers: '资源协调慢', nextSteps: '下周补齐计划表', mood: 'sad' as const, day: 3 },
+      ],
+    },
+    {
+      ownerId: 'demo-intervene',
+      objectiveTitle: '必须干预：扭转低迷状态',
+      krTitle: '本月核心动作闭环',
+      startValue: 0,
+      targetValue: 8,
+      currentValue: 2,
+      confidence: 'off-track' as const,
+      checkIns: [
+        { before: 0, after: 1, achievements: '完成第一轮拆解', blockers: '关键资源仍未到位', nextSteps: '尽快确认 owner 与截止时间', mood: 'sad' as const, day: 4 },
+        { before: 1, after: 2, achievements: '推进 1 个关键节点', blockers: '执行动作未完全落地', nextSteps: '本周必须完成回收闭环', mood: 'sad' as const, day: 1 },
+      ],
+    },
+  ];
+
+  for (const spec of recapSpecs) {
+    const objective = await s.objectives.create({
+      cycleId: cycle.id,
+      level: 'individual',
+      ownerId: spec.ownerId,
+      title: spec.objectiveTitle,
+      visibility: 'public',
+      weight: 100,
+      status: 'active',
+      confidence: spec.confidence,
+      tags: [],
+      collaboratorIds: [],
+      watcherIds: [],
+      currentProgress: 0,
+      tenantId: 'default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as Omit<Objective, 'id'>);
+
+    const kr = await s.keyResults.create({
+      objectiveId: objective.id,
+      ownerId: spec.ownerId,
+      coOwnerIds: [],
+      title: spec.krTitle,
+      measureType: 'numeric',
+      computeMethod: 'cumulative',
+      startValue: spec.startValue,
+      targetValue: spec.targetValue,
+      currentValue: spec.currentValue,
+      unit: '个',
+      confidence: spec.confidence,
+      riskStatus: spec.confidence === 'on-track' ? 'on_track' : spec.confidence === 'at-risk' ? 'at_risk' : 'off_track',
+      weight: 100,
+      status: 'active',
+      tags: [],
+      collaboratorIds: [],
+      watcherIds: [],
+      tenantId: 'default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as Omit<KeyResult, 'id'>);
+
+    for (const item of spec.checkIns) {
+      await s.checkIns.create({
+        scope: 'kr',
+        scopeId: kr.id,
+        authorId: spec.ownerId,
+        progressBefore: item.before,
+        progressAfter: item.after,
+        confidenceBefore: item.mood === 'sad' ? 'at-risk' : 'on-track',
+        confidenceAfter: spec.confidence,
+        achievements: item.achievements,
+        blockers: item.blockers ?? null,
+        nextSteps: item.nextSteps ?? null,
+        mood: item.mood,
+        tenantId: 'default',
+        createdAt: recapDay(item.day),
+      } as Omit<CheckIn, 'id'>);
+    }
+  }
 }
 
 /**

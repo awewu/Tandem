@@ -2289,7 +2289,7 @@ function WelcomeStage({
             </div>
           </Link>
           <Link
-            href="/report/weekly"
+            href="/report?panel=weekly"
             className="group surface-card rounded-2xl p-3.5 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
           >
             <div className="flex items-center gap-2.5">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useOKRStore } from '@/lib/store';
+import { useOKRStore, type Objective } from '@/lib/store';
 import { checkCycleHealth, sortIssues, type HealthIssue } from '@/lib/okr/health';
 import { AlertTriangle, AlertCircle, Info, Stethoscope } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,18 +16,22 @@ const CLS: Record<HealthIssue['severity'], string> = {
 interface Props {
   cycleId: string;
   onJump?: (kind: 'objective' | 'kr', id: string) => void;
+  objectives?: Objective[];
   /** 紧凑徽标模式 */
   compact?: boolean;
 }
 
-export function OKRHealthPanel({ cycleId, onJump, compact }: Props) {
+export function OKRHealthPanel({ cycleId, onJump, objectives, compact }: Props) {
   const cycle = useOKRStore((s) => s.cycles.find((c) => c.id === cycleId));
   const cycleObjectives = useOKRStore((s) => s.objectives.filter((o) => o.cycleId === cycleId));
   const allKRs = useOKRStore((s) => s.keyResults);
   const checkIns = useOKRStore((s) => s.checkIns);
 
   if (!cycle) return null;
-  const issues = sortIssues(checkCycleHealth(cycle, cycleObjectives, allKRs, checkIns));
+  const scopedObjectives = objectives ?? cycleObjectives;
+  const scopedObjectiveIds = new Set(scopedObjectives.map((objective) => objective.id));
+  const scopedKRs = allKRs.filter((kr) => scopedObjectiveIds.has(kr.objectiveId));
+  const issues = sortIssues(checkCycleHealth(cycle, scopedObjectives, scopedKRs, checkIns));
   const errorCount = issues.filter((i) => i.severity === 'error').length;
   const warningCount = issues.filter((i) => i.severity === 'warning').length;
 

@@ -52,8 +52,19 @@ const RULES: Array<{
     match: (q, kw) => kw.some((k) => ['周报', '本周', '回顾', '一周'].includes(k)) || /这.*周|本周.*怎么/.test(q),
     produce: () => ({
       intent: 'report.weekly',
-      route: '/report/weekly',
+      route: '/report?panel=weekly',
       label: '看本周回顾（AI 周报）',
+      confidence: 0.85,
+    }),
+  },
+  // 本月回顾 / 月报
+  {
+    keywords: ['月报', '本月', '月度回顾', '月回顾', '一个月'],
+    match: (q, kw) => kw.some((k) => ['月报', '本月', '月度回顾', '一个月'].includes(k)) || /这.*月|本月.*怎么/.test(q),
+    produce: () => ({
+      intent: 'report.monthly',
+      route: '/report?panel=monthly',
+      label: '看本月回顾（AI 月报）',
       confidence: 0.85,
     }),
   },
@@ -275,7 +286,9 @@ export const POST = withApiLog(POSTApiHandler, { route: '/api/agent/intent' });
 /** 可路由的页面清单（同步给 LLM 作为 schema） */
 const ROUTE_CATALOG: Array<{ route: string; description: string }> = [
   { route: '/report', description: '写 5min 智能日报（员工每日填报，AI 自动提炼并推流 OKR）' },
-  { route: '/report/weekly', description: '本周回顾 / AI 周报（基于过去 7 天 check-in）' },
+  { route: '/report?panel=view', description: '日报查看（按日期/成员/范围查看历史日报）' },
+  { route: '/report?panel=weekly', description: '本周回顾 / AI 周报（基于过去 7 天 check-in）' },
+  { route: '/report?panel=monthly', description: '本月回顾 / AI 月报（基于过去 30 天 check-in）' },
   { route: '/kpi', description: '我的绩效目标 · 平衡记分卡（BSC 四维度）' },
   { route: '/kpi?view=dept', description: '部门绩效对比（manager 及以上可见）' },
   { route: '/okr', description: '我的 OKR / 关键结果与对齐' },

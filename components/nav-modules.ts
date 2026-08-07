@@ -156,23 +156,16 @@ export const NAV_MODULES: NavModule[] = [
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/tti', '/report', '/story-chain'],
     items: [
-      // TTI = 事半主轴 (前瞻提升轨, 60-70% 即健康, 与薪资分离). /tti=四要素填报, 与 /okr 同源互为镜像.
-      { name: 'TTI（Target to Improve）牵引', href: '/tti',     icon: Activity,       group: '目标与关键成果法 OKR' },
+      // 四象限工作法 = 先填 TTI 四要素, 再拆成本周工作 / 未来计划 / 当前进展.
+      { name: '四象限工作法',      href: '/tti',     icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
-      { name: '四象限工作法',      href: '/work-method',      icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
       { name: '部门效能',          href: '/okr/dashboard',    icon: BarChart3,      group: '目标与关键成果法 OKR' },
       { name: 'OKR 校准会',        href: '/okr/calibration',  icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 日历视图',      href: '/okr/calendar',     icon: CalendarDays,   group: '目标与关键成果法 OKR' },
-      // 每日推进 (5min 日报 / 周回顾) 主入口已迁往「搭子 · 个人工作台」(每天和分身一起干活);
-      // 因日报是 KR check-in 输入会回填进度, 此处保留一个深链, 做 OKR 的人仍可直达.
-      { name: '每日推进 (日报 / 周回顾)', href: '/report', icon: Clock3, group: '目标与关键成果法 OKR' },
-      { name: '日报查看',          href: '/report/view',       icon: FileText,       group: '目标与关键成果法 OKR' },
-      { name: '周报回顾',          href: '/report/weekly',     icon: CalendarRange,   group: '目标与关键成果法 OKR' },
-      { name: '月报回顾',          href: '/report/monthly',    icon: CalendarDays,    group: '目标与关键成果法 OKR' },
-      // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
-      { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
+      // OKR报告：细分模式放在页面顶部 tab，侧栏只保留一个总入口。
+      { name: 'OKR报告',           href: '/report',                   icon: Clock3,        group: '目标与关键成果法 OKR' },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '故事链 provenance', href: '/story-chain',      icon: Network,        group: '分析洞察' },

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * SubSidebar — 240px white panel showing items of the currently active module.
+ * SubSidebar — compact white panel showing items of the currently active module.
  *
  * - Header: module fullLabel + collapse button
  * - Body:  scrollable list of NavItems (role-filtered)
@@ -172,7 +172,7 @@ function SubSidebarInner() {
         // Semantic tokens — flips correctly in dark mode.
         'relative flex h-full min-h-0 shrink-0 flex-col border-r border-border bg-[rgb(var(--surface-1))]',
         'transition-[width] duration-base ease-standard',
-        !isImModule && (open ? 'w-60' : 'w-12'),
+        !isImModule && (open ? 'w-56' : 'w-12'),
         resizingIm && 'transition-none',
       )}
       style={isImModule ? { width: open || resizingIm ? imWidth : IM_SIDEBAR_COLLAPSED_WIDTH } : undefined}

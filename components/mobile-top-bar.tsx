@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserMenu } from './user-menu';
@@ -30,15 +30,22 @@ import { haptic } from '@/lib/haptics';
  */
 export function MobileTopBar() {
   const pathname = usePathname() ?? '/';
+  const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const title = useMemo(() => {
     if (pathname === '/' || pathname === '/home') return '工作台';
-    if (pathname.startsWith('/report')) return '今日日报';
+    if (pathname.startsWith('/report')) {
+      const panel = searchParams.get('panel');
+      if (panel === 'view') return '日报查看';
+      if (panel === 'weekly') return '周报回顾';
+      if (panel === 'monthly') return '月报回顾';
+      return '每日推进';
+    }
     const id = activeModuleId(pathname);
     const m = NAV_MODULES.find((x) => x.id === id);
     return m?.fullLabel ?? 'Tandem';
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   return (
     <>

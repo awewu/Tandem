@@ -532,10 +532,20 @@ export default function MonthlyRecapPage() {
               </div>
 
               {data.summary === '' && loading ? (
-                <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono max-h-[320px] overflow-y-auto bg-surface-2 rounded p-3 border border-border">
-                  {streamingText || '正在等待 LLM 首个 token…'}
-                  <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
-                </pre>
+                <div className="space-y-3 rounded border border-border bg-surface-2 p-4">
+                  <div className="flex items-center gap-2 text-[10px] text-info">
+                    <span className="h-1.5 w-1.5 rounded-full bg-info animate-pulse" />
+                    正在生成月报摘要
+                  </div>
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                </div>
               ) : (
                 <>
                   <p className="text-caption text-ink-primary leading-relaxed">{data.summary}</p>

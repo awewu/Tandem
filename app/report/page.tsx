@@ -11,7 +11,8 @@
  */
 
 import React, { Suspense, useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOKRStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,11 +46,15 @@ import {
   ChevronDown,
   Search,
   X,
+  FileText,
+  CalendarRange,
+  CalendarDays,
 } from 'lucide-react';
 
 type Mood = 'happy' | 'neutral' | 'sad';
 type ReportVisibility = 'private' | 'selected' | 'public';
 type AnalysisConfidence = 'on-track' | 'at-risk' | 'off-track';
+type ReportPanel = 'daily' | 'view' | 'weekly' | 'monthly';
 type VisibleReport = Omit<CheckIn, 'scope' | 'achievements' | 'blockers' | 'nextSteps' | 'mood'> & {
   scope: CheckIn['scope'] | 'non_okr';
   achievements?: string | null;
@@ -89,6 +94,30 @@ type AnalysisResult = {
   model?: string;
   reason?: string;
 };
+
+const REPORT_PANELS: Array<{
+  key: ReportPanel;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { key: 'daily', label: '每日推进', icon: Clock },
+  { key: 'view', label: '日报查看', icon: FileText },
+  { key: 'weekly', label: '周报回顾', icon: CalendarRange },
+  { key: 'monthly', label: '月报回顾', icon: CalendarDays },
+];
+
+const ReportViewPanel = dynamic(() => import('./view/page'), {
+  ssr: false,
+  loading: () => <PanelLoading label="日报查看" />,
+});
+const WeeklyRecapPanel = dynamic(() => import('./weekly/page'), {
+  ssr: false,
+  loading: () => <PanelLoading label="周报回顾" />,
+});
+const MonthlyRecapPanel = dynamic(() => import('./monthly/page'), {
+  ssr: false,
+  loading: () => <PanelLoading label="月报回顾" />,
+});
 
 const CONFIDENCE_OPTIONS: Array<{ value: AnalysisConfidence; label: string }> = [
   { value: 'on-track', label: '正常' },
@@ -137,6 +166,51 @@ function ownerMatchesSet(ownerId: string | undefined | null, ids: Set<string>): 
   if (!ownerId) return false;
   const normalized = normalizeOwnerId(ownerId);
   return ids.has(ownerId) || ids.has(normalized) || ids.has(`person:${normalized}`);
+}
+
+function ReportPanelTabs({
+  activePanel,
+  onChange,
+}: {
+  activePanel: ReportPanel;
+  onChange: (panel: ReportPanel) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-1/95 px-2 py-2 shadow-soft-sm">
+      {REPORT_PANELS.map((panel) => {
+        const Icon = panel.icon;
+        const active = panel.key === activePanel;
+        return (
+          <button
+            key={panel.key}
+            type="button"
+            onClick={() => onChange(panel.key)}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition',
+              active
+                ? 'bg-brand-500 text-white shadow-soft-sm'
+                : 'bg-transparent text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary',
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            <span>{panel.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PanelLoading({ label }: { label: string }) {
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 py-4 md:px-6 md:py-6">
+      <Card className="border-dashed border-border">
+        <CardContent className="py-16 text-center text-[13px] text-ink-tertiary">
+          正在打开 {label}...
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 /**
@@ -188,12 +262,50 @@ function parsePartialJson(raw: string): any {
 export default function ReportPage() {
   return (
     <Suspense fallback={null}>
-      <ReportPageInner />
+      <ReportPageShell />
     </Suspense>
   );
 }
 
-function ReportPageInner() {
+function ReportPageShell() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const panelParam = searchParams.get('panel');
+  const urlKrId = searchParams.get('krId');
+
+  const activePanel: ReportPanel = panelParam === 'view' || panelParam === 'weekly' || panelParam === 'monthly'
+    ? panelParam
+    : 'daily';
+
+  const switchPanel = useCallback(
+    (nextPanel: ReportPanel) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextPanel === 'daily') {
+        params.delete('panel');
+      } else {
+        params.set('panel', nextPanel);
+      }
+      const query = params.toString();
+      router.replace(query ? `/report?${query}` : '/report', { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="mx-auto w-full max-w-6xl px-4 pt-4 md:px-6 md:pt-6">
+        <ReportPanelTabs activePanel={activePanel} onChange={switchPanel} />
+      </div>
+
+      {activePanel === 'daily' && <ReportPageInner urlKrId={urlKrId} />}
+      {activePanel === 'view' && <ReportViewPanel />}
+      {activePanel === 'weekly' && <WeeklyRecapPanel />}
+      {activePanel === 'monthly' && <MonthlyRecapPanel />}
+    </div>
+  );
+}
+
+function ReportPageInner({ urlKrId }: { urlKrId: string | null }) {
   const { toast } = useToast();
   const store = useOKRStore();
   const { people, nameOf } = useOwnerDirectory();
@@ -325,10 +437,6 @@ function ReportPageInner() {
         })),
     [keyResults, submittedReports],
   );
-
-  /** §P4 OKR 联动: 支持 ?krId=xxx URL 参数, mobile OKR 列表点 "写进展" 跳过来直接锚定 */
-  const searchParams = useSearchParams();
-  const urlKrId = searchParams.get('krId');
 
   // 当 URL 带 krId 且有效时直接展开对应 KR；普通进入页面时保持列表收起。
   useEffect(() => {

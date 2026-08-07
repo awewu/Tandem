@@ -19,9 +19,8 @@ import ImSearchOverlay from '@/components/im/ImSearchOverlay';
 import { ImCombinedSearchOverlay } from '@/components/im/ImCombinedSearchOverlay';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
-import { extractPreview, type ImChannel, type ImMembership } from '@/lib/types/im';
+import { type ImChannel, type ImMembership } from '@/lib/types/im';
 import { displayImChannelName, displayImChannelPreview, displayImChannelSubtitle, getDmPeerId } from '@/lib/im/channel-name';
-import { useToast } from '@/hooks/use-toast';
 import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
 
 type Channel = ImChannel & { unread?: number; membership?: ImMembership };
@@ -119,7 +118,6 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const { user } = useCurrentUser();
   const ME = user?.id ?? '';
   const nameOf = usePersonNameResolver();
-  const { toast } = useToast();
   const canManageOrgGroups = user?.permissions?.includes('organization.manage') ?? false;
 
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -133,15 +131,9 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
   const channelsLoadInFlightRef = useRef<Promise<void> | null>(null);
   const showMsgSearchRef = useRef(false);
-  const channelsRef = useRef<Channel[]>([]);
-  const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
 
   const activeId = searchParams?.get('ch') ?? null;
   const isImRoute = pathname?.startsWith('/im') ?? false;
-
-  useEffect(() => {
-    channelsRef.current = channels;
-  }, [channels]);
 
   useHandoffPrefill('im', (payload) => {
     setHandoffDraft({ name: payload.title, topic: payload.body });
@@ -211,56 +203,6 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     };
   }, [loadChannels]);
 
-  const notifyIncomingMessage = useCallback((event: MessageEvent) => {
-    try {
-      const payload = JSON.parse(event.data) as {
-        channelId?: string;
-        message?: { id?: string; senderId?: string; body?: string; attachments?: unknown[] };
-      };
-      const channelId = payload.channelId;
-      const message = payload.message;
-      if (!ME) return;
-      if (!channelId || !message?.id || message.senderId === ME) return;
-      if (notifiedMessageIdsRef.current.has(message.id)) return;
-      notifiedMessageIdsRef.current.add(message.id);
-      if (notifiedMessageIdsRef.current.size > 100) {
-        notifiedMessageIdsRef.current = new Set(Array.from(notifiedMessageIdsRef.current).slice(-50));
-      }
-
-      const channel = channelsRef.current.find((item) => item.id === channelId);
-      const channelName = channel
-        ? channelDisplayName(channel)
-        : 'IM 消息';
-      const senderName = nameOf(message.senderId) || '有人';
-      const preview = extractPreview(message.body ?? '') ||
-        (message.attachments?.length ? `[附件] ${message.attachments.length} 个文件` : '发来一条新消息');
-      const shouldSkipToast = document.visibilityState === 'visible' && activeId === channelId;
-      if (!shouldSkipToast) {
-        toast({
-          title: `新 IM 消息 · ${channelName}`,
-          description: `${senderName}: ${preview}`,
-        });
-      }
-      if (
-        document.visibilityState === 'hidden' &&
-        typeof Notification !== 'undefined' &&
-        Notification.permission === 'granted'
-      ) {
-        const notification = new Notification(`新 IM 消息 · ${channelName}`, {
-          body: `${senderName}: ${preview}`,
-          tag: `im-${message.id}`,
-        });
-        notification.onclick = () => {
-          window.focus();
-          router.replace(`/im?ch=${encodeURIComponent(channelId)}`);
-          notification.close();
-        };
-      }
-    } catch {
-      /* ignore malformed stream events */
-    }
-  }, [ME, activeId, channelDisplayName, nameOf, router, toast]);
-
   useEffect(() => {
     if (!ME) return;
     const es = new EventSource('/api/im/stream');
@@ -268,10 +210,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     let sseHealthy = true;
     es.addEventListener('unread', refresh);
     es.addEventListener('channel', refresh);
-    es.addEventListener('message', (event) => {
-      refresh();
-      notifyIncomingMessage(event as MessageEvent);
-    });
+    es.addEventListener('message', refresh);
     es.onopen = () => { sseHealthy = true; };
     es.onerror = () => {
       sseHealthy = false;
@@ -284,7 +223,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       clearInterval(fallback);
       es.close();
     };
-  }, [ME, loadChannels, notifyIncomingMessage]);
+  }, [ME, loadChannels]);
 
   const filteredChannels = useMemo(() => {
     let list = channels;

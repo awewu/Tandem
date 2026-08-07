@@ -42,3 +42,19 @@ export async function refreshDesktopSession(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * 弹一次桌面原生通知 (Tauri only).
+ * web 端直接返回 false, 由调用方决定是否降级为 toast / 浏览器通知。
+ */
+export async function notifyDesktop(title: string, body: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const mod = await import('@tauri-apps/api/core').catch(() => null);
+    if (!mod || typeof (mod as any).invoke !== 'function') return false;
+    await (mod as any).invoke('tandem_notify', { title, body });
+    return true;
+  } catch {
+    return false;
+  }
+}

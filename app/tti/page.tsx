@@ -29,7 +29,6 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCurrentUser, useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
-  Sparkles,
   Target,
   Zap,
   AlertTriangle,
@@ -39,6 +38,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Compass,
+  CalendarCheck,
+  CalendarRange,
+  ClipboardCheck,
+  Pin,
+  PinOff,
+  Plus,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -47,6 +52,14 @@ import {
   X,
 } from 'lucide-react';
 import { TrustBanner } from '@/components/trust-banner';
+import { useOKRStore, type Initiative as StoreInitiative } from '@/lib/store';
+import { bucketByWeekOf, startOfWeek, type WorkHorizon } from '@/lib/okr/work-method';
+import {
+  hydrateOkrFromApi,
+  persistCreateInitiative,
+  persistDeleteInitiative,
+  persistUpdateInitiative,
+} from '@/lib/store/okr-sync';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -114,6 +127,52 @@ const CONFIDENCE_META: Record<Confidence, { label: string; color: string }> = {
 };
 
 const HISTORY_PAGE_SIZE = 5;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const INITIATIVE_STATUS_META: Record<StoreInitiative['status'], { label: string; className: string }> = {
+  todo: { label: '待办', className: 'text-muted-foreground' },
+  'in-progress': { label: '进行中', className: 'text-info' },
+  blocked: { label: '阻塞', className: 'text-danger' },
+  done: { label: '完成', className: 'text-success' },
+  cancelled: { label: '取消', className: 'text-muted-foreground' },
+};
+
+function isClosedInitiative(i: StoreInitiative): boolean {
+  return i.status === 'done' || i.status === 'cancelled';
+}
+
+function splitKrInitiatives(items: StoreInitiative[], now: number): {
+  buckets: Record<WorkHorizon, StoreInitiative[]>;
+  thisWeek: StoreInitiative[];
+  planning: StoreInitiative[];
+} {
+  const buckets: Record<WorkHorizon, StoreInitiative[]> = {
+    overdue: [],
+    'this-week': [],
+    'next-4-weeks': [],
+    later: [],
+    backlog: [],
+  };
+  for (const item of items) {
+    let bucket = bucketByWeekOf(item.weekOf, now);
+    if (bucket === 'overdue' && isClosedInitiative(item)) bucket = 'this-week';
+    buckets[bucket].push(item);
+  }
+  return {
+    buckets,
+    thisWeek: [...buckets.overdue, ...buckets['this-week']],
+    planning: [
+      ...buckets['next-4-weeks'],
+      ...buckets.later,
+      ...buckets.backlog,
+    ],
+  };
+}
+
+function formatShortDate(ms?: number | null): string {
+  if (ms == null) return '未排期';
+  return new Date(ms).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
 
 /** TTI 健康度: 60-70% 健康, >90% 警告"目标定低了". 与 KPI 完全不同. */
 function ttiHealth(progressPct: number): {
@@ -274,6 +333,13 @@ export default function TtiPage() {
   }, [load]);
 
   useEffect(() => {
+    void hydrateOkrFromApi();
+    const onFocus = () => { void hydrateOkrFromApi(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  useEffect(() => {
     for (const k of krs) {
       if (!checkInsByKr[k.id]) void loadCheckIns(k.id);
     }
@@ -349,6 +415,7 @@ export default function TtiPage() {
       // refresh
       await load();
       await loadCheckIns(kr.id);
+      await hydrateOkrFromApi(true);
     } catch (e) {
       setForm(kr.id, { submitting: false, error: (e as Error).message });
     }
@@ -398,19 +465,19 @@ export default function TtiPage() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="container mx-auto max-w-5xl p-6 space-y-4">
+    <div className="container mx-auto max-w-7xl p-6 space-y-4">
       <header>
         <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          我的 TTI · 四要素填报
+          <CalendarCheck className="h-6 w-6 text-primary" />
+          四象限工作法
         </h1>
         <p className="text-caption text-muted-foreground mt-1">
-          战略成长空间 · 与奖金完全分离 · 60-70% 是健康区间
+          先完成 TTI 四要素填报，再拆成本周工作、未来计划和当前进展
           <span className="ml-2 text-footnote">CHARTER-KPI-TTI §3</span>
         </p>
         {/* 三入口互链: 澄清"在哪写进展" (对标审计 P1-1 迷路问题) */}
         <nav className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-footnote text-muted-foreground">
-          <span className="font-medium text-foreground">当前: 四要素填报</span>
+          <span className="font-medium text-foreground">当前: 四象限工作法</span>
           <a href="/okr" className="hover:text-primary hover:underline">目标与对齐 → OKR</a>
           <a href="/report" className="hover:text-primary hover:underline">写今日进展 → 日报</a>
         </nav>
@@ -659,6 +726,13 @@ export default function TtiPage() {
                         </Button>
                       </div>
 
+                      <TtiWorkMethodGate
+                        unlocked={recent.length > 0 || Boolean(f.ok)}
+                        objective={obj}
+                        kr={kr}
+                        recent={recent}
+                      />
+
                       {/* 历史 check-in：默认收纳, 每页 5 条 */}
                       {recent.length > 0 && (
                         <div className="border-t pt-3">
@@ -824,5 +898,384 @@ export default function TtiPage() {
         })
       )}
     </div>
+  );
+}
+
+function TtiWorkMethodGate({
+  unlocked,
+  objective,
+  kr,
+  recent,
+}: {
+  unlocked: boolean;
+  objective: Objective;
+  kr: KeyResult;
+  recent: CheckIn[];
+}) {
+  if (!unlocked) {
+    return (
+      <div className="rounded-lg border border-dashed bg-muted/20 p-3 text-footnote text-muted-foreground">
+        完成本期 TTI 填报后，会在这里展开「四象限工作法」：把这个 KR 拆成本周工作、未来计划和后续进展。
+      </div>
+    );
+  }
+  return <InlineWorkMethod objective={objective} kr={kr} recent={recent} />;
+}
+
+function InlineWorkMethod({
+  objective,
+  kr,
+  recent,
+}: {
+  objective: Objective;
+  kr: KeyResult;
+  recent: CheckIn[];
+}) {
+  const initiatives = useOKRStore((s) =>
+    s.initiatives.filter((i) => i.scope === 'kr' && i.scopeId === kr.id),
+  );
+  const updateInitiative = useOKRStore((s) => s.updateInitiative);
+  const deleteInitiative = useOKRStore((s) => s.deleteInitiative);
+  const [now, setNow] = useState<number | null>(null);
+  const [addingTo, setAddingTo] = useState<'this-week' | 'future' | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setNow(Date.now()), []);
+
+  const view = useMemo(() => (now == null ? null : splitKrInitiatives(initiatives, now)), [initiatives, now]);
+  const thisWeekStart = now == null ? null : startOfWeek(now);
+  const futureStart = thisWeekStart == null ? null : thisWeekStart + WEEK_MS;
+
+  async function createPlan() {
+    if (now == null || !draftTitle.trim() || !addingTo) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const weekOf = addingTo === 'this-week' ? thisWeekStart : futureStart;
+      await persistCreateInitiative({
+        keyResultId: kr.id,
+        title: draftTitle.trim(),
+        ownerId: kr.ownerId,
+        status: 'todo',
+        weekOf: weekOf ?? undefined,
+      });
+      setDraftTitle('');
+      setAddingTo(null);
+      await hydrateOkrFromApi(true);
+    } catch (e) {
+      setError(`新增失败：${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updatePlan(
+    item: StoreInitiative,
+    patch: { weekOf?: number | null; status?: StoreInitiative['status'] },
+  ) {
+    const localPatch: Partial<StoreInitiative> = {};
+    if ('weekOf' in patch) localPatch.weekOf = patch.weekOf ?? undefined;
+    if (patch.status) localPatch.status = patch.status;
+    updateInitiative(item.id, localPatch);
+    setError(null);
+    try {
+      await persistUpdateInitiative(item.id, patch);
+      await hydrateOkrFromApi(true);
+    } catch (e) {
+      setError(`保存失败：${(e as Error).message}`);
+      await hydrateOkrFromApi(true);
+    }
+  }
+
+  async function deletePlan(item: StoreInitiative) {
+    if (!confirm(`确认删除工作项「${item.title}」？`)) return;
+    deleteInitiative(item.id);
+    setError(null);
+    try {
+      await persistDeleteInitiative(item.id);
+      await hydrateOkrFromApi(true);
+    } catch (e) {
+      setError(`删除失败：${(e as Error).message}`);
+      await hydrateOkrFromApi(true);
+    }
+  }
+
+  if (now == null || !view) {
+    return (
+      <div className="rounded-lg border bg-muted/20 p-3 text-footnote text-muted-foreground">
+        加载四象限工作法…
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-body font-semibold flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-primary" />
+            四象限工作法
+          </h3>
+          <p className="mt-1 text-footnote text-muted-foreground">
+            TTI 已完成填报，继续把这个 KR 拆到周计划和进展跟踪。
+          </p>
+        </div>
+        <Badge variant="outline" className="bg-background text-footnote">
+          本周 {view.thisWeek.length} 项 · 未来/待规划 {view.planning.length} 项
+        </Badge>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-danger/5 px-3 py-2 text-caption text-danger">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <section className="rounded-lg border bg-background p-3">
+          <QuadrantTitle icon={Target} title="OKR / TTI" hint="目标摘要" />
+          <div className="mt-3 space-y-2 text-footnote">
+            <div>
+              <div className="text-muted-foreground">Objective</div>
+              <div className="font-medium text-foreground">{objective.title}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">KR</div>
+              <div className="font-medium text-foreground">{kr.title}</div>
+            </div>
+            <div className="tabular-nums text-muted-foreground">
+              当前 {kr.currentValue.toLocaleString()} / 目标 {kr.targetValue.toLocaleString()}
+              {kr.unit && <span> {kr.unit}</span>}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border bg-background p-3">
+          <QuadrantTitle icon={ClipboardCheck} title="当前进展" hint="最近填报" />
+          {recent.length === 0 ? (
+            <div className="mt-3 rounded-md border border-dashed p-4 text-center text-footnote text-muted-foreground">
+              暂无进展记录
+            </div>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {recent.slice(0, 3).map((item) => (
+                <li key={item.id} className="rounded-md border bg-muted/20 p-2 text-footnote">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="tabular-nums text-muted-foreground">
+                      {item.progressBefore}% → <strong>{item.progressAfter}%</strong>
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {item.achievements && <div className="mt-1 line-clamp-1">推进：{item.achievements}</div>}
+                  {item.blockers && <div className="mt-0.5 line-clamp-1 text-warning">障碍：{item.blockers}</div>}
+                  {item.nextSteps && <div className="mt-0.5 line-clamp-1 text-primary">下一步：{item.nextSteps}</div>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <PlanQuadrant
+          icon={CalendarCheck}
+          title="本周工作"
+          hint="遗留 + 本周"
+          items={view.thisWeek}
+          adding={addingTo === 'this-week'}
+          draftTitle={draftTitle}
+          saving={saving}
+          onAdd={() => {
+            setAddingTo('this-week');
+            setDraftTitle('');
+          }}
+          onDraftTitle={setDraftTitle}
+          onSubmit={() => void createPlan()}
+          onCancel={() => {
+            setAddingTo(null);
+            setDraftTitle('');
+          }}
+          actionIcon={PinOff}
+          actionLabel="移出本周"
+          onAction={(item) => void updatePlan(item, { weekOf: null })}
+          onStatus={(item, status) => void updatePlan(item, { status })}
+          onDelete={(item) => void deletePlan(item)}
+        />
+
+        <PlanQuadrant
+          icon={CalendarRange}
+          title="未来四周 / 待规划"
+          hint="下一步排程"
+          items={view.planning}
+          adding={addingTo === 'future'}
+          draftTitle={draftTitle}
+          saving={saving}
+          onAdd={() => {
+            setAddingTo('future');
+            setDraftTitle('');
+          }}
+          onDraftTitle={setDraftTitle}
+          onSubmit={() => void createPlan()}
+          onCancel={() => {
+            setAddingTo(null);
+            setDraftTitle('');
+          }}
+          actionIcon={Pin}
+          actionLabel="钉到本周"
+          onAction={(item) => void updatePlan(item, { weekOf: thisWeekStart })}
+          onStatus={(item, status) => void updatePlan(item, { status })}
+          onDelete={(item) => void deletePlan(item)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function QuadrantTitle({
+  icon: Icon,
+  title,
+  hint,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  hint: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-caption font-medium text-foreground">
+        <Icon className="h-4 w-4 text-primary" />
+        {title}
+      </div>
+      <span className="text-[11px] text-muted-foreground">{hint}</span>
+    </div>
+  );
+}
+
+function PlanQuadrant({
+  icon,
+  title,
+  hint,
+  items,
+  adding,
+  draftTitle,
+  saving,
+  onAdd,
+  onDraftTitle,
+  onSubmit,
+  onCancel,
+  actionIcon: ActionIcon,
+  actionLabel,
+  onAction,
+  onStatus,
+  onDelete,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  hint: string;
+  items: StoreInitiative[];
+  adding: boolean;
+  draftTitle: string;
+  saving: boolean;
+  onAdd: () => void;
+  onDraftTitle: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  actionIcon: React.ComponentType<{ className?: string }>;
+  actionLabel: string;
+  onAction: (item: StoreInitiative) => void;
+  onStatus: (item: StoreInitiative, status: StoreInitiative['status']) => void;
+  onDelete: (item: StoreInitiative) => void;
+}) {
+  return (
+    <section className="rounded-lg border bg-background p-3">
+      <div className="flex items-center justify-between gap-2">
+        <QuadrantTitle icon={icon} title={title} hint={`${items.length} 项 · ${hint}`} />
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-footnote text-primary hover:bg-primary/5"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          新增
+        </button>
+      </div>
+
+      {adding && (
+        <div className="mt-3 rounded-md border bg-muted/20 p-2">
+          <Input
+            autoFocus
+            value={draftTitle}
+            onChange={(e) => onDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onSubmit();
+              if (e.key === 'Escape') onCancel();
+            }}
+            placeholder="输入要推进的具体工作"
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+              取消
+            </Button>
+            <Button type="button" size="sm" onClick={onSubmit} disabled={saving || !draftTitle.trim()}>
+              {saving ? '保存中…' : '保存'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {items.length === 0 && !adding ? (
+        <div className="mt-3 rounded-md border border-dashed p-4 text-center text-footnote text-muted-foreground">
+          暂无工作项
+        </div>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {items.map((item) => {
+            const meta = INITIATIVE_STATUS_META[item.status];
+            return (
+              <li key={item.id} className="rounded-md border bg-muted/20 p-2 text-footnote">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium text-foreground line-clamp-2">{item.title}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {formatShortDate(item.weekOf)} · {item.dueDate ? `截止 ${formatShortDate(item.dueDate)}` : '未设截止'}
+                    </div>
+                  </div>
+                  <select
+                    value={item.status}
+                    onChange={(e) => onStatus(item, e.currentTarget.value as StoreInitiative['status'])}
+                    className={`shrink-0 rounded-md border bg-background px-1.5 py-1 text-[11px] ${meta.className}`}
+                    title="状态"
+                  >
+                    {Object.entries(INITIATIVE_STATUS_META).map(([value, option]) => (
+                      <option key={value} value={value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mt-2 flex justify-end gap-1.5">
+                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => onAction(item)}>
+                    <ActionIcon className="h-3.5 w-3.5 mr-1" />
+                    {actionLabel}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-danger hover:text-danger"
+                    onClick={() => onDelete(item)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    删除
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
