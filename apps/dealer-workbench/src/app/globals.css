@@ -97,6 +97,24 @@
   --s1:4px; --s2:8px; --s3:12px; --s4:16px;
   --s5:20px; --s6:24px; --s8:32px; --s10:40px;
 
+  /* ── 字号阶梯（15px 基准 · CJK 友好整数化 · 约 1.2 递进）──
+     用途约定：2xs 微标签/侧栏/角标 · xs 说明/表元信息 · sm 次要正文/表格/按钮
+     · base 正文 · md 强调正文/卡片小标题 · lg 区块副标题 · xl 区块标题
+     · 2xl 页面主标题 · 3xl KPI 大数字 */
+  --text-2xs: 11px;
+  --text-xs:  12px;
+  --text-sm:  13px;
+  --text-base:14px;
+  --text-md:  16px;
+  --text-lg:  18px;
+  --text-xl:  22px;
+  --text-2xl: 28px;
+  --text-3xl: 34px;
+  /* 行高 */
+  --lh-tight: 1.25; --lh-snug: 1.4; --lh-normal: 1.5; --lh-relaxed: 1.65;
+  /* 字重 */
+  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700; --fw-black: 800;
+
   /* ── 圆角（Rhautt 锐角工程边缘 · 去 PPT 软糖感）── */
   --r-xs:2px; --r-sm:3px; --r:4px; --r-lg:6px; --r-xl:8px;
 }
