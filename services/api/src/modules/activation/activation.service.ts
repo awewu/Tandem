@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
 import type { JwtPayload } from '../auth/auth.service';
 import { ActivationActivityEntity, ActivationParticipationEntity } from './activation.entity';
 
@@ -21,6 +22,7 @@ export class ActivationService {
         category: dto.category ?? null, rules: dto.rules ?? {}, budget: Number(dto.budget) || 0,
         periodStart: dto.periodStart ?? null, periodEnd: dto.periodEnd ?? null, status: 'draft',
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'activation.create', resourceType: 'activation_activity', resourceId: row.id, afterState: { type: dto.type, name: dto.name, budget: Number(dto.budget) || 0 } });
       return { activity: row };
     }, this.scope(actor));
   }
@@ -30,6 +32,7 @@ export class ActivationService {
     return withRlsTransaction(this.ds, async (em) => {
       const r = await em.getRepository(ActivationActivityEntity).update({ id, tenantId: actor.tenantId }, { status, updatedAt: new Date() });
       if (!r.affected) throw new NotFoundException('activity not found');
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: `activation.status.${status}`, resourceType: 'activation_activity', resourceId: id, afterState: { status } });
       return { id, status };
     }, this.scope(actor));
   }

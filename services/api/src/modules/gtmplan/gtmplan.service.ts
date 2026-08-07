@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
 import type { JwtPayload } from '../auth/auth.service';
 import { GtmCampaignEntity, GtmOkrEntity } from './gtmplan.entity';
 
@@ -19,6 +20,7 @@ export class GtmplanService {
         tenantId: actor.tenantId, name: dto.name!, buType: dto.buType ?? null, buRef: dto.buRef ?? null,
         period: dto.period ?? null, budget: Number(dto.budget) || 0, status: 'planned',
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'gtm.campaign.create', resourceType: 'gtm_campaign', resourceId: row.id, afterState: { name: dto.name, period: dto.period, budget: Number(dto.budget) || 0 } });
       return { campaign: row };
     }, this.scope(actor));
   }
@@ -30,6 +32,7 @@ export class GtmplanService {
       if (patch.attributedRevenue != null) upd.attributedRevenue = Number(patch.attributedRevenue);
       if (patch.status) upd.status = patch.status;
       await em.getRepository(GtmCampaignEntity).update({ id, tenantId: actor.tenantId }, upd);
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'gtm.campaign.update', resourceType: 'gtm_campaign', resourceId: id, afterState: { spend: patch.spend, attributedRevenue: patch.attributedRevenue, status: patch.status } });
       return { id, updated: true };
     }, this.scope(actor));
   }
@@ -62,12 +65,14 @@ export class GtmplanService {
           objective: dto.objective!, keyResults: (dto.keyResults ?? []) as any, progress: Number(dto.progress) || 0,
           owner: dto.owner ?? null, buRef: dto.buRef ?? null, period: dto.period ?? null, updatedAt: new Date(),
         } as any);
+        await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'gtm.okr.update', resourceType: 'gtm_okr', resourceId: dto.id, afterState: { level: dto.level, objective: dto.objective, progress: Number(dto.progress) || 0 } });
         return { id: dto.id, updated: true };
       }
       const row = await repo.save(repo.create({
         tenantId: actor.tenantId, level: dto.level!, owner: dto.owner ?? null, buRef: dto.buRef ?? null,
         objective: dto.objective!, keyResults: (dto.keyResults ?? []) as any, progress: Number(dto.progress) || 0, period: dto.period ?? null,
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'gtm.okr.create', resourceType: 'gtm_okr', resourceId: row.id, afterState: { level: dto.level, objective: dto.objective, progress: Number(dto.progress) || 0 } });
       return { okr: row };
     }, this.scope(actor));
   }

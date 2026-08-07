@@ -10,6 +10,7 @@ import {
   Megaphone,
   Package,
   Route,
+  Store,
   PenTool,
   Radio,
   Rocket,
@@ -151,6 +152,17 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     children: [{ key: 'materials', label: '营销物料库管理', href: '/growth/materials', icon: FolderOpen }],
   },
   {
+    key: 'dealer-portal',
+    label: '经销商门户',
+    shortLabel: '门户',
+    desc: '经销商自助：物料领取 · 政策返利 · 线索认领 · 培训认证',
+    href: '/portal',
+    icon: Store,
+    group: 2,
+    permission: 'marketing.campaigns.view',
+    children: [{ key: 'portal-home', label: '经销商门户', href: '/portal', icon: Store }],
+  },
+  {
     key: 'product',
     label: '产品',
     shortLabel: '产品',
@@ -208,6 +220,7 @@ export function navItemForPath(path: string | null): WorkbenchNavItem {
   if (path?.startsWith('/growth/sentiment')) return byKey('sentiment');
   if (path?.startsWith('/growth/automation')) return byKey('automation');
   if (path?.startsWith('/growth/materials')) return byKey('materials');
+  if (path?.startsWith('/portal')) return byKey('dealer-portal');
   if (path?.startsWith('/positioning')) return byKey('brand-sites');
   if (path?.startsWith('/product-mgmt')) return byKey('product');
   if (path?.startsWith('/accounts')) return byKey('accounts');

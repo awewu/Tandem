@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
 import type { JwtPayload } from '../auth/auth.service';
 import { InsightCompetitorEntity, InsightSignalEntity } from './insight.entity';
 
@@ -21,6 +22,7 @@ export class InsightService {
         tenantId: actor.tenantId, category: dto.category!, competitor: dto.competitor!, dimension: dto.dimension!,
         metric: dto.metric!, value: dto.value ?? null, valueText: dto.valueText ?? null, source: dto.source ?? null,
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'insight.competitor.record', resourceType: 'insight_competitor', resourceId: row.id, afterState: { category: dto.category, competitor: dto.competitor, dimension: dto.dimension, metric: dto.metric } });
       return { record: row };
     }, this.scope(actor));
   }
@@ -58,6 +60,7 @@ export class InsightService {
         tenantId: actor.tenantId, category: dto.category ?? null, signalType: dto.signalType!, title: dto.title!,
         summary: dto.summary ?? null, source: dto.source ?? null, severity: dto.severity ?? 'info',
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'insight.signal.record', resourceType: 'insight_signal', resourceId: row.id, afterState: { signalType: dto.signalType, title: dto.title, severity: dto.severity ?? 'info' } });
       return { signal: row };
     }, this.scope(actor));
   }
