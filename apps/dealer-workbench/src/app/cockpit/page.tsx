@@ -39,7 +39,7 @@ export default function CockpitPage() {
 
   return (
     <>
-      <PageHeader title="经销商成功驾驶舱" subtitle="北极星（当期）= GEO→高意向线索数 · 副指标 = 活跃盈利经销商/网络 GMV · 品牌健康度为 A 引擎领先指标" />
+      <PageHeader title="GTM AI驾驶舱" subtitle="北极星（当期）= GEO→高意向线索数 · 副指标 = 活跃盈利经销商/网络 GMV · 品牌健康度为 A 引擎领先指标" />
 
       {/* 北极星 KPI */}
       <AsyncBoundary

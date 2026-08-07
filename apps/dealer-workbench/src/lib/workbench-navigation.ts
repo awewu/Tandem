@@ -53,7 +53,7 @@ export type WorkbenchNavItem = {
 export const WORKBENCH_NAV: WorkbenchNavItem[] = [
   {
     key: 'cockpit',
-    label: '经销商成功驾驶舱',
+    label: 'GTM AI驾驶舱',
     shortLabel: '驾驶舱',
     desc: '北极星 · 活跃盈利经销商数 · 网络 GMV · 品牌健康度',
     href: '/cockpit',
