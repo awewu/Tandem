@@ -20,6 +20,9 @@ function configureRuntimeEnvironment(env = process.env) {
 
 async function startApi() {
   const config = configureRuntimeEnvironment();
+  // 发布安全网:生产缺密钥/用 dev 默认/危险 dev 开关 → 拒绝启动(非生产仅警告)。
+  const { preflight } = require('./preflight');
+  if (!preflight()) process.exit(1);
   const useTypeScript = process.env.API_START_MODE === 'typescript';
   const entry = useTypeScript
     ? path.join(repoRoot, 'services', 'api', 'src', 'main.ts')

@@ -136,6 +136,7 @@
     "dev:nestjs": "ts-node --project services/api/tsconfig.json services/api/src/main.ts",
     "start:api": "node scripts/start-api.js",
     "boot:db-proof": "node scripts/release/target-api-db-boot.js",
+    "preflight": "node scripts/preflight.js",
     "db:migrate": "node scripts/db/apply-migrations.js",
     "db:migrate:status": "node scripts/db/apply-migrations.js --status",
     "db:migrate:dry-run": "node scripts/db/apply-migrations.js --dry-run",
