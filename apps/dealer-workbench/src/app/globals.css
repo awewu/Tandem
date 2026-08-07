@@ -245,10 +245,10 @@ button { cursor:pointer; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 8px 14px;
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--t-secondary);
   text-decoration: none;
   white-space: nowrap;
@@ -257,7 +257,8 @@ button { cursor:pointer; }
 .workbench-tabbar a:hover { background: var(--surface-2); color: var(--t-primary); }
 .workbench-tabbar a.is-active {
   color: var(--brand-700, var(--brand));
-  font-weight: 700;
+  background: var(--brand-50);
+  font-weight: 800;
   box-shadow: inset 0 -2px 0 var(--brand);
 }
 /* 有横向 tab 栏时，内容需清开固定的 44px tab 栏 + 保留呼吸留白 */
