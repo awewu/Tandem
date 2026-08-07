@@ -57,6 +57,14 @@
 
 - 验收:生产入口仅 NestJS;`packages/engines` 无 server/ 依赖;MongoDB 退役;`guard:legacy-surface` 清零;production-readiness 的 legacy 契约测试转绿。
 
+### A8. dealer-workbench UI/VI token 卫生 — 🟡（维护性债,非合规）
+- 审计实测(2026-08):`var(--token)` 引用 1667(深度使用 👍);但**内联 `style={{…}}` 1528 块 / 47 文件**(热点 products 291·GrowthGeoWorkspace 112·WechatPublishing 82·accounts 66·brand 62·登录 61)+ **硬编码 hex ~130**(工作台图表/中性色,非违规红)。
+- **合规现状 ✅**:品牌红双轨正确(对外站 `--brand-primary #E4002B` / 工作台 Tandem `--brand-500 #C8202C`),`guard:rheem-vi-production:strict` 0 critical/high。**此项非 VI 合规问题。**
+- Phase 1:高内联热点页(products/growth/wechat)抽成 `@rhautt/ui` 组件 + 语义 class。
+- Phase 2:图表/中性色收敛为 token(`--chart-*` / `--t-*`);对外站中性灰字面量 → 中性 token。
+- 验收:内联样式块与硬编码 hex 显著下降;新增 `guard:ui-token-hygiene`(可选)守回归。
+- 注:不做 1528 处内联样式的一次性莽改(易致视觉回归/半成品);按页分批、每批目视 + `guard:browser-visual` 兜底。
+
 ## B. 新功能模块(写入规划 · 暂不建)
 
 > 均为营销中台 B端/增长范畴的新模块;按北极星(GEO→高意向线索)+ 副指标(经销商成交率)价值排序,后续单独立项。
