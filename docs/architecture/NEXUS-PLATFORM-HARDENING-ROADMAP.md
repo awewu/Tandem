@@ -45,7 +45,9 @@
 - 现状:legacy `server/`(Express+MongoDB, ~48k LOC)仍是**生产入口**(`node server-production.js`),且被 `packages/engines` 硬依赖(re-export `server/core/{ExportEngine,PromotionEngine}` + `server/engines/EconetPricingEngine`),这些引擎又服务于 charter 保留的**客户赋能独立产品线**(`services/api/src/modules/quote` 等,停挂载但目录留存)。→ 不能硬删 `server/`,须按序 cutover。
 - **M0(已完成):清老世界死掉的部署层** —— 删 legacy 6systems/V9 部署栈:`Dockerfile`(V9 单体)、`Dockerfile.frontend`(legacy nginx 静态)、`docker-compose.prod.yml`(6systems)、`docker/{mongo-init,nginx,nginx-frontend}`;dev `docker-compose.yml` 移除 legacy `app` 单体服务。生产运行时(server-production.js)与 guard:ledger 不受影响(35/0)。
 - **M1(已完成):引擎搬离 server/** —— `ExportEngine/PromotionEngine/EconetPricingEngine` 迁入 `packages/engines/src/`,`index` 改指本地,**切断 `packages/engines → server/` 反向依赖**(server/ 原件留到 M4)。顺带修复 `ExportEngine` 导出文档的旧 Rheem 红 `#C41230`→官方 `#E4002B`(11 处)。验证:`@rhautt/engines` 独立解析、test:api-units 189/189、guard:ledger 35/0。
-- **M2:NestJS 成为生产入口** —— server-production.js 的静态服务/兼容路由/v2 挂载迁到 NestJS(或前置反代);`start` 改指 NestJS。
+- **M2:NestJS 成为生产入口** —— 职责盘点(已做):`server-production.js`→`productionAppFactory`(express+中间件+引擎+调度器+静态`/`)→`productionRouteRegistrar`→`productionRouteCatalog`(全部 legacy 生产路由)。
+  - **方案(strangler 反代)**:新增 NestJS 前置入口,原生服务 `/api/v2/*`,其余路径(静态品牌站 / 未迁 legacy 路由)反代给 legacy app;`start` 改指新入口。M3 逐路由把代理项迁到 NestJS 原生,代理清空即进 M4。
+  - **执行门槛(诚实)**:切生产入口必须有 **legacy 运行时(Mongo+单体)在跑**做逐路由 parity 比对(不丢路由/不丢品牌站静态),否则盲切会丢面。本机未起 legacy 运行时 → M2 落地需先拉起 legacy+NestJS 双跑环境或在 staging 执行,不可盲切。
 - **M3:剩余业务路由 + 数据** —— 逐路由 parity 测试后迁移;数据迁出 MongoDB → PostgreSQL;流量切换。
 - **M4:删 legacy `server/` 主体 + MongoDB 退役。**
 - 验收:生产入口仅 NestJS;`packages/engines` 无 server/ 依赖;MongoDB 退役;`guard:legacy-surface` 清零;production-readiness 的 legacy 契约测试转绿。
