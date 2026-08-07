@@ -41,12 +41,14 @@
 - Phase 2:接 Vault/KMS + 轮换;移除所有 dev 默认回退(生产禁用)。
 - 验收:生产无明文密钥落盘;密钥可轮换;`guard:oidc-secrets` 强化。
 
-### A7. 双运行时收敛(legacy Express → NestJS) — ⚪
-- 现状:legacy `server/`(Express+MongoDB, ~48k LOC)与 NestJS 目标并存。
-- Phase 1:契约对齐清单(逐路由 parity 测试),标注可弃/待迁。
-- Phase 2:分批迁移剩余业务路由到 NestJS + 数据迁出 MongoDB;流量切换。
-- Phase 3:下线 legacy `server/` + docker 单体。
-- 验收:生产入口仅 NestJS;MongoDB 退役;`guard:legacy-surface` 清零。
+### A7. 双运行时收敛(legacy Express → NestJS)/ 老世界清除 — 🟡 进行中
+- 现状:legacy `server/`(Express+MongoDB, ~48k LOC)仍是**生产入口**(`node server-production.js`),且被 `packages/engines` 硬依赖(re-export `server/core/{ExportEngine,PromotionEngine}` + `server/engines/EconetPricingEngine`),这些引擎又服务于 charter 保留的**客户赋能独立产品线**(`services/api/src/modules/quote` 等,停挂载但目录留存)。→ 不能硬删 `server/`,须按序 cutover。
+- **M0(已完成):清老世界死掉的部署层** —— 删 legacy 6systems/V9 部署栈:`Dockerfile`(V9 单体)、`Dockerfile.frontend`(legacy nginx 静态)、`docker-compose.prod.yml`(6systems)、`docker/{mongo-init,nginx,nginx-frontend}`;dev `docker-compose.yml` 移除 legacy `app` 单体服务。生产运行时(server-production.js)与 guard:ledger 不受影响(35/0)。
+- **M1:引擎搬离 server/** —— 把 `ExportEngine/PromotionEngine/EconetPricingEngine` 从 `server/` 迁入 `packages/engines`(或独立产品线包),切断 `packages/engines → server/` 反向依赖。
+- **M2:NestJS 成为生产入口** —— server-production.js 的静态服务/兼容路由/v2 挂载迁到 NestJS(或前置反代);`start` 改指 NestJS。
+- **M3:剩余业务路由 + 数据** —— 逐路由 parity 测试后迁移;数据迁出 MongoDB → PostgreSQL;流量切换。
+- **M4:删 legacy `server/` 主体 + MongoDB 退役。**
+- 验收:生产入口仅 NestJS;`packages/engines` 无 server/ 依赖;MongoDB 退役;`guard:legacy-surface` 清零;production-readiness 的 legacy 契约测试转绿。
 
 ## B. 新功能模块(写入规划 · 暂不建)
 

@@ -75,36 +75,7 @@ services:
       retries: 3
       start_period: 20s
 
-  # ── 瑞诺瓦主应用（单体 Node.js）────────────────────────────────────
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: rysnova-app
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      MONGODB_URI: mongodb://rysnova:${MONGO_PASSWORD:-rysnova2026}@mongodb:27017/rysnova-hvac?authSource=admin
-    ports:
-      - "3000:3000"
-      - "3001:3001"
-    volumes:
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    networks:
-      - rysnova-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+  # legacy 单体 app 服务（V9 Dockerfile）已随老世界部署栈移除；生产入口迁移见 cutover 计划。
 
 volumes:
   mongodb_data:
