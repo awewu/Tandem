@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "description": "Rhautt Nexus 共享 UI Shell 组件库：TopBar / PageHeader / PageBody 等跨应用统一布局组件",
-  "main": "./src/index.tsx",
-  "types": "./src/index.tsx",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.tsx",
+    ".": "./src/index.ts",
     "./topbar": "./src/TopBar.tsx",
     "./page-header": "./src/PageHeader.tsx",
     "./page-body": "./src/PageBody.tsx"

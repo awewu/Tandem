@@ -17,6 +17,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Tag,
   X,
 } from 'lucide-react';
@@ -184,6 +185,13 @@ export default function GrowthMaterialsTable() {
   // 文件预览状态
   const [previewItem, setPreviewItem] = useState<MarketingMaterial | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
+
+  // 多模态生成：AI 文生图
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBrand, setAiBrand] = useState('rheem');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiPreview, setAiPreview] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKind, setPreviewKind] = useState<'image' | 'pdf' | 'none'>('none');
 
@@ -489,6 +497,29 @@ export default function GrowthMaterialsTable() {
       : <ChevronDown size={12} style={{ color: 'var(--brand)' }} />;
   };
 
+  async function handleGenerateImage() {
+    if (!aiPrompt.trim()) { setError('请输入图片描述'); return; }
+    setAiBusy(true);
+    setError('');
+    setAiPreview(null);
+    try {
+      const res: any = await growthMaterials.generateImage({
+        prompt: aiPrompt.trim(),
+        brandSlug: aiBrand || undefined,
+        title: aiPrompt.trim().slice(0, 30),
+      });
+      const url = res?.material?.fileUrl || res?.data?.material?.fileUrl;
+      setAiPreview(url || null);
+      setMessage(`AI 生成图已入库（模型 ${res?.model || res?.data?.model || '-'}）`);
+      await load();
+    } catch (e: any) {
+      // 文生图 provider 未配置时后端返回 503 可读提示，如实展示，不静默
+      setError(e?.message || 'AI 生成图失败');
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <section className="card-elevated" style={{ padding: 18, display: 'grid', gap: 16 }}>
       {/* 标题区 */}
@@ -500,11 +531,54 @@ export default function GrowthMaterialsTable() {
             维护物料名称、分类、品牌、适用场景、格式、版本和标签。支持分页、排序、批量操作与文件预览。
           </p>
         </div>
-        <button className="btn btn-outline btn-sm" onClick={load} disabled={busy}>
-          <RefreshCw size={13} />
-          刷新
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-brand btn-sm" onClick={() => setAiOpen((v) => !v)} disabled={busy}>
+            <Sparkles size={13} />AI 生成图
+          </button>
+          <button className="btn btn-outline btn-sm" onClick={load} disabled={busy}>
+            <RefreshCw size={13} />刷新
+          </button>
+        </div>
       </div>
+
+      {/* 多模态生成：AI 文生图 */}
+      {aiOpen ? (
+        <div className="inset" style={{ display: 'grid', gap: 12, padding: 16, borderLeft: '3px solid var(--brand)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Sparkles size={16} style={{ color: 'var(--brand)' }} />
+            <strong style={{ fontSize: 14, color: 'var(--t-strong)' }}>AI 生成营销图</strong>
+            <span style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>经 Tandem 图像网关，生成图自动入库为物料</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px auto', gap: 10, alignItems: 'end' }}>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span className="t-label">图片描述（prompt）</span>
+              <input
+                className="input"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="例：瑞美空气源热泵热水器 产品海报 简洁科技风 红白配色"
+                onKeyDown={(e) => { if (e.key === 'Enter' && !aiBusy) handleGenerateImage(); }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span className="t-label">品牌</span>
+              <input className="input" value={aiBrand} onChange={(e) => setAiBrand(e.target.value)} placeholder="rheem" />
+            </label>
+            <button className="btn btn-brand" onClick={handleGenerateImage} disabled={aiBusy || !aiPrompt.trim()}>
+              {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}生成
+            </button>
+          </div>
+          {aiPreview ? (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={aiPreview} alt="AI 生成预览" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--surface-3)' }} />
+              <div style={{ fontSize: 13, color: 'var(--success)' }}>
+                已生成并入库，可在下方物料列表查看。
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* 新增/编辑表单 */}
       <div className="inset" style={{ display: 'grid', gap: 12 }}>

@@ -77,39 +77,59 @@ export class DesignService {
     }, this.scopeOf(user));
   }
 
+  // 见文件末尾 evaluateCalcGate：合规闸判定抽成纯函数，便于单测覆盖静默降级回归。
   async runCalc(user: JwtPayload, projectId: string, input: Record<string, unknown>) {
-    const hvacKernels = require('../../../../packages/domain/hvac-kernels');
+    // 内核为 CommonJS 纯函数包，不参与 tsc 编译，故用相对路径 require。
+    // ⚠️ 历史缺陷（2026-08-04 修复）：原为 `../../../../` —— 从
+    // services/api/src/modules/design 上溯 4 级只到 `services/`，解析为
+    // services/packages/... 并不存在，**runCalc 第一行即抛错，整个选型计算端点长期返回 500**。
+    // 需上溯 5 级到仓库根。编译产物 dist/services/api/... 层级一致，故同一路径两处都成立。
+    const hvacKernels = require('../../../../../packages/domain/hvac-kernels');
+    // catch 变量在 strict 下为 unknown：统一安全取错误消息
+    const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+    // 声明式内核清单：新增/改名内核只改这里，保证「应算几项」有唯一真相。
+    const KERNELS: Array<{ key: string; run: () => unknown }> = [
+      { key: 'load', run: () => hvacKernels.loadCalculation.calculateLoad(input) },
+      { key: 'heating', run: () => hvacKernels.heating.designHeatingSystem(input) },
+      { key: 'hotWater', run: () => hvacKernels.hotWater.calculateResidentialHotWater(input) },
+      { key: 'airConditioning', run: () => hvacKernels.airConditioning.designAirConditioning(input) },
+      { key: 'freshAir', run: () => hvacKernels.freshAir.designFreshAir(input) },
+      { key: 'hydraulic', run: () => hvacKernels.hydraulic.HydraulicEngine },
+      { key: 'noise', run: () => hvacKernels.noise.evaluateRooms((input as any)?.rooms || []) },
+      { key: 'water', run: () => new hvacKernels.water.WaterSystemEngine().generateDesign(input) },
+    ];
+
     const systems: Record<string, unknown> = {};
+    const failures: Record<string, string> = {};
+    for (const k of KERNELS) {
+      try {
+        systems[k.key] = k.run();
+      } catch (e) {
+        failures[k.key] = msg(e);
+        this.logger.warn(`${k.key} calc failed: ${msg(e)}`);
+      }
+    }
 
-    try {
-      systems['load'] = hvacKernels.loadCalculation.calculateLoad(input);
-    } catch (e) { this.logger.warn(`load calc failed: ${e.message}`); }
-    try {
-      systems['heating'] = hvacKernels.heating.designHeatingSystem(input);
-    } catch (e) { this.logger.warn(`heating calc failed: ${e.message}`); }
-    try {
-      systems['hotWater'] = hvacKernels.hotWater.calculateResidentialHotWater(input);
-    } catch (e) { this.logger.warn(`hotWater calc failed: ${e.message}`); }
-    try {
-      systems['airConditioning'] = hvacKernels.airConditioning.designAirConditioning(input);
-    } catch (e) { this.logger.warn(`AC calc failed: ${e.message}`); }
-    try {
-      systems['freshAir'] = hvacKernels.freshAir.designFreshAir(input);
-    } catch (e) { this.logger.warn(`freshAir calc failed: ${e.message}`); }
-    try {
-      systems['hydraulic'] = hvacKernels.hydraulic.HydraulicEngine;
-    } catch (e) { this.logger.warn(`hydraulic calc failed: ${e.message}`); }
-    try {
-      systems['noise'] = hvacKernels.noise.evaluateRooms(input?.rooms || []);
-    } catch (e) { this.logger.warn(`noise calc failed: ${e.message}`); }
-    try {
-      systems['water'] = new hvacKernels.water.WaterSystemEngine().generateDesign(input);
-    } catch (e) { this.logger.warn(`water calc failed: ${e.message}`); }
+    // 合规闸 = 专业度红线。
+    // 旧实现：`gatePass = !gateBlocked && Object.keys(systems).length > 0`
+    //   → 8 个内核挂 7 个、只要 1 个算出来，方案照样盖上「合规」的章。
+    // 对一个以「客户专业度」为核心价值的产品，这是最危险的静默降级：
+    // 错误的方案带着合规标记流向经销商与客户，损伤的是品牌信任本身。
+    // 现在：任一内核异常，或任一内核自报 gate.blocked，一律阻断；
+    // 且必须「应算项 = 已算项」才允许 pass。失败明细随审计落库，可追溯到具体内核。
+    const { gate, coverage } = evaluateCalcGate(systems, failures, KERNELS.length);
+    const gateBlocked = gate.blocked;
+    const gatePass = gate.pass;
 
-    const gateBlocked = Object.values(systems).some((s: any) => s?.gate?.blocked === true);
-    const gatePass = !gateBlocked && Object.keys(systems).length > 0;
-
-    const calcSnapshot = { systems, gate: { blocked: gateBlocked, pass: gatePass }, input, calculatedAt: new Date().toISOString() };
+    const calcSnapshot = {
+      systems,
+      failures,
+      coverage,
+      gate,
+      input,
+      calculatedAt: new Date().toISOString(),
+    };
 
     await withRlsTransaction(this.ds, async (em) => {
       await em.getRepository(AiDesignAuditEntity).save({
@@ -258,4 +278,34 @@ export class DesignService {
   private scopeOf(user: JwtPayload): TenantScope {
     return { tenantId: user.tenantId, actorId: user.userId };
   }
+}
+
+/**
+ * 合规闸判定（纯函数，供单测覆盖）——「客户专业度」的红线。
+ *
+ * 历史缺陷：曾用 `pass = !blocked && computed > 0`，导致 8 个内核挂 7 个、
+ * 只要 1 个算出来，方案仍被盖上「合规」章——错误方案带着合规标记流向经销商与客户，
+ * 损伤的是品牌信任本身。
+ *
+ * 现行规则（三条同时满足才 pass）：
+ *   1. 无内核抛错（failures 为空）
+ *   2. 无内核自报 gate.blocked
+ *   3. 应算项 === 已算项（覆盖完整）
+ */
+export function evaluateCalcGate(
+  systems: Record<string, unknown>,
+  failures: Record<string, string>,
+  expected: number,
+) {
+  const failed = Object.keys(failures);
+  const computed = Object.keys(systems).length;
+  const kernelBlocked = Object.values(systems).some((s: any) => s?.gate?.blocked === true);
+  const blocked = kernelBlocked || failed.length > 0 || computed !== expected;
+  let reason: string | null = null;
+  if (blocked) {
+    if (failed.length) reason = `内核计算失败：${failed.join(', ')}`;
+    else if (kernelBlocked) reason = '内核自报合规阻断';
+    else reason = `计算覆盖不完整：应算 ${expected} 项，实算 ${computed} 项`;
+  }
+  return { gate: { blocked, pass: !blocked, reason }, coverage: { expected, computed, failed } };
 }

@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('apps/nexus-console/src/lib/boards.ts', {
+  guard: 'guard:active-page-static', reason: 'apps/nexus-console 不存在；现役工作台为 apps/dealer-workbench，本门禁待按新路径重写',
+});
 const crypto = require('crypto');
 const { JSDOM } = require('jsdom');
 

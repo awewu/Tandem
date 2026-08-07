@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, ILike, In, IsNull } from 'typeorm';
 import { JwtPayload } from '../auth/auth.service';
@@ -25,6 +25,17 @@ import {
   GrowthCopyAssetEntity,
   GrowthGeoAnswerSnapshotEntity,
   GrowthGeoProbeBatchEntity,
+  GrowthGeoExperimentEntity,
+} from './growth.entities';
+import { selectStrategies, renderStrategyBlock } from './geo-strategies';
+import { AuditLogEntity } from '../governance/governance.entity';
+import {
+  geoActionRegistry,
+  executeGeoAction,
+  type GeoActionContext,
+  type GeoActionType,
+} from './geo-actions';
+import {
   GrowthGeoProbeEntity,
   GrowthGeoProbeJobEntity,
   GrowthGeoQuestionEntity,
@@ -68,6 +79,8 @@ type GeoProbeCapture = {
   screenshotBase64?: string | null;
   blocked?: boolean;
   errorMessage?: string;
+  /** 治理网关回传的本次调用 token 用量；落 growth_copy_asset.tokens_cost 供成本计量。 */
+  tokensCost?: number;
 };
 
 type GeoProbeStreamEmit = (event: Record<string, unknown>) => void;
@@ -187,8 +200,13 @@ function buildGeoOptimizationPrompt(input: {
   answerLimit: number;
   gapsLimit: number;
   sourcesLimit: number;
-}) {
-  return [
+  strategyOverrides?: Record<string, number>;
+}): { prompt: string; strategyKeys: string[] } {
+  // AgenticGEO 式策略选择：按内容类型选研究实证有效的策略组合注入，
+  // 而非固定一招。strategyOverrides 允许由第 7 层实验 lift 结果动态提权（自进化）。
+  const strategies = selectStrategies(input.kind, { max: 4, weightOverrides: input.strategyOverrides });
+  const strategyBlock = renderStrategyBlock(strategies);
+  const prompt = [
     `请为 GEO 优化生成${input.kind === 'faq' ? 'FAQ 问答' : input.kind === 'comparison' ? '品牌/方案对比文章草稿' : '官网专题页优化建议'}。`,
     '',
     `目标品牌：${input.brandName}。rhautt_comfort / rhautt-comfort / Rhautt Comfort / 瑞合瑞德是系统或集团上下文，不是本次 GEO 品牌，不要作为品牌名称输出。`,
@@ -198,10 +216,12 @@ function buildGeoOptimizationPrompt(input: {
     input.gaps.length ? `内容缺口：${JSON.stringify(input.gaps).slice(0, input.gapsLimit)}` : '',
     input.sources.length ? `参考资料：${JSON.stringify(input.sources).slice(0, input.sourcesLimit)}` : '',
     '',
-    '输出要求：',
+    strategyBlock,
+    '',
+    '通用要求：',
     '- 使用中文。',
     '- 面向市场运营人员，可直接进入草稿审核。',
-    '- 不要虚构参数、价格、认证或承诺。',
+    '- 不要虚构参数、价格、认证或承诺。禁止关键词堆砌（实证会降低 AI 可见度）。',
     '- 没有参考资料支撑的节能比例、质保年限、认证、功能参数、适用面积必须写“待补充”。',
     '- 如果参考资料不足，明确列出需要补充的资料。',
     '- 控制篇幅，先产出可审初稿，不要展开成长文。',
@@ -211,6 +231,7 @@ function buildGeoOptimizationPrompt(input: {
         ? '- 输出标题、导语、3 个对比维度、正文提纲、我方差异化表达和合规注意点，控制在 650 字以内。'
         : '- 只输出专题页落地大纲，控制在 350 字以内：页面标题、首屏卖点、3 个内容模块、3 组 FAQ、Schema 建议和素材需求；不要写具体数值承诺。',
   ].filter(Boolean).join('\n');
+  return { prompt, strategyKeys: strategies.map((s) => s.key) };
 }
 
 // 鈹€鈹€ E1 · 鑸嗘儏鐩戞祴 Sentiment Radar 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
@@ -529,7 +550,98 @@ export class GrowthGeoService {
     private readonly files: FileArtifactService,
     private readonly ai: AiGatewayService,
     private readonly brandBrain: BrandBrainService,
-  ) {}
+    private readonly eventBus: EventBusService,
+  ) {
+    this.registerGeoActions();
+  }
+
+  // ── GEO 受治理动作引擎（Foundry Ontology 动词的轻量本地实现，见 geo-actions.ts）──
+  // 把 GEO 主线的三个写动作收敛成受治理 Action：人和 AI Agent 走同一套「校验→闸→执行→审计」。
+  private geoActionsRegistered = false;
+  private registerGeoActions() {
+    if (this.geoActionsRegistered || geoActionRegistry.has('geo.generate-content')) {
+      this.geoActionsRegistered = true;
+      return;
+    }
+    const self = this;
+    const actions: GeoActionType[] = [
+      {
+        id: 'geo.generate-content',
+        objectType: 'CopyAsset',
+        label: '生成 GEO 优化内容',
+        zone: 'yellow', // 产出对外内容 → AI 代行需人工核准（对齐宪章 §12 draft→approved）
+        validate: (input: any) => (input?.question ? { ok: true, errors: [] } : { ok: false, errors: ['question required'], code: 'invalid' }),
+        execute: (input: any, ctx: GeoActionContext) => self.generateOptimizationContent(self.actorToJwt(ctx), input),
+      },
+      {
+        id: 'geo.run-experiment',
+        objectType: 'GeoExperiment',
+        label: '开启 GEO 闭环实验（基线探测）',
+        zone: 'green', // 探测只读外部引擎，不改对外内容 → 可自动
+        validate: (input: any) => (input?.questionId || input?.question ? { ok: true, errors: [] } : { ok: false, errors: ['question or questionId required'], code: 'invalid' }),
+        execute: (input: any, ctx: GeoActionContext) => self.startGeoExperiment(self.actorToJwt(ctx), input),
+      },
+      {
+        id: 'geo.verify-lift',
+        objectType: 'GeoExperiment',
+        label: '复投验证 lift',
+        zone: 'green', // 复投探测只读，验证效果，不改内容 → 可自动
+        validate: (input: any) => (input?.id ? { ok: true, errors: [] } : { ok: false, errors: ['experiment id required'], code: 'invalid' }),
+        execute: (input: any, ctx: GeoActionContext) => self.verifyGeoExperiment(self.actorToJwt(ctx), input.id, input),
+      },
+    ];
+    for (const a of actions) geoActionRegistry.register(a);
+    this.geoActionsRegistered = true;
+  }
+
+  private actorToJwt(ctx: GeoActionContext): JwtPayload {
+    return { userId: ctx.actorUserId, tenantId: ctx.tenantId, role: ctx.role } as JwtPayload;
+  }
+
+  /**
+   * 统一动作入口：人和 AI Agent 都经此调 GEO 写动作。
+   * 校验→治理闸→执行→审计（落 Nexus AuditLogEntity，带 RLS 上下文）。
+   */
+  async invokeGeoAction(user: JwtPayload, actionId: string, input: unknown, opts: { isProxy?: boolean; approved?: boolean } = {}) {
+    const ctx: GeoActionContext = {
+      actorUserId: user.userId ?? 'unknown',
+      tenantId: user.tenantId,
+      role: user.role,
+      isProxy: !!opts.isProxy,
+      approved: !!opts.approved,
+    };
+    const audit = async (event: string, meta: Record<string, unknown>) => {
+      try {
+        await withRlsTransaction(this.ds, async (em) => {
+          await em.getRepository(AuditLogEntity).save(em.getRepository(AuditLogEntity).create({
+            tenantId: user.tenantId,
+            actorUserId: user.userId ?? null,
+            action: event,
+            resourceType: 'geo_action',
+            resourceId: String((meta as any).actionId || actionId),
+            afterState: meta,
+          }));
+        }, rls(user));
+      } catch { /* 审计失败不阻断主流程 */ }
+    };
+    const result = await executeGeoAction(actionId, input, ctx, audit);
+    if (!result.ok) {
+      // 被治理闸拦截 → 返回可读结构（前端据此提示"需核准"）
+      return { success: false, blocked: result.blocked, zone: result.zone, checkId: result.checkId };
+    }
+    return { success: true, zone: result.zone, checkId: result.checkId, data: (result.data as any)?.data ?? result.data };
+  }
+
+  /** 列出已注册的受治理 GEO 动作（供前端/AI Agent 发现可调动作）。 */
+  listGeoActions() {
+    return {
+      success: true,
+      data: {
+        actions: geoActionRegistry.list().map((a) => ({ id: a.id, label: a.label, objectType: a.objectType, zone: a.zone })),
+        note: '受治理 GEO 动作：green 可自动，yellow AI 代行需核准，red 永不自动。人与 AI Agent 走同一套闸。',
+      },
+    };
+  }
 
   /**
    * 瀵逛竴涓棶棰樺湪鏌愬紩鎿庤窇鎺㈡祴銆傝嫢缁欏畾绛旀蹇収锛屽垯鐢?GeoAnalyzer 鑷姩鍒ゅ畾鎴戞柟寮曠敤/浣嶆/绔炲搧/AIVS
@@ -555,6 +667,19 @@ export class GrowthGeoService {
         citationRank: analysis ? analysis.citationRank : (dto.citationRank ?? null),
         competitorsCited: analysis ? analysis.competitorsCited : (dto.competitorsCited ?? []),
       }));
+      // GEO→驾驶舱闭环：被 AI 引用即"触达"，发事件供增长中枢记 AARRR 'reach'（幂等 by probe.id）。
+      // 未被引=可见度缺口，发 geo.visibility.gap → 内容闭环待办（gap→生成→审核→发布→复测）。
+      if (probe.weCited) {
+        await this.eventBus.publishInTx(em, {
+          tenantId: user.tenantId, eventType: 'geo.brand.cited', aggregateType: 'geo_probe', aggregateId: probe.id,
+          payload: { probeId: probe.id, engine: probe.engine, aivs: probe.aivs, question: probe.question },
+        });
+      } else {
+        await this.eventBus.publishInTx(em, {
+          tenantId: user.tenantId, eventType: 'geo.visibility.gap', aggregateType: 'geo_probe', aggregateId: probe.id,
+          payload: { probeId: probe.id, engine: probe.engine, question: probe.question, brandSlug: probe.brandSlug, category: probe.category },
+        });
+      }
       return { success: true, data: { probe, analysis } };
     }, rls(user));
   }
@@ -853,7 +978,9 @@ export class GrowthGeoService {
     const sourcesLimit = kind === 'topic' ? 520 : 900;
     const brandSlug = cleanGeoBrand(dto.brandSlug);
     const brandName = geoBrandDisplayName(brandSlug);
-    const prompt = buildGeoOptimizationPrompt({
+    // 自进化：用历史实验 lift 学到的权重指导本次策略选择
+    const strategyOverrides = await this.computeStrategyWeights(user, brandSlug).catch(() => ({}));
+    const { prompt, strategyKeys } = buildGeoOptimizationPrompt({
       kind,
       question,
       brandName,
@@ -864,12 +991,19 @@ export class GrowthGeoService {
       answerLimit,
       gapsLimit,
       sourcesLimit,
+      strategyOverrides,
     });
     const captured = await this.runHermesCenterAiProbe(
       prompt,
       undefined,
       { firstByteTimeoutMs: 20000, timeoutMs: kind === 'comparison' ? 90000 : 75000 },
     );
+    // AI 网关降级：blocked → 503 可重试（而非 500 裸错或误导性 400 "empty"）
+    if (captured.blocked) {
+      throw new ServiceUnavailableException(
+        `AI 内容生成暂不可用：${captured.errorMessage || 'AI 网关不可达'}。可稍后重试，或先人工撰写后走核准流程。`,
+      );
+    }
     const draft = normalizeGeoGeneratedBrandText(cleanText(captured.answerText), brandSlug);
     if (!draft) throw new BadRequestException('optimization content empty');
     const brandCtx = this.brandBrain.context(brandSlug ?? null);
@@ -891,10 +1025,11 @@ export class GrowthGeoService {
         draft,
         status: 'draft',
         model: cleanText((captured.rawResponse as any)?.provider, 'hermes-center-ai'),
-        tokensCost: '0',
+        tokensCost: String(captured.tokensCost ?? 0),
         complianceFlags,
+        strategyKeys,
       }));
-      return { success: true, data: { asset, draft, citations: captured.citations || [] } };
+      return { success: true, data: { asset, draft, strategies: strategyKeys, citations: captured.citations || [] } };
     }, rls(user));
   }
 
@@ -916,7 +1051,7 @@ export class GrowthGeoService {
       const sourcesLimit = kind === 'topic' ? 520 : 900;
       const brandSlug = cleanGeoBrand(dto.brandSlug);
       const brandName = geoBrandDisplayName(brandSlug);
-      const prompt = buildGeoOptimizationPrompt({
+      const { prompt, strategyKeys } = buildGeoOptimizationPrompt({
         kind,
         question,
         brandName,
@@ -929,7 +1064,7 @@ export class GrowthGeoService {
         sourcesLimit,
       });
 
-      emit({ type: 'started', kind });
+      emit({ type: 'started', kind, strategies: strategyKeys });
       let streamedDraft = '';
       const captured = await this.runHermesCenterAiProbe(
         prompt,
@@ -940,6 +1075,11 @@ export class GrowthGeoService {
         },
         { firstByteTimeoutMs: 20000, timeoutMs: kind === 'comparison' ? 90000 : 75000 },
       );
+      if (captured.blocked && !streamedDraft) {
+        throw new ServiceUnavailableException(
+          `AI 内容生成暂不可用：${captured.errorMessage || 'AI 网关不可达'}。可稍后重试，或先人工撰写后走核准流程。`,
+        );
+      }
       const draft = normalizeGeoGeneratedBrandText(cleanText(captured.answerText || streamedDraft), brandSlug);
       if (!draft) throw new BadRequestException('optimization content empty');
       const brandCtx = this.brandBrain.context(brandSlug ?? null);
@@ -961,10 +1101,11 @@ export class GrowthGeoService {
           draft,
           status: 'draft',
           model: cleanText((captured.rawResponse as any)?.provider, 'hermes-center-ai'),
-          tokensCost: '0',
+          tokensCost: String(captured.tokensCost ?? 0),
           complianceFlags,
+          strategyKeys,
         }));
-        return { asset, draft, citations: captured.citations || [] };
+        return { asset, draft, strategies: strategyKeys, citations: captured.citations || [] };
       }, rls(user));
       emit({ type: 'done', kind, ...saved });
     } catch (error) {
@@ -1100,6 +1241,178 @@ export class GrowthGeoService {
         setTimeout(() => this.ensureProbeBatchProcessing(user, id), 0);
       }
       return { success: true, data: { batch: freshBatch || batch, jobs, board: this.buildGeoBoard(jobs) } };
+    }, rls(user));
+  }
+
+  // ── GEO 第 7 层 · 闭环实验 ────────────────────────────────────────────────
+  // 探测→缺口→内容→复投→验证 lift。这是「品牌建设有没有用」在 GEO 层的最小可证伪单元。
+
+  /** 开启一个实验：对某问题跑基线探测，记录发布前的出现率。 */
+  async startGeoExperiment(
+    user: JwtPayload,
+    dto: { brandSlug?: string; questionId?: string; question?: string; hypothesis?: string; killCriteria?: string; competitors?: string[] },
+  ) {
+    const brandSlug = cleanGeoBrand(dto?.brandSlug);
+    const question = cleanText(dto?.question);
+    const questionId = cleanText(dto?.questionId) || null;
+    if (!question && !questionId) throw new BadRequestException('question or questionId required');
+
+    // 1. 跑基线探测批次（复用现有探测能力）
+    const probe = await this.runProbeBatch(user, {
+      brandSlug,
+      questionIds: questionId ? [questionId] : undefined,
+      competitors: dto?.competitors,
+    });
+    const baselineBatchId = probe?.data?.batch?.id;
+
+    // 2. 落实验记录（此刻出现率未知，待批次跑完由 getGeoExperiment 回填）
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(GrowthGeoExperimentEntity);
+      const exp = await repo.save(repo.create({
+        tenantId: user.tenantId,
+        brandSlug,
+        questionId,
+        question: question || probe?.data?.jobs?.[0]?.question || '(问题集)',
+        hypothesis: cleanNullable(dto?.hypothesis),
+        killCriteria: cleanNullable(dto?.killCriteria),
+        status: 'baseline',
+        baselineBatchId,
+        baselineAt: new Date(),
+      }));
+      return { success: true, data: { experiment: exp, baselineBatchId } };
+    }, rls(user));
+  }
+
+  /** 关联补的内容资产，并标记内容已发布（进入 verifying 前的干预步）。 */
+  async linkGeoExperimentContent(
+    user: JwtPayload,
+    id: string,
+    dto: { copyAssetId?: string },
+  ) {
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(GrowthGeoExperimentEntity);
+      const exp = await repo.findOne({ where: { tenantId: user.tenantId, id } as any });
+      if (!exp) throw new BadRequestException('experiment not found');
+      exp.copyAssetId = cleanText(dto?.copyAssetId) || null;
+      exp.contentPublishedAt = new Date();
+      exp.status = 'content-linked';
+      await repo.save(exp);
+      return { success: true, data: { experiment: exp } };
+    }, rls(user));
+  }
+
+  /** 复投：内容发布后再探测一次，算 lift 并给结论。 */
+  async verifyGeoExperiment(
+    user: JwtPayload,
+    id: string,
+    dto: { competitors?: string[] } = {},
+  ) {
+    // 读实验拿到 brandSlug/questionId
+    const exp0 = await withRlsTransaction(this.ds, async (em) => {
+      const e = await em.getRepository(GrowthGeoExperimentEntity).findOne({ where: { tenantId: user.tenantId, id } as any });
+      if (!e) throw new BadRequestException('experiment not found');
+      return e;
+    }, rls(user));
+
+    // 复投探测（与基线同问题）
+    const probe = await this.runProbeBatch(user, {
+      brandSlug: exp0.brandSlug,
+      questionIds: exp0.questionId ? [exp0.questionId] : undefined,
+      competitors: dto?.competitors,
+    });
+    const verifyBatchId = probe?.data?.batch?.id;
+
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(GrowthGeoExperimentEntity);
+      const exp = await repo.findOne({ where: { tenantId: user.tenantId, id } as any });
+      if (!exp) throw new BadRequestException('experiment not found');
+      exp.verifyBatchId = verifyBatchId;
+      exp.verifyAt = new Date();
+      exp.status = 'verifying';
+      await repo.save(exp);
+      return { success: true, data: { experiment: exp, verifyBatchId, note: '复投探测已排队，稍后 GET 实验详情查看 lift' } };
+    }, rls(user));
+  }
+
+  /** 读实验详情：回填 baseline/verify 出现率、算 lift、判结论（含 kill 准则）。 */
+  async getGeoExperiment(user: JwtPayload, id: string) {
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(GrowthGeoExperimentEntity);
+      const exp = await repo.findOne({ where: { tenantId: user.tenantId, id } as any });
+      if (!exp) throw new BadRequestException('experiment not found');
+      const batchRepo = em.getRepository(GrowthGeoProbeBatchEntity);
+
+      // 回填基线出现率
+      if (exp.baselineBatchId && exp.baselineCitedRate === null) {
+        const b = await batchRepo.findOne({ where: { tenantId: user.tenantId, id: exp.baselineBatchId } as any });
+        if (b && b.status === 'succeeded') exp.baselineCitedRate = b.citedRate;
+      }
+      // 回填复投出现率 + 算 lift + 判结论
+      if (exp.verifyBatchId && exp.verifyCitedRate === null) {
+        const v = await batchRepo.findOne({ where: { tenantId: user.tenantId, id: exp.verifyBatchId } as any });
+        if (v && v.status === 'succeeded') {
+          exp.verifyCitedRate = v.citedRate;
+          if (exp.baselineCitedRate !== null) {
+            exp.lift = exp.verifyCitedRate - exp.baselineCitedRate;
+            exp.status = exp.lift > 0 ? 'improved' : exp.lift < 0 ? 'regressed' : 'no-change';
+            exp.conclusion = `基线出现率 ${exp.baselineCitedRate}% → 复投 ${exp.verifyCitedRate}%，`
+              + (exp.lift > 0 ? `提升 ${exp.lift} 个百分点，内容有效。` : exp.lift < 0 ? `下降 ${-exp.lift} 个百分点，需复核。` : '无变化，需换内容策略。');
+          }
+        }
+      }
+      await repo.save(exp);
+      return { success: true, data: { experiment: exp } };
+    }, rls(user));
+  }
+
+  /**
+   * 自进化：从已验证实验的 lift 反哺策略权重（AgenticGEO 闭环最后一环）。
+   * 逻辑：每个已出 lift 的实验 → 找其关联内容资产用了哪些策略 → 这些策略各记该 lift →
+   * 汇总为 { 策略key: 平均lift }，作为 selectStrategies 的 weightOverrides。
+   * 效果：过去哪个策略真的提升了出现率，下次生成就优先用它。
+   */
+  async computeStrategyWeights(user: JwtPayload, brandSlug?: string): Promise<Record<string, number>> {
+    return withRlsTransaction(this.ds, async (em) => {
+      const expWhere: any = { tenantId: user.tenantId };
+      if (brandSlug !== undefined) expWhere.brandSlug = cleanGeoBrand(brandSlug);
+      const experiments = await em.getRepository(GrowthGeoExperimentEntity).find({ where: expWhere, take: 200 });
+      const scored = experiments.filter((e) => e.lift !== null && e.lift !== undefined && e.copyAssetId);
+      if (!scored.length) return {};
+
+      const assetRepo = em.getRepository(GrowthCopyAssetEntity);
+      const acc: Record<string, { sum: number; n: number }> = {};
+      for (const exp of scored) {
+        const asset = await assetRepo.findOne({ where: { tenantId: user.tenantId, id: exp.copyAssetId! } as any });
+        const keys: string[] = (asset?.strategyKeys as string[]) || [];
+        for (const k of keys) {
+          acc[k] = acc[k] || { sum: 0, n: 0 };
+          acc[k].sum += exp.lift as number;
+          acc[k].n += 1;
+        }
+      }
+      // 平均 lift 作为权重增量（正=提权、负=降权）。缩放到与基础权重同量级。
+      const weights: Record<string, number> = {};
+      for (const [k, v] of Object.entries(acc)) {
+        weights[k] = Math.round((v.sum / v.n) * 0.2 * 10) / 10; // lift(百分点)×0.2，避免单次实验主导
+      }
+      return weights;
+    }, rls(user));
+  }
+
+  /** 暴露给前端/接口：查看当前自进化学到的策略权重。 */
+  async getStrategyWeights(user: JwtPayload, query: { brandSlug?: string } = {}) {
+    const weights = await this.computeStrategyWeights(user, query.brandSlug);
+    return { success: true, data: { weights, note: '由已验证实验的 lift 反哺；正=提权，负=降权' } };
+  }
+
+  async listGeoExperiments(user: JwtPayload, query: { brandSlug?: string } = {}) {
+    return withRlsTransaction(this.ds, async (em) => {
+      const where: any = { tenantId: user.tenantId };
+      if (query.brandSlug !== undefined) where.brandSlug = cleanGeoBrand(query.brandSlug);
+      const items = await em.getRepository(GrowthGeoExperimentEntity).find({
+        where, order: { createdAt: 'DESC' }, take: 50,
+      });
+      return { success: true, data: { items } };
     }, rls(user));
   }
 
@@ -1302,10 +1615,23 @@ export class GrowthGeoService {
     return jobs.map((job) => {
       const probe = job.probeId ? probeById.get(job.probeId) : null;
       const snapshot = job.snapshotId ? snapshotById.get(job.snapshotId) : null;
+      // 三层可见度即时计算（fetched≠cited≠mentioned）。基于答案原文现算，
+      // 无需 DB 迁移即对历史数据生效；修正把"被提及"当"被引用"的高估。
+      let visibilityTier: 'none' | 'mentioned' | 'cited' = 'none';
+      let hasOurSource = false;
+      if (snapshot?.answerText) {
+        const a = this.analyzer.analyzeAnswer(snapshot.answerText, probe?.competitorsCited || []);
+        visibilityTier = a.visibilityTier;
+        hasOurSource = a.hasOurSource;
+      } else if (probe?.weCited) {
+        visibilityTier = 'mentioned';
+      }
       return {
         ...job,
         answerPreview: snapshot?.answerText?.slice(0, 240) || null,
         citations: snapshot?.citations || [],
+        visibilityTier,
+        hasOurSource,
         probe,
       };
     });
@@ -1762,7 +2088,26 @@ export class GrowthGeoService {
     };
   }
 
+  /**
+   * AI 网关降级入口：网络不可达/超时/上游异常**不抛裸错**（否则 500 且信息不可读），
+   * 统一降级为 `blocked` capture 并带原因；调用方据此转 503（可重试语义）或走人工兜底。
+   * 与"未配置 baseUrl"的既有降级路径保持一致。
+   */
   private async runHermesCenterAiProbe(
+    question: string,
+    onContent?: (chunk: string) => void,
+    options: { firstByteTimeoutMs?: number; timeoutMs?: number } = {},
+  ): Promise<GeoProbeCapture> {
+    try {
+      return await this.runHermesCenterAiProbeRaw(question, onContent, options);
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Hermes 中心 AI 调用失败，降级为 blocked: ${reason}`);
+      return { blocked: true, errorMessage: `AI 网关不可达或上游异常: ${reason}` };
+    }
+  }
+
+  private async runHermesCenterAiProbeRaw(
     question: string,
     onContent?: (chunk: string) => void,
     options: { firstByteTimeoutMs?: number; timeoutMs?: number } = {},
@@ -1841,7 +2186,7 @@ export class GrowthGeoService {
       throw new Error(`Hermes returned HTTP ${response.status}: ${body.slice(0, 500) || response.statusText}`);
     }
 
-    const { answerText, errors } = await this.withTimeout(
+    const { answerText, errors, tokensCost } = await this.withTimeout(
       this.readHermesSse(response, onContent),
       timeoutMs,
       'Hermes center AI stream timed out',
@@ -1856,23 +2201,26 @@ export class GrowthGeoService {
     return {
       answerText: text,
       citations: this.extractCitationsFromText(text),
+      tokensCost,
       rawResponse: {
         adapter: 'hermes-center-ai',
         provider,
         baseUrl,
         firstByteTimeoutMs,
         timeoutMs,
+        tokensCost,
         capturedAt: new Date().toISOString(),
       },
     };
   }
 
-  private async readHermesSse(response: Response, onContent?: (chunk: string) => void): Promise<{ answerText: string; errors: string[] }> {
+  private async readHermesSse(response: Response, onContent?: (chunk: string) => void): Promise<{ answerText: string; errors: string[]; tokensCost: number }> {
     const reader = response.body?.getReader();
-    if (!reader) return { answerText: '', errors: ['Hermes response body is not readable'] };
+    if (!reader) return { answerText: '', errors: ['Hermes response body is not readable'], tokensCost: 0 };
     const decoder = new TextDecoder();
     let buffer = '';
     let answerText = '';
+    let tokensCost = 0;
     const errors: string[] = [];
     while (true) {
       const { value, done } = await reader.read();
@@ -1894,6 +2242,16 @@ export class GrowthGeoService {
               onContent?.(event.content);
             }
             if (typeof event?.error === 'string') errors.push(event.error);
+            // 治理网关（Tandem）透传的末帧用量 → 成本计量落账（PRD §12 / 网关护栏 §2）。
+            // 此前该字段被忽略、调用方硬编码 tokensCost='0'，导致 AI 成本不可见。
+            const usage = event?.usage;
+            if (usage) {
+              const total = Number(usage.totalTokens ?? usage.total_tokens ?? 0);
+              const split = Number(usage.promptTokens ?? usage.prompt_tokens ?? 0)
+                + Number(usage.completionTokens ?? usage.completion_tokens ?? 0);
+              const resolved = total > 0 ? total : split;
+              if (resolved > 0) tokensCost = resolved;
+            }
             if (event?.done) break;
           } catch {
             errors.push(`invalid SSE payload: ${payload.slice(0, 120)}`);
@@ -1901,7 +2259,7 @@ export class GrowthGeoService {
         }
       }
     }
-    return { answerText, errors };
+    return { answerText, errors, tokensCost };
   }
 
   private extractCitationsFromText(text: string): Array<Record<string, unknown>> {
@@ -2600,6 +2958,81 @@ export class GrowthMarketingMaterialService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly eventBus: EventBusService,
   ) {}
+
+  /**
+   * AI 生成营销图（多模态生成 · 补 7P 弹药短板）。
+   * 经 Tandem 图像网关（/api/image-generation，OpenAI 兼容文生图），生成图落物料库。
+   * provider 未配置时优雅降级为 501 可读提示，不伪造图片（宪章：不谎报能力）。
+   */
+  async generateMaterialImage(
+    user: JwtPayload,
+    dto: { prompt?: string; title?: string; brandSlug?: string; channel?: string; size?: string; negativePrompt?: string },
+  ) {
+    const prompt = cleanText(dto?.prompt);
+    if (!prompt) throw new BadRequestException('prompt required');
+
+    const baseUrl = cleanText(process.env.HERMES_CENTER_AI_BASE_URL, 'https://ai.rhautt.com').replace(/\/+$/, '');
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const authHeader = cleanText(process.env.HERMES_CENTER_AI_AUTH_HEADER);
+    const authToken = cleanText(process.env.HERMES_CENTER_AI_AUTH_TOKEN);
+    if (authHeader && authToken) headers[authHeader] = authToken;
+
+    let payload: any;
+    try {
+      const res = await fetch(`${baseUrl}/api/image-generation`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ prompt, size: dto?.size, negativePrompt: dto?.negativePrompt }),
+        signal: AbortSignal.timeout(95_000),
+      });
+      payload = await res.json().catch(() => ({}));
+      if (res.status === 501 || payload?.ready === false) {
+        throw new ServiceUnavailableException(
+          `文生图能力未就绪：${payload?.hint || '图像 provider 未配置'}。配置后自动启用；当前可先上传外部图片作为物料。`,
+        );
+      }
+      if (!res.ok) {
+        throw new ServiceUnavailableException(`文生图网关返回 ${res.status}：${JSON.stringify(payload).slice(0, 200)}`);
+      }
+    } catch (err) {
+      if (err instanceof ServiceUnavailableException) throw err;
+      throw new ServiceUnavailableException(`文生图调用失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    const images: Array<{ url: string | null; b64: string | null }> = payload?.images || [];
+    const primary = images.find((i) => i.url) || images[0];
+    if (!primary || (!primary.url && !primary.b64)) {
+      throw new ServiceUnavailableException('文生图未返回可用图片');
+    }
+
+    // 落物料库（多模态内容与文本内容同源治理：走物料，含合规/审核字段）
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(GrowthMarketingMaterialEntity);
+      const material = await repo.save(repo.create({
+        tenantId: user.tenantId,
+        title: cleanText(dto?.title, prompt.slice(0, 40)) || prompt.slice(0, 40),
+        materialType: 'ai-image',
+        brandSlug: cleanNullable(dto?.brandSlug),
+        channel: cleanNullable(dto?.channel),
+        summary: `AI 生成图 · 提示词：${prompt.slice(0, 120)}`,
+        tags: ['ai-generated', 'image'],
+        fileUrl: primary.url || null,
+        thumbnailUrl: primary.url || null,
+        fileFormat: 'png',
+        versionLabel: 'v1',
+        status: 'active',
+        complianceFlags: [],
+      }));
+      await this.eventBus.publishInTx(em, {
+        tenantId: user.tenantId,
+        eventType: 'growth.material.created',
+        aggregateType: 'growth_marketing_material',
+        aggregateId: material.id,
+        payload: { materialId: material.id, materialType: 'ai-image', brandSlug: material.brandSlug },
+      });
+      return { success: true, data: { material, model: payload?.model, imagesReturned: images.length } };
+    }, rls(user));
+  }
 
   async createMaterial(user: JwtPayload, dto: Record<string, unknown>) {
     const title = cleanText(dto?.title);

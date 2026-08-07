@@ -3,6 +3,13 @@
 Use `AGENTS.md` as the source of truth. This file exists only for Claude-specific
 runtime preferences and must stay thin to avoid duplicate always-loaded context.
 
+## Identity Lock (guard:nexus-naming)
+
+- Software platform name: **Rhautt Nexus / 瑞合数智枢纽**
+- Rhautt Comfort / 瑞合瑞德暖通科技集团 is the customer/group instance positioning — 客户/集团实例不替换软件平台名, and is not the software platform name.
+- Rysnova / 瑞诺瓦 is the independent dealer-enablement software vendor (`Powered by Rysnova`).
+- Rheem / Ruud / Everhot are equipment brands.
+
 ## Claude-Specific Notes
 
 - Do not duplicate product locks, architecture locks, verification gates, or VI rules here.

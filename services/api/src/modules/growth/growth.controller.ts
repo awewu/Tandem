@@ -8,6 +8,8 @@ import {
   GrowthMarketingMaterialService,
   GrowthOpinionService,
 } from './growth.service';
+import { AgenticGeoService } from './agentic-geo.service';
+import { GeoFocusService } from './geo-focus.service';
 
 interface AuthRequest { user: JwtPayload; }
 
@@ -24,7 +26,41 @@ export class GrowthController {
     private readonly geo: GrowthGeoService,
     private readonly campaign: GrowthCampaignService,
     private readonly materials: GrowthMarketingMaterialService,
+    private readonly agentic: AgenticGeoService,
+    private readonly geoFocus: GeoFocusService,
   ) {}
+
+  // ── AgenticGEO 自主闭环（受治理·飞轮第一环）──
+  @UseGuards(AuthGuard) @Post('geo/agentic/plan')
+  agenticPlan(@Req() req: AuthRequest, @Body() body: any) { return this.agentic.planLoop(req.user, body || {}); }
+
+  @UseGuards(AuthGuard) @Post('geo/agentic/approve')
+  agenticApprove(@Req() req: AuthRequest, @Body() body: any) { return this.agentic.approve(req.user, body?.actionId, body?.input); }
+
+  @UseGuards(AuthGuard) @Get('geo/agentic/status')
+  agenticStatus(@Req() _req: AuthRequest) { return this.agentic.status(); }
+
+  // ── GEO 进化（借鉴分众智投）：选点·千面·认知资产·引爆·重分配 ──
+  @UseGuards(AuthGuard) @Post('geo/agentic/ignite')
+  agenticIgnite(@Req() req: AuthRequest, @Body() body: { category: string; segment?: string; limit?: number }) { return this.agentic.planIgnition(req.user, body?.category, body || {}); }
+
+  @UseGuards(AuthGuard) @Post('geo/focus/targets')
+  upsertTarget(@Req() req: AuthRequest, @Body() body: any) { return this.geoFocus.upsertTarget(req.user, body); }
+
+  @UseGuards(AuthGuard) @Get('geo/focus/targets')
+  listTargets(@Req() req: AuthRequest, @Query('category') category?: string) { return this.geoFocus.listTargets(req.user, category); }
+
+  @UseGuards(AuthGuard) @Get('geo/focus/select')
+  selectTargets(@Req() req: AuthRequest, @Query('category') category: string, @Query('segment') segment?: string, @Query('limit') limit?: string) { return this.geoFocus.selectTargets(req.user, category, { segment, limit: limit ? Number(limit) : undefined }); }
+
+  @UseGuards(AuthGuard) @Post('geo/focus/cognition')
+  recordCognition(@Req() req: AuthRequest, @Body() body: any) { return this.geoFocus.recordCognition(req.user, body); }
+
+  @UseGuards(AuthGuard) @Get('geo/focus/cognition')
+  cognitionFunnel(@Req() req: AuthRequest, @Query('category') category?: string) { return this.geoFocus.cognitionFunnel(req.user, category); }
+
+  @UseGuards(AuthGuard) @Post('geo/focus/reallocate')
+  reallocate(@Req() req: AuthRequest, @Body() body: { adjustments: Array<{ id: string; deltaPriority: number }> }) { return this.geoFocus.reallocate(req.user, body?.adjustments); }
 
   // ── E1 舆情监测 ──
   @UseGuards(AuthGuard) @Post('opinion/mentions')
@@ -103,6 +139,29 @@ export class GrowthController {
   @UseGuards(AuthGuard) @Get('geo/probe-batches/:id')
   getProbeBatch(@Req() req: AuthRequest, @Param('id') id: string) { return this.geo.getProbeBatch(req.user, id); }
 
+  // GEO 第 7 层 · 闭环实验（探测→缺口→内容→复投→验证 lift）
+  @UseGuards(AuthGuard) @Get('geo/experiments')
+  listGeoExperiments(@Req() req: AuthRequest, @Query() query: any) { return this.geo.listGeoExperiments(req.user, query); }
+  @UseGuards(AuthGuard) @Post('geo/experiments')
+  startGeoExperiment(@Req() req: AuthRequest, @Body() body: any) { return this.geo.startGeoExperiment(req.user, body); }
+  @UseGuards(AuthGuard) @Get('geo/experiments/:id')
+  getGeoExperiment(@Req() req: AuthRequest, @Param('id') id: string) { return this.geo.getGeoExperiment(req.user, id); }
+  @UseGuards(AuthGuard) @Post('geo/experiments/:id/link-content')
+  linkGeoExperimentContent(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) { return this.geo.linkGeoExperimentContent(req.user, id, body); }
+  @UseGuards(AuthGuard) @Post('geo/experiments/:id/verify')
+  verifyGeoExperiment(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) { return this.geo.verifyGeoExperiment(req.user, id, body); }
+  // 自进化：查看由实验 lift 反哺学到的策略权重
+  @UseGuards(AuthGuard) @Get('geo/strategy-weights')
+  getStrategyWeights(@Req() req: AuthRequest, @Query() query: any) { return this.geo.getStrategyWeights(req.user, query); }
+
+  // 受治理动作引擎（Foundry Ontology 动词的轻量本地实现）：人与 AI Agent 走同一套治理闸
+  @UseGuards(AuthGuard) @Get('geo/actions')
+  listGeoActions() { return this.geo.listGeoActions(); }
+  @UseGuards(AuthGuard) @Post('geo/actions/:actionId')
+  invokeGeoAction(@Req() req: AuthRequest, @Param('actionId') actionId: string, @Body() body: any) {
+    return this.geo.invokeGeoAction(req.user, actionId, body?.input ?? body, { isProxy: body?.isProxy, approved: body?.approved });
+  }
+
   @UseGuards(AuthGuard) @Get('geo/visibility')
   visibility(@Req() req: AuthRequest) { return this.geo.visibilityReport(req.user); }
 
@@ -172,6 +231,10 @@ export class GrowthController {
   // ── E5 营销物料库 ──
   @UseGuards(AuthGuard) @Post('materials')
   createMaterial(@Req() req: AuthRequest, @Body() body: any) { return this.materials.createMaterial(req.user, body); }
+
+  // 多模态生成：AI 生成营销图（经 Tandem 图像网关，落物料库）
+  @UseGuards(AuthGuard) @Post('materials/generate-image')
+  generateMaterialImage(@Req() req: AuthRequest, @Body() body: any) { return this.materials.generateMaterialImage(req.user, body); }
 
   @UseGuards(AuthGuard) @Get('materials')
   listMaterials(@Req() req: AuthRequest, @Query() query: any) { return this.materials.listMaterials(req.user, query); }

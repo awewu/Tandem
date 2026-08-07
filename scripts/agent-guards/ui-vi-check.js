@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('archive/legacy-ui/public/index-ready.html', {
+  guard: 'guard:ui-vi', reason: '遗留 UI 已归档移除，archive/ 在 .gitignore；现役界面 VI 由 guard:rheem-vi-production 守护',
+});
 
 const ROOT = path.join(__dirname, '..', '..');
 

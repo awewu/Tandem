@@ -17,10 +17,8 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CrmModule } from './crm/crm.module';
 import { DiagnosisModule } from './diagnosis/diagnosis.module';
-import { DesignModule } from './design/design.module';
-import { BimModule } from './bim/bim.module';
-import { ContractsModule } from './contracts/contracts.module';
-import { DeliveryModule } from './delivery/delivery.module';
+// 客户赋能(独立产品线)模块已从营销中台卸载(停挂载·目录留存·可逆):
+// design/bim/contracts/delivery(含 lifecycle/aftersales)/quote。dispatch(线索派单)保留=接缝。
 import { DispatchModule } from './dispatch/dispatch.module';
 import { EntitlementModule } from './entitlement/entitlement.module';
 import { EntitlementGuard } from './entitlement/entitlement.guard';
@@ -32,13 +30,18 @@ import { IngressModule } from './ingress/ingress.module';
 import { HealthController } from './health.controller';
 import { NotificationModule } from './notification/notification.module';
 import { ProductCatalogModule } from './product-catalog/product-catalog.module';
-import { QuoteModule } from './quote/quote.module';
 import { SiteMaterialsModule } from './site-materials/site-materials.module';
 import { SystemPacksModule } from './system-packs/system-packs.module';
-import { ReactCandidateModule } from './react-candidate/react-candidate.module';
 import { TenantModule } from './tenant/tenant.module';
 import { WechatPublishingModule } from './wechat-publishing/wechat-publishing.module';
 import { WorkflowModule } from './workflow/workflow.module';
+import { CdpModule } from './cdp/cdp.module';
+import { InsightModule } from './insight/insight.module';
+import { ChannelModule } from './channel/channel.module';
+import { PositioningModule } from './positioning/positioning.module';
+import { GtmplanModule } from './gtmplan/gtmplan.module';
+import { ContentModule } from './content/content.module';
+import { ActivationModule } from './activation/activation.module';
 import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
 
 @Module({
@@ -78,7 +81,6 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     CrmModule,
     DiagnosisModule,
     ProductCatalogModule,
-    QuoteModule,
     BrandModule,
     BrandProductCategoryModule,
     BrandRegistryModule,
@@ -91,17 +93,19 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     SiteMaterialsModule,
     NotificationModule,
     WechatPublishingModule,
-    WorkflowModule,
     IngressModule,
     DispatchModule,
-    DesignModule,
-    BimModule,
-    DeliveryModule,
-    ContractsModule,
     SystemPacksModule,
-    ReactCandidateModule,
     GrowthModule,
     EntitlementModule,
+    WorkflowModule,
+    CdpModule,
+    InsightModule,
+    ChannelModule,
+    PositioningModule,
+    GtmplanModule,
+    ContentModule,
+    ActivationModule,
   ],
   controllers: [HealthController],
   providers: [

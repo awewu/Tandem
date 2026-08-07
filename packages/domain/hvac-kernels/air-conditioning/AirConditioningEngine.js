@@ -255,10 +255,14 @@ class AirConditioningEngine {
       '西北': 1.05
     }[room.orientation] || 1.0;
     
-    // 窗户面积修正
-    const windowRatio = room.windowArea / room.area;
+    // 窗户面积修正。缺 windowArea 时按基准窗墙比 0.2 处理（修正系数=1.0）：
+    // 原实现 `undefined / area` → NaN，会让房间负荷、室内机容量、总容量、连接率
+    // 全部变成 NaN，且**不抛错**——方案看似完整实则不可用，直接损伤客户专业度。
+    const windowRatio = Number.isFinite(room.windowArea) && room.area > 0
+      ? room.windowArea / room.area
+      : 0.2;
     const windowFactor = 1 + (windowRatio - 0.2) * 0.5; // 基准窗墙比0.2
-    
+
     return baseLoad * orientationFactor * windowFactor;
   }
 
@@ -328,8 +332,10 @@ class AirConditioningEngine {
       capacity: `${selected}W`,
       hp: `${hp}匹`,
       model: `FXS${selected/100}L`,
-      type: roomName.includes('客厅') ? '风管式' : 
-            roomName.includes('卧室') ? '壁挂式' : '风管式'
+      // 防御：房间对象可能缺 name（不同上游用 name/type 两套 schema），
+      // 缺失时不得整体崩溃——崩溃会让整份空调设计不可用。
+      type: String(roomName || '').includes('客厅') ? '风管式' :
+            String(roomName || '').includes('卧室') ? '壁挂式' : '风管式'
     };
   }
 
@@ -337,10 +343,12 @@ class AirConditioningEngine {
    * 建议室内机类型
    */
   suggestIndoorType(roomName) {
-    if (roomName.includes('客厅')) return '风管式/嵌入式';
-    if (roomName.includes('卧室')) return '壁挂式';
-    if (roomName.includes('书房')) return '壁挂式/风管式';
-    if (roomName.includes('餐厅')) return '风管式/嵌入式';
+    // 防御：房间可能缺 name（见 selectIndoorUnit 注释），缺失时回落默认型式而非抛错。
+    const name = String(roomName || '');
+    if (name.includes('客厅')) return '风管式/嵌入式';
+    if (name.includes('卧室')) return '壁挂式';
+    if (name.includes('书房')) return '壁挂式/风管式';
+    if (name.includes('餐厅')) return '风管式/嵌入式';
     return '风管式';
   }
 

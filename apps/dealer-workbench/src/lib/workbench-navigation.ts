@@ -4,6 +4,7 @@ import {
   FileText,
   Flame,
   FolderOpen,
+  Gauge,
   Globe2,
   Megaphone,
   Package,
@@ -48,6 +49,20 @@ export type WorkbenchNavItem = {
 
 export const WORKBENCH_NAV: WorkbenchNavItem[] = [
   {
+    key: 'cockpit',
+    label: '经销商成功驾驶舱',
+    shortLabel: '驾驶舱',
+    desc: '北极星 · 活跃盈利经销商数 · 网络 GMV · 品牌健康度',
+    href: '/cockpit',
+    icon: Gauge,
+    group: 0,
+    permission: 'marketing.campaigns.view',
+    children: [
+      { key: 'cockpit-northstar', label: '北极星总览', href: '/cockpit', icon: Gauge },
+      { key: 'cockpit-cmo', label: 'CMO 管理驾驶舱', href: '/cmo', icon: Gauge },
+    ],
+  },
+  {
     key: 'brand-sites',
     label: '品牌官网管理',
     shortLabel: '品牌官网',
@@ -62,6 +77,7 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
       { key: 'site-ruud', label: '瑞德 Ruud', href: '/comfort/sites/ruud', icon: Shield },
       { key: 'site-everhot', label: '恒热 Everhot', href: '/comfort/sites/everhot', icon: Flame },
       { key: 'brand-operations', label: '品牌运营', href: '/brand', icon: Megaphone },
+      { key: 'positioning', label: '品牌定位 Messaging House', href: '/positioning', icon: BadgeCheck },
     ],
   },
   {
@@ -75,6 +91,13 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     permission: 'marketing.campaigns.view',
     children: [
       { key: 'geo', label: 'GEO', href: '/growth/geo', icon: Search },
+      { key: 'agentic-geo', label: 'AgenticGEO 自主闭环', href: '/agentic-geo', icon: Zap },
+      { key: 'geo-focus', label: 'GEO 选点·认知资产·引爆', href: '/geo-focus', icon: Search },
+      { key: 'insight', label: '竞品情报(按品类)', href: '/insight', icon: Radio },
+      { key: 'channel', label: '渠道与伙伴营销', href: '/channel', icon: Megaphone },
+      { key: 'content', label: '内容工厂', href: '/content', icon: PenTool },
+      { key: 'activation', label: '活动运营', href: '/activation', icon: Zap },
+      { key: 'gtm', label: '战役·预算MROI·OKR', href: '/gtm', icon: Rocket },
       { key: 'copywriter', label: '文案 Copilot', href: '/growth/copywriter', icon: PenTool },
       { key: 'wechat-review', label: '内容审核', href: '/growth/wechat-review', icon: BadgeCheck },
       { key: 'wechat-accounts', label: '发布账号配置', href: '/growth/wechat-accounts', icon: Settings2 },
@@ -95,11 +118,14 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     permission: 'product.catalog.view',
     children: [
       { key: 'product-list', label: '产品目录', href: '/products?module=catalog', icon: Package },
+      { key: 'product-mgmt', label: '产品管理(生命周期/上市/定价)', href: '/product-mgmt', icon: Boxes },
       { key: 'product-materials', label: '产品资料', href: '/products?module=materials', icon: FileText },
       { key: 'product-base', label: '产品目录底座', href: '/products?module=base', icon: Boxes },
       { key: 'product-categories', label: '产品分类', href: '/products?module=categories', icon: FolderOpen },
     ],
   },
+  // 客户赋能(独立产品线)界面：我的工作台 /dealer · 售前闭环 /presale 已从营销中台导航移除，
+  // 归未来独立经销商应用(页面文件留存·可逆)。
   {
     key: 'accounts',
     label: '营销账号权限',
@@ -127,6 +153,10 @@ export function canSeeNavItem(
 }
 
 export function navItemForPath(path: string | null): WorkbenchNavItem {
+  if (path?.startsWith('/cockpit') || path?.startsWith('/cmo')) return WORKBENCH_NAV.find((item) => item.key === 'cockpit')!;
+  if (path?.startsWith('/agentic-geo') || path?.startsWith('/geo-focus') || path?.startsWith('/insight') || path?.startsWith('/channel') || path?.startsWith('/content') || path?.startsWith('/activation') || path?.startsWith('/gtm')) return WORKBENCH_NAV.find((item) => item.key === 'growth')!;
+  if (path?.startsWith('/positioning')) return WORKBENCH_NAV.find((item) => item.key === 'brand-sites')!;
+  if (path?.startsWith('/product-mgmt')) return WORKBENCH_NAV.find((item) => item.key === 'product')!;
   if (path?.startsWith('/accounts')) return WORKBENCH_NAV.find((item) => item.key === 'accounts')!;
   if (path?.startsWith('/products')) return WORKBENCH_NAV.find((item) => item.key === 'product')!;
   if (path?.startsWith('/growth')) return WORKBENCH_NAV.find((item) => item.key === 'growth')!;

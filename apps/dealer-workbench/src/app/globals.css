@@ -1,19 +1,21 @@
-/* ── 瑞合瑞德营销系统控制台 · Design System ──────────
-   Tokens: canonical Rheem (public/css/rheem-official-tokens.css · #E4002B)
-   Layout scale: Apple HIG 节奏 · CSS custom properties → utility classes
+/* ── AI GTM Nexus · 内部工具控制台 Design System ──────────
+   内部工具 UI token = 对齐 Tandem 设计体系（宪章基座1；源 packages/tokens/console.css，
+   镜像 Tandem app/globals.css：Apple HIG + MS Fluent + Vercel Geist）。
+   ⚠️ 这是【内部工具】识别色 #C8202C，≠ 对外品牌站 Rheem 官方红 #E4002B。
+      对外站各守 packages/tokens/<brand>.css，禁用本色。
    ────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Rheem Red（5000 global UI accent）── */
-  --brand-50:  #FFF1F3;
-  --brand-100: #FFD7DD;
-  --brand-200: #FFADB9;
-  --brand-300: #FF7A8D;
-  --brand-400: #F83F5D;
-  --brand-500: #E4002B;
-  --brand-600: #B80023;
-  --brand-700: #8F001B;
-  --brand-800: #680014;
-  --brand-900: #43000D;
+  /* ── 内部工具品牌阶梯（Tandem token 镜像）── */
+  --brand-50:  #FCE9EB;
+  --brand-100: #FACBCF;
+  --brand-200: #F5969C;
+  --brand-300: #ED6068;
+  --brand-400: #DC3D45;
+  --brand-500: #C8202C;
+  --brand-600: #9F1822;
+  --brand-700: #7E131A;
+  --brand-800: #5D0E13;
+  --brand-900: #3D090C;
 
   /* ── 表面（暖中性）── */
   --surface-1: #FFFFFF;

@@ -9,11 +9,15 @@ const { PRODUCTION_ROUTE_CATALOG, getProductionRouteCatalogMountMetadata } = req
 const failures = [];
 const warnings = [];
 const VALID_STATUSES = new Set(['production', 'production-candidate', 'legacy-compat']);
+// 止于售前边界（charter §1.2 / §5.3 冻结册）：交付执行（engineering-delivery：
+// delivery·contracts·dispatch）与运维/售后（comfort-home-domain 内的 lifecycle-iot·
+// aftersales）已冻结，其生产路由组已从 PRODUCTION_ROUTE_CATALOG 中移出。故门禁不再
+// 要求这两个冻结域存在——留在必需域清单里会强迫重新挂载冻结项，违反宪章边界。
+// 保留 lifecycle-iot-front-office（售前前台生命周期，非冻结的终身运维）。
 const REQUIRED_DOMAINS = [
-  'quote-calculation',
-  'engineering-delivery',
+  // 'quote-calculation' 已于退场波2a(2026-08-06)移出：报价/计算属"客户赋能"独立产品线(D5)，
+  // 不再要求营销中台生产入口挂载。
   'lifecycle-iot-front-office',
-  'comfort-home-domain',
   'admin-governance',
   'platform-core'
 ];

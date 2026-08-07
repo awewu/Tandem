@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管道推荐流速速查（GB 50015 / GB 50736） | Ruud 中国 Ruud China</title>
+  <meta name="description" content="生活热水管、采暖供回水管与干管的推荐流速范围（m/s）。流速过高产生噪声与冲蚀，过低导致管径浪费与滞流。">
+  <link rel="stylesheet" href="/packages/tokens/ruud-cn.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--brand-font); color: var(--brand-ink); background: var(--brand-surface); line-height: 1.6; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    header { background: #fff; border-bottom: 1px solid var(--brand-border); position: sticky; top: 0; z-index: 100; }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .logo { font-size: 24px; font-weight: 800; color: var(--brand-primary); letter-spacing: -0.02em; }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: #333; text-decoration: none; font-size: 14px; font-weight: 500; }
+    .nav-links a:hover { color: var(--brand-primary); }
+    .btn { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: var(--brand-radius); font-size: 14px; font-weight: 600; text-decoration: none; }
+    .btn-brand { background: var(--brand-primary); color: #fff; }
+    .btn-brand:hover { background: var(--brand-primary-dk); }
+    .hero { background: #1a1a1a; color: #fff; padding: 96px 0; }
+    .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.15; margin-bottom: 24px; }
+    .hero p { font-size: 18px; opacity: 0.85; max-width: 640px; margin-bottom: 32px; }
+    .section { padding: 80px 0; }
+    .section h2 { font-size: 32px; font-weight: 700; margin-bottom: 16px; }
+    .section p { color: #475569; max-width: 720px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 40px; }
+    .card { background: #fff; border: 1px solid var(--brand-border); border-radius: var(--brand-radius); padding: 24px; }
+    .card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .card p { font-size: 14px; color: #64748b; }
+    .accent-bar { height: 4px; width: 48px; background: var(--brand-accent); margin-bottom: 16px; }
+    footer { background: #1a1a1a; color: #a3a3a3; padding: 48px 0; font-size: 13px; }
+    footer a { color: #d4d4d4; text-decoration: none; }
+    footer a:hover { color: #fff; }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 32px; }
+  
+    .tech-main { padding: 40px 0 72px; }
+    .tech-body { max-width: 860px; }
+    .crumb { font-size: 13px; color: #888; margin-bottom: 20px; }
+    .crumb a { color: #888; text-decoration: none; }
+    .crumb a:hover { color: var(--brand-primary); }
+    .std-badge { display: inline-block; border-left: 3px solid var(--brand-primary); padding: 6px 0 6px 14px; color: #555; font-size: 14px; margin: 14px 0 24px; }
+    .tech-lead { font-size: 17px; color: #333; line-height: 1.9; margin-bottom: 8px; }
+    .tech-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--brand-border); border-radius: var(--brand-radius); overflow: hidden; }
+    .tech-table caption { text-align: left; font-size: 13px; color: #888; padding: 0 0 10px; caption-side: top; }
+    .tech-table th, .tech-table td { padding: 12px 16px; border-top: 1px solid var(--brand-border); text-align: left; font-size: 15px; }
+    .tech-table thead th { background: var(--brand-surface); font-weight: 700; border-top: 0; }
+    .tech-table tbody th { font-weight: 600; }
+    .method-list { padding-left: 22px; }
+    .method-list li { margin-bottom: 10px; color: #444; }
+    .faq-card h3 { font-size: 16px; margin-bottom: 8px; }
+    .faq-card p { color: #555; font-size: 15px; }
+    .tech-note { margin-top: 36px; padding: 16px 18px; background: #fff; border: 1px solid var(--brand-border); border-radius: var(--brand-radius); font-size: 14px; color: #666; }
+    .tech-index-list { list-style: none; }
+    .tech-index-list li { margin-bottom: 14px; }
+    .tech-index-list a { font-size: 18px; font-weight: 700; color: var(--brand-primary); text-decoration: none; display: block; margin-bottom: 4px; }
+    .tech-index-list span { color: #888; font-size: 13px; }
+  </style>
+  <!-- GEO:START -->
+  <link rel="canonical" href="https://www.ruud.com.cn/tech/water-velocity/">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ruud 中国 Ruud China">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="管道推荐流速速查（GB 50015 / GB 50736） | Ruud 中国 Ruud China">
+  <meta property="og:description" content="生活热水管、采暖供回水管与干管的推荐流速范围（m/s）。流速过高产生噪声与冲蚀，过低导致管径浪费与滞流。">
+  <meta property="og:url" content="https://www.ruud.com.cn/tech/water-velocity/">
+  <meta property="og:image" content="https://www.ruud.com.cn/assets/img/hero-poster-desktop.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="管道推荐流速速查（GB 50015 / GB 50736） | Ruud 中国 Ruud China">
+  <meta name="twitter:description" content="生活热水管、采暖供回水管与干管的推荐流速范围（m/s）。流速过高产生噪声与冲蚀，过低导致管径浪费与滞流。">
+  <meta name="twitter:image" content="https://www.ruud.com.cn/assets/img/hero-poster-desktop.webp">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"管道推荐流速速查（GB 50015 / GB 50736） | Ruud 中国 Ruud China","url":"https://www.ruud.com.cn/tech/water-velocity/","inLanguage":"zh-CN","description":"生活热水管、采暖供回水管与干管的推荐流速范围（m/s）。流速过高产生噪声与冲蚀，过低导致管径浪费与滞流。","isPartOf":{"@type":"WebSite","name":"Ruud 中国 Ruud China","url":"https://www.ruud.com.cn"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.ruud.com.cn/"},{"@type":"ListItem","position":2,"name":"tech","item":"https://www.ruud.com.cn/tech/"},{"@type":"ListItem","position":3,"name":"water-velocity","item":"https://www.ruud.com.cn/tech/water-velocity/"}]}</script>
+  <!-- GEO:END -->
+</head>
+<body>
+<header>
+    <div class="container nav">
+      <div class="logo">Ruud</div>
+      <nav class="nav-links">
+        <a href="/ruud-cn/products">产品中心</a>
+        <a href="/ruud-cn/solutions">解决方案</a>
+        <a href="/ruud-cn/support">服务支持</a>
+        <a href="/pain-diagnosis.html">瑞诺瓦 AI 问诊</a>
+        <a href="/index-ready.html">瑞合瑞德官网</a>
+        <a href="/rheem-cn/index.html">Rheem</a>
+        <a href="/everhot-cn/index.html">Everhot</a>
+        <a href="/pain-diagnosis.html" class="btn btn-brand">舒适家方案</a>
+      </nav>
+    </div>
+  </header>
+  <section class="hero">
+    <div class="container">
+      <nav class="crumb"><a href="/">首页</a> / <a href="/tech/">技术标准</a> / <span>管道推荐流速速查（GB 50015 / GB 50736）</span></nav>
+      <h1>管道推荐流速速查（GB 50015 / GB 50736）</h1>
+      <p>管径选择的本质是流速控制。流速偏高会带来水流噪声、水锤与管壁冲蚀；偏低则管径与投资浪费，并可能形成滞流。</p>
+      <p class="std-badge">依据：GB 50015《建筑给水排水设计标准》 / GB 50736-2012《民用建筑供暖通风与空气调节设计规范》</p>
+    </div>
+  </section>
+
+  <section class="section tech-main">
+    <div class="container tech-body">
+      <h2>限值/取值表</h2>
+      <table class="tech-table">
+        <caption>数据来源：本表由 GB 50015《建筑给水排水设计标准》 / GB 50736-2012《民用建筑供暖通风与空气调节设计规范》 对应的计算内核直接导出，与工程计算同源。</caption>
+        <thead><tr><th scope="col">管段类型</th><th scope="col">最小流速 m/s</th><th scope="col">推荐值 m/s</th><th scope="col">最大流速 m/s</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">生活热水管</th><td>0.8</td><td>1</td><td>1.2</td></tr>
+          <tr><th scope="row">采暖供回水管</th><td>0.5</td><td>0.8</td><td>1</td></tr>
+          <tr><th scope="row">干管</th><td>0.8</td><td>1.2</td><td>1.5</td></tr>
+        </tbody>
+      </table>
+
+      <h2>判定方法</h2>
+      <ol class="method-list">
+            <li>按设计流量与推荐流速反算断面积，选取不小于该断面的标准管径（DN 系列）。</li>
+            <li>校核实际流速落在最小～最大区间内；越界须调整管径而非“凑合”。</li>
+            <li>生活热水管流速上限更严，因其噪声更易被住户感知。</li>
+      </ol>
+
+      <h2>常见问题</h2>
+      <div class="cards">
+            <div class="card faq-card"><div class="accent-bar"></div><h3>生活热水管推荐流速是多少？</h3><p>推荐 1 m/s，允许区间 0.8–1.2 m/s。</p></div>
+            <div class="card faq-card"><div class="accent-bar"></div><h3>采暖管道流速应该控制在多少？</h3><p>推荐 0.8 m/s，区间 0.5–1 m/s。</p></div>
+      </div>
+
+      <p class="tech-note">本页数值由 Ruud 中国 Ruud China 工程计算内核直接导出，用于设计与评审参考；工程实施以现行国家标准与当地主管部门要求为准。</p>
+    </div>
+  </section>
+
+  <footer><div class="container">Ruud 中国 Ruud China · 技术标准速查</div></footer>
+</body>
+</html>

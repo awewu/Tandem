@@ -57,12 +57,14 @@ const contextualChecks = [
     id: 'fake-logo-lockup-language',
     severity: 'critical',
     pattern: /瑞\s*美/gi,
-    message: 'Potential fake Rheem Chinese lockup appears near logo/wordmark usage.',
-    shouldFlag({ relativePath, snippet }) {
-      return (
-        /rheem-logo\.svg$/.test(relativePath) ||
-        /logo|wordmark|lockup|brand-mark|brand-logo|brand-card|Since 1925/i.test(snippet)
-      );
+    message: 'Potential fake Rheem Chinese lockup baked into a Rheem logo/wordmark asset.',
+    shouldFlag({ relativePath }) {
+      // 瑞美 是 Rheem 的权威中文名（docs/DOMAIN-ARCHITECTURE-v2.md「Rheem 瑞美中国站」、
+      // Everhot PRD parentBrandRelationText、RUUD 官方 VI 标准）。在正文/页脚/导航里作为母品牌
+      // 引用完全合法，不构成伪造锁形——先前基于「附近出现 logo 字样」的判定把合法引用误判为
+      // critical（实测 60 例全为误报）。真正风险是把伪造中文字标烘焙进 Rheem 官方 logo/wordmark
+      // 资产本身，故仅在文件是 Rheem logo/wordmark 资产时判定为 fake lockup。
+      return /rheem-logo\.svg$/.test(relativePath) || /rheem[-_]?(logo|wordmark|lockup)/i.test(relativePath);
     }
   }
 ];

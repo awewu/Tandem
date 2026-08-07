@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('archive/legacy-ui/public/legacy-surface-manifest.json', {
+  guard: 'guard:production-trunk-isolation', reason: '遗留 UI 已归档移除，archive/ 在 .gitignore 且无生成步骤',
+});
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');

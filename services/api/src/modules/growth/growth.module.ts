@@ -3,11 +3,20 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { MdmModule } from '../mdm/mdm.module';
 import { FileArtifactModule } from '../file-artifact/file-artifact.module';
+import { InsightModule } from '../insight/insight.module';
+import { ChannelModule } from '../channel/channel.module';
+import { ProductCatalogModule } from '../product-catalog/product-catalog.module';
+import { GtmplanModule } from '../gtmplan/gtmplan.module';
+import { ContentModule } from '../content/content.module';
 import { GrowthController } from './growth.controller';
+import { CockpitController } from './cockpit.controller';
+import { CockpitService } from './cockpit.service';
 import { AiGatewayService } from './ai-gateway.service';
 import { AttributionService } from './attribution.service';
 import { BrandBrainService } from './brand-brain.service';
 import { GeoAnalyzerService } from './geo-analyzer.service';
+import { AgenticGeoService } from './agentic-geo.service';
+import { GeoFocusService } from './geo-focus.service';
 import { OpinionClassifierService } from './opinion-classifier.service';
 import { OpinionSourceService } from './opinion-source.service';
 import { GROWTH_SERVICES } from './growth.service';
@@ -25,13 +34,21 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
     AuthModule,
     MdmModule,
     FileArtifactModule,
+    InsightModule,
+    ChannelModule,
+    ProductCatalogModule,
+    GtmplanModule,
+    ContentModule,
   ],
-  controllers: [GrowthController],
+  controllers: [GrowthController, CockpitController],
   providers: [
+    CockpitService,
     AiGatewayService,
     AttributionService,
     BrandBrainService,
     GeoAnalyzerService,
+    AgenticGeoService,
+    GeoFocusService,
     OpinionClassifierService,
     OpinionSourceService,
     ...GROWTH_SERVICES,

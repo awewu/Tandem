@@ -6,11 +6,14 @@ import { CrmController } from './crm.controller';
 import { CustomerEntity, InteractionEntity, OpportunityEntity } from './crm.entity';
 import { CrmService } from './crm.service';
 import { AuditLogEntity } from '../governance/governance.entity';
+// 项目主线锚点(lifecycle_links)：建线索即开项目，是 lead→…→交付 的 CORE 级共享锚点。
+// crm 自注册该实体，使其不依赖 delivery 模块被加载（delivery 属客户赋能，可从营销中台卸载）。
+import { LifecycleLinkEntity } from '../delivery/delivery.entity';
 import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smoke';
 
 @Module({
   imports: [
-    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([CustomerEntity, OpportunityEntity, InteractionEntity, AuditLogEntity])]),
+    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([CustomerEntity, OpportunityEntity, InteractionEntity, AuditLogEntity, LifecycleLinkEntity])]),
     AuthModule,
     MdmModule,
   ],
@@ -22,7 +25,8 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
         bootSmokeRepositoryProvider(CustomerEntity),
         bootSmokeRepositoryProvider(OpportunityEntity),
         bootSmokeRepositoryProvider(InteractionEntity),
-        bootSmokeRepositoryProvider(AuditLogEntity)
+        bootSmokeRepositoryProvider(AuditLogEntity),
+        bootSmokeRepositoryProvider(LifecycleLinkEntity)
       ]
       : [])
   ],

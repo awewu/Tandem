@@ -1,0 +1,257 @@
+{
+  "$schema": "./event-contract.schema.json",
+  "version": "2.0.0",
+  "description": "Nexus 跨域事件契约（全量）。生产端用 EventBusService.publishInTx 在业务写同事务发射；消费端 subscribe。guard:event-contract 校验代码与此契约双向一致（源码发射的事件必须登记；登记为 implemented 的必须在源码存在）。禁跨域直写 OLTP。",
+  "conventions": {
+    "eventTypeFormat": "<domain>.<aggregate>.<action>（新事件必须三段；早期两段名以 legacyNaming:true 豁免，不再新增）",
+    "transport": "mdm/EventBusService (outbox: mdm_outbox_events, FORCE RLS, 至少一次投递+重试+死信)",
+    "tenantScoped": true,
+    "idempotency": "消费端必须幂等：以 outbox event.id 作 source_event_id 唯一约束去重（至少一次投递语义）",
+    "dispatch": "RLS 生效后 outbox 投递需按 `<SLUG>_TENANT_ID` 枚举运营租户；否则租户级事件停留 pending",
+    "status": "implemented=源码已发射并验证；planned=契约先行、尚未发射"
+  },
+  "events": [
+    {
+      "eventType": "lead.captured",
+      "legacyNaming": true,
+      "status": "implemented",
+      "aggregateType": "customer",
+      "producer": "A/ingress（公域留资，PII 落库后发 PII-free 事件）",
+      "consumers": ["C/dispatch（地域+品类+负载打分派单）", "A/growth（归因入账）"],
+      "payload": { "customerId": "string", "audience": "string", "source": "string", "campaign": "string|null" },
+      "purpose": "公域获客→系统态智能派单给经销商 + 营销归因（飞轮 A→分配 缝）"
+    },
+    {
+      "eventType": "lead.created",
+      "legacyNaming": true,
+      "status": "implemented",
+      "aggregateType": "customer",
+      "producer": "B/crm（建单：客户+项目主线+商机同事务）",
+      "consumers": ["A/cockpit（AARRR 线索阶段）"],
+      "payload": { "customerId": "string", "opportunityId": "string", "source": "string" },
+      "purpose": "建单→漏斗「线索」计数"
+    },
+    {
+      "eventType": "diagnosis.completed",
+      "legacyNaming": true,
+      "status": "implemented",
+      "aggregateType": "diagnosis_session",
+      "producer": "B/diagnosis（AI 问诊完成）",
+      "consumers": ["A/cockpit（AARRR 到访阶段）", "B/design（承接出方案）"],
+      "payload": { "sessionId": "string", "customerId": "string", "completedAt": "string(iso)" },
+      "purpose": "问诊完成→漏斗「到访」+ 触发方案设计"
+    },
+    {
+      "eventType": "quotation.created",
+      "legacyNaming": true,
+      "status": "implemented",
+      "aggregateType": "quotation",
+      "producer": "B/quote",
+      "consumers": ["A/cockpit（AARRR 方案阶段）"],
+      "payload": { "quotationId": "string", "customerId": "string", "projectId": "string" },
+      "purpose": "出报价→漏斗「方案」计数"
+    },
+    {
+      "eventType": "quotation.locked",
+      "legacyNaming": true,
+      "status": "implemented",
+      "aggregateType": "quotation",
+      "producer": "B/quote（价格快照锁定）",
+      "consumers": ["B/contracts（据锁定价出合同）"],
+      "payload": { "quotationId": "string", "lock": "object" },
+      "purpose": "报价锁价→合同据此生成，杜绝价格漂移"
+    },
+    {
+      "eventType": "opportunity.signed",
+      "legacyNaming": true,
+      "status": "implemented",
+      "aggregateType": "opportunity",
+      "producer": "B/crm",
+      "consumers": ["C/notification（通知负责人）", "B/bim（承接工程）"],
+      "payload": { "opportunityId": "string", "quotationId": "string", "customerId": "string", "ownerUserId": "string" },
+      "purpose": "签单→站内通知 + BIM/交付承接"
+    },
+    {
+      "eventType": "crm.deal.signed",
+      "status": "implemented",
+      "aggregateType": "opportunity",
+      "producer": "B/crm（金额取 opportunity.estimatedValue，避免跨域读报价 OLTP）",
+      "consumers": ["A/cockpit（北极星+经销商成功度+AARRR 签约，经 dealer_deal_inbox 幂等求和）"],
+      "payload": { "opportunityId": "string", "dealerId": "string|null", "amount": "number", "signedAt": "string(iso)" },
+      "purpose": "成交→活跃盈利经销商数/网络GMV（北极星）+ 漏斗「签约」"
+    },
+    {
+      "eventType": "deposit.intent.created",
+      "status": "implemented",
+      "aggregateType": "deposit_order",
+      "producer": "B/diagnosis(deposit)",
+      "consumers": ["B/crm", "C/notification"],
+      "payload": { "orderId": "string", "customerId": "string", "amount": "number" },
+      "purpose": "定金意向→销售跟进 + 通知"
+    },
+    {
+      "eventType": "geo.brand.cited",
+      "status": "implemented",
+      "aggregateType": "geo_probe",
+      "producer": "A/geo（探测答案中我方被引）",
+      "consumers": ["A/cockpit（AARRR 触达阶段，幂等 by probe.id）"],
+      "payload": { "probeId": "string", "engine": "string", "aivs": "number", "question": "string" },
+      "purpose": "被 AI 引用=品牌触达→漏斗顶端 + 抬升品牌健康度（A 造需求可归因起点）"
+    },
+    {
+      "eventType": "geo.visibility.gap",
+      "status": "implemented",
+      "aggregateType": "geo_probe",
+      "producer": "A/geo（探测未被引=可见度缺口）",
+      "consumers": ["A/studio（内容闭环待办：缺口→生成→审核→发布→复测）"],
+      "payload": { "probeId": "string", "engine": "string", "question": "string", "brandSlug": "string|null", "category": "string|null" },
+      "purpose": "可见度缺口→驱动 GEO 内容生产补位（取代早期设计名 growth.geo.gap_detected）"
+    },
+    {
+      "eventType": "growth.lead.attributed",
+      "status": "implemented",
+      "aggregateType": "lead",
+      "producer": "A/growth（消费 lead.captured 做归因入账）",
+      "consumers": ["B/crm", "A/cockpit"],
+      "payload": { "leadId": "string", "tenantId": "string", "source": "string", "utm": "object", "attributedAt": "string(iso)" },
+      "purpose": "A 造需求→归因到战役/渠道（幂等：source_event_id 部分唯一索引）"
+    },
+    {
+      "eventType": "growth.copy.approved",
+      "status": "implemented",
+      "aggregateType": "copy_asset",
+      "producer": "A/studio",
+      "consumers": ["A/channel（分发）", "C/file-artifact（归档）"],
+      "payload": { "copyId": "string", "channel": "string", "reviewer": "string", "approvedAt": "string(iso)" },
+      "purpose": "文案核准→分发/归档（AI 内容必经 draft→核准闸）"
+    },
+    {
+      "eventType": "growth.copy.rejected",
+      "status": "implemented",
+      "aggregateType": "copy_asset",
+      "producer": "A/studio",
+      "consumers": ["A/studio（返工重写）"],
+      "payload": { "copyId": "string", "reviewer": "string", "reason": "string|null" },
+      "purpose": "文案驳回→返工闭环（合规/品牌一致性未过）"
+    },
+    {
+      "eventType": "growth.copy.deleted",
+      "status": "implemented",
+      "aggregateType": "copy_asset",
+      "producer": "A/studio",
+      "consumers": ["C/file-artifact（清理关联产物）"],
+      "payload": { "copyId": "string" },
+      "purpose": "文案删除→关联产物清理"
+    },
+    {
+      "eventType": "growth.material.created",
+      "status": "implemented",
+      "aggregateType": "marketing_material",
+      "producer": "A/growth（营销物料库）",
+      "consumers": ["A/channel", "B/crm（经销商取用）"],
+      "payload": { "materialId": "string", "type": "string", "brandSlug": "string|null" },
+      "purpose": "物料上架→渠道分发 + 经销商可取用"
+    },
+    {
+      "eventType": "growth.opinion.crisis_detected",
+      "status": "implemented",
+      "aggregateType": "growth_opinion_alert",
+      "producer": "A/growth(opinion)（舆情分级命中 P0/P1 → 开危机预警）",
+      "consumers": ["A/cockpit（品牌健康度/告警）", "A/studio（危机话术草稿，须核准）"],
+      "payload": { "alertId": "string", "mentionId": "string", "severity": "string", "source": "string" },
+      "purpose": "舆情危机检出→告警 + 生成待核准处置话术（品牌健康度负向领先指标）"
+    },
+    {
+      "eventType": "growth.opinion.crisis_resolved",
+      "status": "implemented",
+      "aggregateType": "growth_opinion_alert",
+      "producer": "A/growth(opinion)（预警状态 open→ack→resolved 单向迁移）",
+      "consumers": ["A/cockpit（归档/解除告警）"],
+      "payload": { "alertId": "string", "severity": "string", "resolvedBy": "string" },
+      "purpose": "危机解除→驾驶舱归档（不可从 resolved 回退，保留处置闭环审计）"
+    },
+    {
+      "eventType": "product.master.updated",
+      "status": "implemented",
+      "aggregateType": "global_product",
+      "producer": "C/mdm（全局主数据单写收口）",
+      "consumers": ["B/quote（选型/价格）", "A/growth（内容事实链）"],
+      "payload": { "globalProductId": "string", "tier": "string", "version": "number" },
+      "purpose": "主数据变更→跨板块只读解析（杜绝多写真相源）"
+    },
+    {
+      "eventType": "crm.referral.created",
+      "status": "planned",
+      "note": "⚠️ 消费端已接线（A/cockpit AARRR 转介绍阶段），生产端未实现 → 漏斗「转介绍」当前恒 0（诚实空位，非假数据）",
+      "aggregateType": "referral",
+      "producer": "B/crm（待实现）",
+      "consumers": ["A/cockpit（AARRR 转介绍）", "A/campaign（口碑飞轮）"],
+      "payload": { "referralId": "string", "fromCustomerId": "string", "dealerId": "string" },
+      "purpose": "转介绍→回 A 口碑/招商飞轮（闭环回路）"
+    },
+    {
+      "eventType": "growth.geo.content_published",
+      "status": "planned",
+      "aggregateType": "geo_content",
+      "producer": "A/channel",
+      "consumers": ["A/geo（触发复测验证 lift）"],
+      "payload": { "contentId": "string", "url": "string", "channel": "string", "publishedAt": "string(iso)" },
+      "purpose": "GEO 内容发布→复测被引，量化内容闭环 lift"
+    },
+    {
+      "eventType": "social.post.published",
+      "status": "planned",
+      "aggregateType": "social_post",
+      "producer": "A/channel(social)",
+      "consumers": ["A/geo", "A/campaign"],
+      "payload": { "postId": "string", "platform": "string", "accountId": "string", "externalRef": "string", "publishedAt": "string(iso)" },
+      "purpose": "社媒发布→GEO 复测/归因"
+    },
+    {
+      "eventType": "growth.competitor.surge",
+      "status": "planned",
+      "aggregateType": "competitor_alert",
+      "producer": "A/intel",
+      "consumers": ["A/cockpit", "A/studio"],
+      "payload": { "alertId": "string", "competitorId": "string", "questionId": "string", "severity": "string" },
+      "purpose": "竞品突袭占位→告警+回流反制内容"
+    },
+    {
+      "eventType": "growth.competitor.gap_detected",
+      "status": "planned",
+      "aggregateType": "competitor_gap",
+      "producer": "A/intel",
+      "consumers": ["A/studio"],
+      "payload": { "gapId": "string", "competitorId": "string", "questionId": "string" },
+      "purpose": "竞品占位我方缺位→回流 studio 反制"
+    },
+    {
+      "eventType": "growth.recruit.dealer_signed",
+      "status": "planned",
+      "aggregateType": "dealer_recruitment",
+      "producer": "A/recruit",
+      "consumers": ["C/tenant", "C/entitlement"],
+      "payload": { "recruitId": "string", "dealerName": "string", "plan": "string" },
+      "purpose": "新经销商签约→开租户/授权"
+    },
+    {
+      "eventType": "delivery.handover.completed",
+      "status": "planned",
+      "aggregateType": "delivery_project",
+      "producer": "B/delivery",
+      "consumers": ["B/lifecycle"],
+      "payload": { "projectId": "string", "customerId": "string", "handoverAt": "string(iso)" },
+      "purpose": "交付完成→终身 IoT 绑定（保全 customer/home/contract/devices/warranty/service plan）"
+    },
+    {
+      "eventType": "dealer.success.recomputed",
+      "status": "planned",
+      "note": "当前由 A/cockpit 在消费 crm.deal.signed 时内联重算，未额外发事件；如需下游订阅再落地",
+      "aggregateType": "dealer_success",
+      "producer": "C/analytics",
+      "consumers": ["A/cockpit"],
+      "payload": { "dealerId": "string", "active": "boolean", "profitProxy": "number", "profitActual": "number|null", "gmv": "number", "period": "string" },
+      "purpose": "经销商成功度重算→北极星驾驶舱"
+    }
+  ]
+}

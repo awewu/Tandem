@@ -72,20 +72,9 @@ const PRODUCTION_ROUTE_CATALOG = [
       { id: 'reports', prefix: '/api/reports', modulePath: '../routes/reports', label: 'OK report routes mounted (/api/reports)' }
     ]
   },
-  {
-    id: 'quote-calculation',
-    domain: 'quote-calculation',
-    owner: 'server/modules/quote-calculation facade candidate',
-    status: 'legacy-compat',
-    routes: [
-      { id: 'oneclick', prefix: '/api/oneclick', modulePath: '../routes/oneclick-api' },
-      { id: 'quotation', prefix: '/api/quotation', modulePath: '../routes/customQuotation' },
-      { id: 'quotation-v2', prefix: '/api/quotation-v2', modulePath: '../routes/quotation-v2' },
-      { id: 'calculation', prefix: '/api/calc', modulePath: '../routes/calculation-api' },
-      { id: 'three-tier', prefix: '/api/three-tier', modulePath: '../routes/threeTier' },
-      { id: 'package-purchase', prefix: '/api/package', modulePath: '../routes/packagePurchase', label: 'OK calculation and quote routes mounted' }
-    ]
-  },
+  // 退场波2a(2026-08-06)：quote-calculation 组(oneclick/quotation/quotation-v2/calc/three-tier/package)
+  // = 报价/选型计算，按 D5 属"客户赋能"独立产品线，已从营销中台生产入口卸载(前端零调用)。
+  // 遗留文件保留在 server/routes/*，随客户赋能产品迁移或波4 整体清理。
   {
     id: 'ai-channel',
     domain: 'ai-channel',
@@ -111,9 +100,7 @@ const PRODUCTION_ROUTE_CATALOG = [
     status: 'production',
     routes: [
       { id: 'core-api', modulePath: '../routes/core-api', factory: 'coreApi' },
-      // /api/v2/auth, /api/v2/crm, /api/v2/quotation, /api/v2/tenants|dealers|stores → migrated-to-nestjs (services/api)
-      // 候选路由 design/devices/projects 仍走 v2.router（ENABLE_REACT_CANDIDATE 控制）
-      { id: 'v2', prefix: '/api/v2', modulePath: './v2.router', factory: 'v2' },
+      // 退场波1(2026-08-06)：本地 v2.router 已退役；/api/v2/** 全量由 productionMiddleware 前置代理转发到 NestJS(services/api)。
       { id: 'standards', modulePath: '../routes/standards.routes', factory: 'engines' }
     ]
   },
@@ -153,8 +140,6 @@ function loadRouteHandler(entry, context) {
       return routeModule;
     case 'empty':
       return routeModule();
-    case 'v2':
-      return routeModule({ db: context.db });
     case 'businessDomain':
       return routeModule(context.db);
     case 'coreApi':

@@ -32,13 +32,18 @@ function loadSites() {
 
 const SITES = loadSites();
 
+// 双下划线前缀的 HTML 是构建期产物、非可爬页面（如 Netlify 的 __forms.html：
+// 内含全部 hidden 表单，仅供构建时探测表单名，用户与爬虫都不该访问）。
+// 对它们要求 h1/OG/JSON-LD 无意义，故不计入 GEO 门。
+const NON_PAGE_HTML = /^__/;
+
 function listHtml(dir) {
   const out = [];
   if (!fs.existsSync(dir)) return out;
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, ent.name);
     if (ent.isDirectory()) out.push(...listHtml(full));
-    else if (ent.isFile() && ent.name.endsWith('.html')) out.push(full);
+    else if (ent.isFile() && ent.name.endsWith('.html') && !NON_PAGE_HTML.test(ent.name)) out.push(full);
   }
   return out;
 }
@@ -113,6 +118,7 @@ function checkSiteRoot(site) {
 const failures = [];
 const summary = [];
 const pending = []; // 对外站已登记但尚未建成 public（不算 failure，但必须显式追踪）
+const unmeasured = []; // 有 public 但无可扫页面（如 Next 应用）：**未测量**，不得报 ready
 
 for (const site of SITES) {
   if (!fs.existsSync(site.dir)) {
@@ -132,7 +138,20 @@ for (const site of SITES) {
       for (const i of issues) failures.push(`[${site.id}] ${rel}: ${i}`);
     } else ok++;
   }
-  summary.push({ site: site.id, type: site.type, domain: site.domain, pages: pages.length, clean: ok, rootIssues: rootIssues.length, status: (rootIssues.length === 0 && ok === pages.length) ? 'ready' : 'fail' });
+  // 0 个可扫页面 ≠ 就绪。若该站是 Next 应用（页面在 src/app|app，不落 public/），
+  // 本门禁**未测量**它，绝不可报 ready —— 那是假绿。显式标 unmeasured 并登记为缺口。
+  let status;
+  if (pages.length === 0) {
+    const isNextApp = ['next.config.js', 'next.config.mjs', 'next.config.ts']
+      .some((f) => fs.existsSync(path.join(ROOT, site.app, f)));
+    status = isNextApp ? 'unmeasured-next-app' : 'unmeasured-no-pages';
+    unmeasured.push(`[${site.id}] ${site.domain}: ${isNextApp
+      ? `Next 应用（页面在 ${site.app}/src/app，不在 public/）—— 本门禁只扫静态 HTML，该站 GEO 就绪度**未被验证**`
+      : `public/ 下无 HTML 页面 —— GEO 就绪度未被验证`}`);
+  } else {
+    status = (rootIssues.length === 0 && ok === pages.length) ? 'ready' : 'fail';
+  }
+  summary.push({ site: site.id, type: site.type, domain: site.domain, pages: pages.length, clean: ok, rootIssues: rootIssues.length, status });
 }
 
 console.log('GEO Readiness Check — Rhautt Nexus 宪章 5.6（对外站全覆盖）');
@@ -141,6 +160,19 @@ for (const s of summary) console.log(`- ${s.site} [${s.type} · ${s.domain}]: ${
 if (pending.length) {
   console.log(`\npending (登记未建，不阻断上线门):`);
   for (const p of pending) console.log(`- ${p}`);
+}
+if (unmeasured.length) {
+  console.warn(`\n⚠️  UNMEASURED (${unmeasured.length}) —— 这些对外站的 GEO 就绪度**未被本门禁验证**，不等于合格：`);
+  for (const u of unmeasured) console.warn(`- ${u}`);
+  console.warn('  处置：需为 Next 应用增加基于 metadata 导出/构建产物的 GEO 校验，否则集团站可见性长期无人守护。');
+  try {
+    require('../release/evidence-utils').updateReleaseEvidence('geoUnmeasuredSites', {
+      command: 'npm run guard:geo',
+      status: 'unmeasured-gap',
+      sites: unmeasured,
+      note: '本门禁只扫静态 HTML；Next 应用站点的 GEO 就绪度尚无校验手段',
+    });
+  } catch { /* 台账不可写不应阻断 */ }
 }
 console.log(`\nfailures = ${failures.length}`);
 

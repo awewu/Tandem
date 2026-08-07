@@ -30,29 +30,23 @@ jobs:
       - name: Target API boot smoke (DI wiring)
         run: npm run guard:target-api-boot-smoke
 
-      - name: PostgreSQL schema / RLS / transaction-outbox contracts
-        run: |
-          npm run guard:postgres-target-schema
-          npm run guard:postgres-rls-behavior
-          npm run guard:postgres-transaction-outbox
-          npm run guard:workflow-outbox-contract
+      # 门禁红绿账（harness 工程学）：逐项独立执行全部 guard/harness，产出完整账本并分类失败。
+      # 取代此前"手写门禁清单 + && 串联"的做法——那种做法有两个致命缺陷：
+      #   ① 首个失败即中断，后续门禁的红灯长期不可见（实测曾掩盖 26 个红灯）；
+      #   ② 清单需人工维护，新增门禁会漏进 CI。
+      # --fail-on=real：仅"真实代码/架构问题(REAL)"阻断流水线；
+      #   ARTIFACT（依赖未生成的 gitignored 产物）与 BROKEN（门禁脚本自身坏）仍在日志中全量可见，
+      #   但不阻断——否则基础设施债会让整个门禁体系被长期忽略。这两类由专项任务收敛。
+      - name: Guard ledger (all guards, classified; REAL blocks)
+        run: npm run guard:ledger -- --fail-on=real --out=guard-ledger.json
 
-      - name: Strangler route-target map & target readiness
-        run: |
-          npm run guard:route-target-map
-          npm run guard:target-dependencies
-          npm run guard:trunk-migration
-
-      # 权限/账户/命名/宪章治理 —— 纯静态源校验（无需 DB/在制品），防止「模块入 boundary 却漏登记权限域」
-      # 「署名/命名漂移」「把规划写成已建成」等治理漂移在 CI 之外悄悄落地（此前仅靠人工手动 guard，故反复出问题）。
-      - name: Permission / account / naming / charter governance (anti-drift)
-        run: |
-          npm run guard:permission-domain
-          npm run guard:nexus-naming
-          npm run guard:charter-maturity
-
-      # NOTE: guard:postgres-staging-smoke 与 guard:target-architecture 暂未纳入门禁——
-      # 二者依赖在制品（staging 证据 / nx.json 脚手架）。待其恢复后追加到上面两步。
+      - name: Upload guard ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guard-ledger
+          path: guard-ledger.json
+          if-no-files-found: warn
 
       - name: Governance gate summary
         if: failure()

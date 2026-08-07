@@ -11,7 +11,7 @@ import { hashPII, encryptPII, decryptPII } from '../compliance/compliance.pii';
 import { assertIdentifierForRole, SELF_REGISTER_ROLE } from './identity-policy';
 import { EntitlementService } from '../entitlement/entitlement.service';
 import { OtpService } from './otp.service';
-import { RbacService, type RbacAccess } from './rbac.service';
+import { RbacService, type RbacAccess, type RbacScope } from './rbac.service';
 
 export interface JwtPayload {
   userId: string; tenantId: string;
@@ -19,6 +19,7 @@ export interface JwtPayload {
   role: string; permissions: string[];
   roles?: string[];
   modules?: string[];
+  scopes?: RbacScope[];
 }
 
 export interface ResolvedLoginUser {
@@ -168,6 +169,25 @@ export class AuthService {
   }
 
   logout() { return { revoked: false, tokenMode: 'stateless-jwt' }; }
+
+  /**
+   * 本地开发 SSO 直通桩（仅 NEXUS_DEV_SSO=1 且非生产启用）：模拟"已登录牛马搭子直通"，
+   * 按 identifier 命中一个已播种的员工账号并直接发证，无需真 OIDC / 密码。生产环境禁用。
+   */
+  async issueDevSsoLogin(identifier?: string) {
+    const id = identifier || process.env.NEXUS_DEV_SSO_USER || 'hq@rhautt.local';
+    const rows: Record<string, any>[] = await this.ds.query(
+      'SELECT * FROM rhautt_nexus.auth_lookup_user_by_phone_hash($1)',
+      [this.phoneHash(id)],
+    );
+    const row = rows.find((r) => r.status === 'active') ?? rows[0];
+    if (!row) throw new UnauthorizedException(`dev SSO user not found: ${id}`);
+    const user = this.hydrate(row);
+    return this.issueLoginForResolvedUser({
+      id: user.id, tenantId: user.tenantId, dealerId: user.dealerId ?? null, storeId: user.storeId ?? null,
+      customerId: user.customerId ?? null, name: user.name, role: user.role, permissions: user.permissions ?? [],
+    });
+  }
 
   async issueLoginForResolvedUser(user: ResolvedLoginUser) {
     const modules = await this.resolveModules(user.tenantId);
@@ -435,8 +455,12 @@ export class AuthService {
     return this.rbac.setRolePermissions(actor, id, body.permissions ?? []);
   }
 
-  adminSetUserRoles(actor: JwtPayload, id: string, body: { roleIds?: string[]; primaryRoleId?: string }) {
+  adminSetUserRoles(actor: JwtPayload, id: string, body: { roleIds?: string[]; primaryRoleId?: string; scope?: { scopeType?: string; scopeDimension?: string | null; scopeRef?: string | null } }) {
     return this.rbac.setUserRoles(actor, id, body);
+  }
+
+  adminBusinessUnits(actor: JwtPayload) {
+    return this.rbac.listBusinessUnits(actor);
   }
 
   adminEffectivePermissions(actor: JwtPayload, id: string) {
@@ -444,13 +468,14 @@ export class AuthService {
   }
 
   private sign(user: UserEntity, modules: string[] = [], access?: RbacAccess): string {
-    const resolved = access ?? { role: user.role, roles: [user.role], permissions: user.permissions ?? [] };
+    const resolved = access ?? { role: user.role, roles: [user.role], permissions: user.permissions ?? [], scopes: [] };
     const payload: JwtPayload = {
       userId: user.id, tenantId: user.tenantId,
       dealerId: user.dealerId ?? null, storeId: user.storeId ?? null,
       customerId: user.customerId ?? null,
       role: resolved.role, roles: resolved.roles, permissions: resolved.permissions,
       modules,
+      scopes: resolved.scopes,
     };
     return this.jwt.sign(payload);
   }
@@ -465,7 +490,7 @@ export class AuthService {
   }
 
   private toPublic(u: UserEntity, access?: RbacAccess) {
-    const resolved = access ?? { role: u.role, roles: [u.role], permissions: u.permissions ?? [] };
+    const resolved = access ?? { role: u.role, roles: [u.role], permissions: u.permissions ?? [], scopes: [] };
     let identifierMasked = '';
     let identifierKind: 'email' | 'phone' | 'unknown' = 'unknown';
     try {
@@ -483,6 +508,7 @@ export class AuthService {
     return {
       id: u.id, userId: u.id, tenantId: u.tenantId, dealerId: u.dealerId, storeId: u.storeId, name: u.name,
       role: resolved.role, roles: resolved.roles, permissions: resolved.permissions,
+      scopes: resolved.scopes,
       identifierMasked, identifierKind,
     };
   }

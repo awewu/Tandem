@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import type { ProductPositioning, AssetRef, ProductSeo, ProductMarketing } from './product-taxonomy';
 
 @Entity('products')
@@ -21,9 +21,22 @@ export class ProductEntity {
   @Column({ name: 'cost_price', type: 'decimal', default: 0 }) costPrice: number;
   @Column({ type: 'varchar', default: 'CNY' }) currency: string;
   @Column({ default: 'active' }) @Index() status: string;
+  // 4.4 产品生命周期阶段：引入→成长→成熟→退市。
+  @Column({ name: 'lifecycle_stage', default: 'intro' }) lifecycleStage: string;
+  // D4 发布投影：published=对外/消费可见（存量默认 true）。
+  @Column({ default: true }) published: boolean;
   @Column({ type: 'jsonb', default: {} }) meta: Record<string, unknown>;
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
+// D4 发布投影授权：消费租户(经销商) × 品牌 → 可只读该品牌已发布产品事实。
+@Entity({ schema: 'rhautt_nexus', name: 'brand_publish_grant' })
+export class BrandPublishGrantEntity {
+  @PrimaryColumn({ name: 'consumer_tenant_id' }) consumerTenantId: string;
+  @PrimaryColumn({ name: 'brand_code' }) brandCode: string;
+  @Column({ default: 'granted' }) status: string;
+  @Column({ name: 'granted_at', type: 'timestamptz', default: () => 'now()' }) grantedAt: Date;
 }
 
 @Entity('price_list_items')

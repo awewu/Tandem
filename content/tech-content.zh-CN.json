@@ -1,0 +1,83 @@
+{
+  "_schema": "nexus-tech-content/1",
+  "_locale": "zh-CN",
+  "_governance": {
+    "principle": "数值锁死 · 文案可运营（宪章 §5.5.6-B）",
+    "editableBy": "品牌/市场运营（无需开发介入）",
+    "rule": "本文件只放文案。**结构上不设放数值的字段**——限值表、流速、风速等一切数字只能由 packages/domain/hvac-kernels 导出，任何人无法通过改本文件影响数值。",
+    "afterEdit": "npm run tech:content && npm run geo:build",
+    "guardedBy": "guard:tech-content（校验页面 = 当前文案 + 当前内核数值）"
+  },
+
+  "pages": {
+    "indoor-noise-limits": {
+      "title": "室内允许噪声级速查（GB 50118-2010）",
+      "standard": "GB 50118-2010《民用建筑隔声设计规范》",
+      "descTemplate": "GB 50118-2010《民用建筑隔声设计规范》室内允许噪声级速查：覆盖{roomTypeCount}类房间的昼间/夜间限值（dB(A)），含达标判定方法。",
+      "lead": "暖通设备选型与安装位置直接决定室内噪声是否达标。下表为国标规定的室内允许噪声级，是方案评审与验收的判定依据。",
+      "tableHead": ["房间类型", "昼间限值 dB(A)", "夜间限值 dB(A)"],
+      "method": [
+        "预测室内声压级 Lp：由设备声功率级 Lw、传播距离衰减、路径衰减（隔声/消声）与房间吸声共同决定。",
+        "与上表限值比较：Lp ≤ 限值即达标；差值为余量（dB），余量越大越稳妥。",
+        "多房间评审取最不利房间（余量最小者）作为整体结论。",
+        "声源数据缺失时不得默认通过——应判为“数据不足”，避免把未知当合格。"
+      ],
+      "faq": [
+        { "q": "卧室夜间允许噪声级是多少？", "aTemplate": "{bedroomNight} dB(A)（GB 50118-2010）。昼间为 {bedroomDay} dB(A)。" },
+        { "q": "病房的要求比卧室更严吗？", "aTemplate": "是。病房夜间 {wardNight} dB(A)，比卧室夜间 {bedroomNight} dB(A) 更严。" },
+        { "q": "书房和会议室为什么要求更严？", "aTemplate": "二者以脑力工作与语言清晰度为主要功能，国标对其昼夜均按 {studyDay} dB(A) 控制。" }
+      ]
+    },
+
+    "water-velocity": {
+      "title": "管道推荐流速速查（GB 50015 / GB 50736）",
+      "standard": "GB 50015《建筑给水排水设计标准》 / GB 50736-2012《民用建筑供暖通风与空气调节设计规范》",
+      "descTemplate": "生活热水管、采暖供回水管与干管的推荐流速范围（m/s）。流速过高产生噪声与冲蚀，过低导致管径浪费与滞流。",
+      "lead": "管径选择的本质是流速控制。流速偏高会带来水流噪声、水锤与管壁冲蚀；偏低则管径与投资浪费，并可能形成滞流。",
+      "tableHead": ["管段类型", "最小流速 m/s", "推荐值 m/s", "最大流速 m/s"],
+      "method": [
+        "按设计流量与推荐流速反算断面积，选取不小于该断面的标准管径（DN 系列）。",
+        "校核实际流速落在最小～最大区间内；越界须调整管径而非“凑合”。",
+        "生活热水管流速上限更严，因其噪声更易被住户感知。"
+      ],
+      "faq": [
+        { "q": "生活热水管推荐流速是多少？", "aTemplate": "推荐 {hotWaterIdeal} m/s，允许区间 {hotWaterMin}–{hotWaterMax} m/s。" },
+        { "q": "采暖管道流速应该控制在多少？", "aTemplate": "推荐 {heatingIdeal} m/s，区间 {heatingMin}–{heatingMax} m/s。" }
+      ]
+    },
+
+    "duct-velocity": {
+      "title": "风管风速上限速查（GB 50736）",
+      "standard": "GB 50736-2012《民用建筑供暖通风与空气调节设计规范》",
+      "descTemplate": "主风管、支风管与末端送风口的风速上限与推荐值（m/s），低速风管系统噪声控制的基础依据。",
+      "lead": "风管风速是新风与空调系统噪声的首要来源。住宅与公建低速风管系统应按下表控制，末端风速尤其关键。",
+      "tableHead": ["风管位置", "推荐风速 m/s", "风速上限 m/s"],
+      "method": [
+        "按送风量与推荐风速确定风管断面，再校核不超过上限。",
+        "越靠近末端，风速要求越严——末端超速是室内噪声超标最常见的原因。",
+        "风速合规不等于噪声达标，仍须按 GB 50118 做室内声压级校核。"
+      ],
+      "faq": [
+        { "q": "末端送风口风速不能超过多少？", "aTemplate": "上限 {terminalMax} m/s，推荐 {terminalIdeal} m/s。" },
+        { "q": "主风管风速推荐值？", "aTemplate": "推荐 {mainIdeal} m/s，上限 {mainMax} m/s。" }
+      ]
+    }
+  },
+
+  "index": {
+    "title": "技术标准速查",
+    "leadTemplate": "下列数值均由 {brandName} 工程计算内核直接导出，与设计计算同源，可用于方案评审与验收比对。"
+  },
+
+  "shared": {
+    "tableCaptionTemplate": "数据来源：本表由 {standard} 对应的计算内核直接导出，与工程计算同源。",
+    "disclaimerTemplate": "本页数值由 {brandName} 工程计算内核直接导出，用于设计与评审参考；工程实施以现行国家标准与当地主管部门要求为准。",
+    "footerSuffix": "技术标准速查",
+    "navProducts": "产品中心",
+    "crumbHome": "首页",
+    "crumbTech": "技术标准",
+    "sectionTable": "限值/取值表",
+    "sectionMethod": "判定方法",
+    "sectionFaq": "常见问题"
+  }
+}

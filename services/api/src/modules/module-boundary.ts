@@ -4,7 +4,6 @@ export const apiModuleBoundary = [
   'crm',
   'diagnosis',
   'product-catalog',
-  'quote',
   'analytics',
   'governance',
   'file-artifact',
@@ -14,10 +13,23 @@ export const apiModuleBoundary = [
   'compliance',
   'mdm',
   'growth',
-  'entitlement'
+  'entitlement',
+  'cdp',
+  'insight',
+  'channel',
+  'positioning',
+  'gtmplan',
+  'content',
+  'activation'
 ] as const;
 
+// 客户赋能(独立产品线)模块：已从营销中台停挂载(目录留存·代码保留·可逆)，营销中台不暴露其 API，
+// 对营销中台边界视为 planned(非活跃)；接缝 dispatch(线索派单) 仍留营销中台。
 export const plannedApiInterfaces = [
+  'quote',
+  'design',
+  'contracts',
+  'bim',
   'delivery',
   'lifecycle',
   'aftersales'
@@ -56,6 +68,83 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     apiNamespace: '/api/v2/entitlement',
     owner: 'backend-platform-builder',
     productSurface: 'commercial module subscription and per-tenant entitlement',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  cdp: {
+    name: 'cdp',
+    apiNamespace: '/api/v2/cdp',
+    owner: 'data-platform-architect',
+    productSurface: 'end-user unified profile, segmentation, and PIPL consent ledger',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  insight: {
+    name: 'insight',
+    apiNamespace: '/api/v2/insight',
+    owner: 'data-platform-architect',
+    productSurface: 'market insight and category-axis competitor intelligence (SoV, signals)',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  channel: {
+    name: 'channel',
+    apiNamespace: '/api/v2/channel',
+    owner: 'backend-platform-builder',
+    productSurface: 'channel/partner marketing: recruitment, tiering/certification, rebate (margin-gated), performance',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  positioning: {
+    name: 'positioning',
+    apiNamespace: '/api/v2/positioning',
+    owner: 'brand-experience-architect',
+    productSurface: 'brand messaging house per brand x category (promise, pillars, proof points, differentiation)',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  gtmplan: {
+    name: 'gtmplan',
+    apiNamespace: '/api/v2/gtmplan',
+    owner: 'backend-platform-builder',
+    productSurface: 'GTM planning: campaign budget/spend/MROI and three-tier OKR',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  content: {
+    name: 'content',
+    apiNamespace: '/api/v2/content',
+    owner: 'brand-experience-architect',
+    productSurface: 'content factory: brief to draft to review to publish, fact-grounded and compliance-gated',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  activation: {
+    name: 'activation',
+    apiNamespace: '/api/v2/activation',
+    owner: 'backend-platform-builder',
+    productSurface: 'promotion/activation: coupon, groupon, flashsale, fission, referral programs and participation',
     dataStores: ['postgresql'],
     requiresTenantScope: true,
     requiresAuditLog: true,
@@ -102,17 +191,6 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     owner: 'product-domain-critic',
     productSurface: 'Rheem, Ruud, Everhot product catalog, SKUs, price books, and system packs',
     dataStores: ['postgresql', 'redis'],
-    requiresTenantScope: true,
-    requiresAuditLog: true,
-    requiresOpenApiContract: true,
-    writeApisRequireOutbox: true
-  },
-  quote: {
-    name: 'quote',
-    apiNamespace: '/api/v2/quote',
-    owner: 'quote-cost-governor',
-    productSurface: 'BOM, cost, tax, margin, promotion, quotation, and contract-ready offer',
-    dataStores: ['postgresql', 'mongodb', 'redis'],
     requiresTenantScope: true,
     requiresAuditLog: true,
     requiresOpenApiContract: true,

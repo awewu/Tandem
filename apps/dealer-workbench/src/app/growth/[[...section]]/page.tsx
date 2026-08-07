@@ -21,6 +21,13 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { PageHeader } from '@rhautt/ui';
 import { GrowthGeoWorkspace } from '../../../components/GrowthGeoWorkspace';
+import { GeoExperimentPanel } from '../../../components/GeoExperimentPanel';
+import { GeoIntelligencePanel } from '../../../components/GeoIntelligencePanel';
+import { MarketingTaskCenter } from '../../../components/MarketingTaskCenter';
+import { AiCostPanel } from '../../../components/AiCostPanel';
+import { SentimentRadarPanel } from '../../../components/SentimentRadarPanel';
+import { CopyAssetsPanel } from '../../../components/CopyAssetsPanel';
+import { CampaignRoiPanel } from '../../../components/CampaignRoiPanel';
 import WechatPublishingWorkspace from '../../../components/WechatPublishingWorkspace';
 
 type GrowthSection = 'geo' | 'copywriter' | 'sentiment' | 'automation' | 'materials';
@@ -93,84 +100,7 @@ const SECTION_LINKS: Array<{ key: GrowthSection; href: string }> = [
   { key: 'materials', href: '/growth/materials' },
 ];
 
-const OVERVIEW = [
-  { label: 'GEO 分析', value: '8', hint: 'AI 引擎品牌可见度', icon: Search, status: '运行中', kind: 'running' as const },
-  { label: '文案 Copilot', value: '24', hint: '多平台候选文案', icon: Sparkles, status: '待审核', kind: 'review' as const },
-  { label: '舆情雷达', value: '92%', hint: '正向及中性声量', icon: Radio, status: '低风险', kind: 'success' as const },
-  { label: '营销自动化', value: '4', hint: '触达流程运行中', icon: Zap, status: '配置中', kind: 'config' as const },
-];
-
-const KEYWORDS = [
-  { word: '瑞美热水系统', rank: 'A-', exposure: '76%', intent: '品牌词', source: 'AI 搜索 / 官网答案' },
-  { word: '别墅五恒系统', rank: 'B+', exposure: '62%', intent: '品类词', source: '问答摘要' },
-  { word: '空气源热泵热水', rank: 'B', exposure: '58%', intent: '方案词', source: '行业榜单' },
-  { word: 'Rheem 商用热水', rank: 'A', exposure: '81%', intent: '商用词', source: '采购问答' },
-];
-
-const COPY_TASKS = [
-  { title: '瑞美官网夏季热泵专题', channel: '官网专题', state: '待品牌审核', kind: 'review' as const },
-  { title: '经销商朋友圈活动短文案', channel: '私域触达', state: '可发布', kind: 'success' as const },
-  { title: '恒热 Everhot 商用案例标题', channel: '案例页', state: '需补证据', kind: 'warning' as const },
-];
-
-const SENTIMENT = [
-  { source: '小红书 / 抖音', signal: '节能、省电、安装体验', tone: '正向', kind: 'success' as const },
-  { source: '搜索问答', signal: '维修响应、型号选型', tone: '中性', kind: 'neutral' as const },
-  { source: '公开投诉', signal: '交付周期个别延迟', tone: '关注', kind: 'warning' as const },
-];
-
-const AUTOMATIONS = [
-  { name: '官网询盘 5 分钟内首触达', step: '短信 + 企微任务', conversion: '38%', status: '运行中', kind: 'running' as const },
-  { name: '未报价客户 48 小时唤醒', step: '顾问提醒 + 资料包', conversion: '21%', status: '待优化', kind: 'review' as const },
-  { name: '活动页报名后培育', step: '三段式内容触达', conversion: '44%', status: '运行中', kind: 'running' as const },
-];
-
-const MATERIALS = [
-  {
-    title: '夏季制冷专项返点活动包',
-    type: '活动物料',
-    brand: 'Rheem',
-    format: '海报 / 朋友圈图',
-    updatedAt: '07-18',
-    status: '可下载',
-    kind: 'download' as const,
-    href: '/brand',
-    icon: FileImage,
-  },
-  {
-    title: 'Econet 全屋智控推广话术',
-    type: '私域文案',
-    brand: 'Rheem',
-    format: '图文 / 顾问话术',
-    updatedAt: '07-16',
-    status: '可发布',
-    kind: 'success' as const,
-    href: '/brand',
-    icon: FileText,
-  },
-  {
-    title: '经销商产品认证培训资料',
-    type: '培训资料',
-    brand: 'Rhautt Comfort',
-    format: '课件 / 产品页',
-    updatedAt: '07-12',
-    status: '需审核',
-    kind: 'review' as const,
-    href: '/products?module=materials',
-    icon: FolderOpen,
-  },
-  {
-    title: '恒热 Everhot 商用热水案例图包',
-    type: '案例素材',
-    brand: 'Everhot',
-    format: '案例长图 / 产品图',
-    updatedAt: '07-10',
-    status: '可下载',
-    kind: 'download' as const,
-    href: '/comfort/sites/everhot',
-    icon: FileImage,
-  },
-];
+// 假数据常量已移除：各营销模块改用连真 API 的组件（Sentiment/Copy/Campaign/GeoIntelligence 等）。
 
 function sectionFromParams(section?: string[]): GrowthSection {
   const key = section?.[0];
@@ -252,29 +182,13 @@ export default async function GrowthWorkspacePage({
               </div>
             </div>
           </div>
+          {/* 各模块的真实指标由其真数据组件内部渲染，此处不再显示占位数字（避免假数据）。 */}
           <div className="inset" style={{ display: 'grid', alignContent: 'center', gap: 8 }}>
-            <div className="t-label">{active.primaryLabel}</div>
-            <div style={{ fontSize: 38, lineHeight: 1, fontWeight: 800, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{active.primaryMetric}</div>
+            <div className="t-label">实时指标</div>
+            <div style={{ color: 'var(--t-secondary)', fontSize: 13, lineHeight: 1.5 }}>
+              见下方工作区（全部来自后端真实数据）
+            </div>
           </div>
-        </section>
-
-        <section className="g4" style={{ gap: 12 }}>
-          {OVERVIEW.map((item) => {
-            const Icon = item.icon;
-            return (
-              <article key={item.label} className="card-elevated" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <span className="t-label">{item.label}</span>
-                  <Icon size={16} style={{ color: 'var(--brand)' }} />
-                </div>
-                <div style={{ marginTop: 8, fontSize: 30, lineHeight: 1.1, fontWeight: 800, color: 'var(--t-strong)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
-                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <p style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>{item.hint}</p>
-                  <StatusPill kind={item.kind}>{item.status}</StatusPill>
-                </div>
-              </article>
-            );
-          })}
         </section>
 
         <section
@@ -299,125 +213,38 @@ export default async function GrowthWorkspacePage({
 
 function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
   if (activeKey === 'geo') {
-    return <GrowthGeoWorkspace />;
+    return (
+      <div style={{ display: 'grid', gap: 16 }}>
+        <MarketingTaskCenter brandSlug="rheem" />
+        <GrowthGeoWorkspace />
+        <AiCostPanel />
+        <GeoIntelligencePanel brandSlug="rheem" />
+        <GeoExperimentPanel brandSlug="rheem" />
+      </div>
+    );
   }
 
   if (activeKey === 'copywriter') {
-    return (
-      <PanelShell icon={Sparkles} title="文案 Copilot 工作区" desc="生成、审校并沉淀符合品牌语气的官网与私域文案。">
-        <div style={{ display: 'grid', gap: 10 }}>
-          {COPY_TASKS.map((item) => (
-            <div key={item.title} className="inset" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: 12, alignItems: 'center' }}>
-              <strong style={{ fontSize: 14, color: 'var(--t-primary)' }}>{item.title}</strong>
-              <span style={{ color: 'var(--t-secondary)', fontSize: 12 }}>{item.channel}</span>
-              <StatusPill kind={item.kind}>{item.state}</StatusPill>
-            </div>
-          ))}
-        </div>
-      </PanelShell>
-    );
+    return <CopyAssetsPanel />;
   }
 
   if (activeKey === 'sentiment') {
-    return (
-      <PanelShell icon={Radio} title="舆情雷达" desc="跟踪公开渠道声量，给品牌和销售团队提供风险提示。">
-        <div className="table-shell">
-          <table className="table">
-            <thead>
-              <tr><th>渠道</th><th>主要信号</th><th>情绪</th></tr>
-            </thead>
-            <tbody>
-              {SENTIMENT.map((item) => (
-                <tr key={item.source}>
-                  <td style={{ fontWeight: 700 }}>{item.source}</td>
-                  <td>{item.signal}</td>
-                  <td><StatusPill kind={item.kind}>{item.tone}</StatusPill></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </PanelShell>
-    );
+    return <SentimentRadarPanel />;
   }
 
   if (activeKey === 'automation') {
-    return (
-      <PanelShell icon={Zap} title="营销自动化" desc="把官网线索、顾问任务和内容触达串成可追踪流程。">
-        <div style={{ display: 'grid', gap: 10 }}>
-          {AUTOMATIONS.map((item) => (
-            <div key={item.name} className="inset" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, alignItems: 'center' }}>
-              <strong style={{ fontSize: 14, color: 'var(--t-primary)' }}>{item.name}</strong>
-              <span style={{ color: 'var(--t-secondary)', fontSize: 12 }}>{item.step}</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{item.conversion}</span>
-              <StatusPill kind={item.kind}>{item.status}</StatusPill>
-            </div>
-          ))}
-        </div>
-      </PanelShell>
-    );
+    return <CampaignRoiPanel />;
   }
 
-  if (false) {
-    return (
-      <PanelShell icon={FolderOpen} title="营销物料库" desc="集中管理可下载、可发布、待审核的市场物料。">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {MATERIALS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <article key={item.title} className="inset" style={{ display: 'grid', gap: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 'var(--r-lg)', display: 'grid', placeItems: 'center', background: 'var(--brand-tint)', color: 'var(--brand-700)', flexShrink: 0 }}>
-                      <Icon size={18} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <span className="t-label">{item.type}</span>
-                      <h3 style={{ marginTop: 4, fontSize: 14, lineHeight: 1.35, fontWeight: 700, color: 'var(--t-primary)' }}>{item.title}</h3>
-                    </div>
-                  </div>
-                  <StatusPill kind={item.kind}>{item.status}</StatusPill>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <Meta label="品牌" value={item.brand} />
-                  <Meta label="格式" value={item.format} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>更新 {item.updatedAt}</span>
-                  <a href={item.href} className="btn btn-outline btn-sm" aria-label={`查看${item.title}`}>
-                    <Eye size={13} />
-                    查看
-                  </a>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </PanelShell>
-    );
-  }
 
+  // 安全兜底：activeKey 恒在枚举内（sectionFromParams 默认 'geo'），正常到不了这里。
+  // 一旦到达也不回落假数据，而是显示真实 GEO 工作区。
   return (
-    <PanelShell icon={BarChart3} title="GEO 可见度分析" desc="监测 AI 搜索入口中的品牌露出、答案引用和品类词排名。">
-      <div className="table-shell">
-        <table className="table">
-          <thead>
-            <tr><th>关键词</th><th>意图</th><th>来源</th><th>等级</th><th>露出率</th></tr>
-          </thead>
-          <tbody>
-            {KEYWORDS.map((item) => (
-              <tr key={item.word}>
-                <td style={{ fontWeight: 700 }}>{item.word}</td>
-                <td>{item.intent}</td>
-                <td>{item.source}</td>
-                <td><StatusPill kind={item.rank.startsWith('A') ? 'success' : 'running'}>{item.rank}</StatusPill></td>
-                <td>{item.exposure}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </PanelShell>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <GrowthGeoWorkspace />
+      <GeoIntelligencePanel brandSlug="rheem" />
+      <GeoExperimentPanel brandSlug="rheem" />
+    </div>
   );
 }
 

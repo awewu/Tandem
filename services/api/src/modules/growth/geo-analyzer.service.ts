@@ -37,8 +37,18 @@ export interface HallucinationRisk {
   reason: string;
 }
 
+// GEO 可见度三层（arXiv 2509.08919 / super-geo：fetched≠cited≠mentioned，三者独立可赢可输）。
+// - none      未出现
+// - mentioned 只出现品牌名，无我方出处链接 → 被"提到"，不代表 AI 读了我们的内容
+// - cited     出现品牌名 + 我方域名/URL 出处 → 真正被引用（AI 引了我们的页面）
+// 说明：纯客户端无法直接观测"fetched（被爬取但未引用）"，故落地为 none/mentioned/cited 三态，
+// 其中 cited 是唯一"真引用"，避免把"被提及"高估成"被引用"。
+export type GeoVisibilityTier = 'none' | 'mentioned' | 'cited';
+
 export interface GeoAnswerAnalysis {
-  weCited: boolean;
+  weCited: boolean;                 // 向后兼容：等价于 tier !== 'none'（品牌名出现即真）
+  visibilityTier: GeoVisibilityTier;
+  hasOurSource: boolean;            // 答案是否含我方域名/URL 出处（cited 的判据）
   citationRank: number | null;      // 我方首次出现在答案第几个句段（1-based），未引用为 null
   competitorsCited: string[];
   aivs: number;                     // 0-100
@@ -119,7 +129,12 @@ export class GeoAnalyzerService {
     for (let i = 0; i < segments.length; i++) {
       if (this.hits(segments[i], names) || this.hits(segments[i], domains)) { citationRank = i + 1; break; }
     }
-    const weCited = citationRank !== null;
+    // 三层可见度：品牌名出现=至少 mentioned；再有我方域名/URL 出处=cited（真引用）。
+    // 这修正了此前把"被提及"当"被引用"的高估——mentioned 不代表 AI 读了我们的内容。
+    const hasOurSource = domains.some((d) => d && text.includes(d));
+    const nameAppears = citationRank !== null;
+    const visibilityTier: GeoVisibilityTier = hasOurSource ? 'cited' : nameAppears ? 'mentioned' : 'none';
+    const weCited = nameAppears;
 
     // 竞品候选只使用本次探测显式给定的名单，避免未配置时冒出默认竞品。
     const candidateCompetitors = [...new Set(competitors)]
@@ -131,8 +146,8 @@ export class GeoAnalyzerService {
     const position = weCited ? (1 - (citationRank! - 1) / total) : 0;
     // recommendation 30%：我方句段附近是否含推荐性措辞
     const recommendation = weCited && this.nearRecommendation(segments, names, domains) ? 1 : 0;
-    // evidence 20%：答案是否引用了我方域名（链接/出处）
-    const evidence = domains.some((d) => text.includes(d)) ? 1 : 0;
+    // evidence 20%：答案是否引用了我方域名（链接/出处）—— 即三层里的 cited 判据
+    const evidence = hasOurSource ? 1 : 0;
     // prominence 15%：我方提及次数占（我方+竞品）总提及比
     const ourMentions = this.count(text, names) + this.count(text, domains);
     const competitorMentions = competitorsCited.reduce((s, c) => s + this.count(text, [c]), 0);
@@ -146,7 +161,7 @@ export class GeoAnalyzerService {
     };
     const aivs = breakdown.position + breakdown.recommendation + breakdown.evidence + breakdown.prominence;
     return {
-      weCited, citationRank, competitorsCited, aivs, aivsBreakdown: breakdown,
+      weCited, visibilityTier, hasOurSource, citationRank, competitorsCited, aivs, aivsBreakdown: breakdown,
       sentiment: this.sentimentToward(segments, names, domains),
       ourMentions, competitorMentions,
       trustSources: this.extractTrustSources(text),

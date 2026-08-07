@@ -1,35 +1,63 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BrainCircuit, Briefcase, Droplet, Leaf, UserRound, Wind } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { auth } from '../lib/api';
 import { setToken } from '@rhautt/shared-auth';
 
 const HUB_BRAND = process.env.NEXT_PUBLIC_TENANT_BRAND || 'Rhautt Comfort';
 const PLATFORM_TAG = process.env.NEXT_PUBLIC_PLATFORM_TAG || 'Powered by Rysnova AI';
 
-// 品牌价值支柱（呼应「水与空气 · 低碳可持续」使命愿景）
-const PILLARS = [
-  { icon: '💧', label: '水', desc: '净水 · 中央热水' },
-  { icon: '🌿', label: '空气', desc: '空调 · 新风 · 采暖' },
-  { icon: '♻️', label: '低碳', desc: '高效节能技术' },
-  { icon: '🧠', label: '数字化', desc: 'AI 问诊 → 设计 → 交付' },
+// 品牌价值支柱（呼应「水与空气 · 低碳可持续」使命愿景）— 用 lucide 图标（DESIGN.md：禁 emoji）
+const PILLARS: { Icon: LucideIcon; label: string; desc: string }[] = [
+  { Icon: Droplet, label: '水', desc: '净水 · 中央热水' },
+  { Icon: Wind, label: '空气', desc: '空调 · 新风 · 采暖' },
+  { Icon: Leaf, label: '低碳', desc: '高效节能技术' },
+  { Icon: BrainCircuit, label: '数字化', desc: 'AI 问诊 → 设计 → 交付' },
 ];
 
 export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(() => {
-    if (typeof window === 'undefined') return '';
+  // SSO 错误提示在客户端挂载后读取（避免在 useState 初始化里读 window 造成 SSR/水合不一致）。
+  const [error, setError] = useState('');
+  useEffect(() => {
     const code = new URLSearchParams(window.location.search).get('ssoError');
-    if (!code) return '';
+    if (!code) return;
     const messages: Record<string, string> = {
       missing_session: '登录状态已失效，请重新登录。',
       sso_unavailable: '单点登录暂不可用，请联系支持或使用账号密码登录。',
       sso_callback_failed: '单点登录未完成，请重试或联系支持。',
       unauthorized: '当前账号尚未获得 Nexus 访问授权，请联系管理员。',
     };
-    return messages[code] || '单点登录未完成，请联系支持。';
-  });
+    setError(messages[code] || '单点登录未完成，请联系支持。');
+  }, []);
   const [loading, setLoading] = useState(false);
+  // 两道门：choose 选择入口 · staff 员工(牛马搭子SSO/内部账号) · customer 客户(手机验证码)
+  const [mode, setMode] = useState<'choose' | 'staff' | 'customer'>('choose');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
+  const [smsCode, setSmsCode] = useState('');
+  const [smsSent, setSmsSent] = useState(false);
+
+  async function handleSendSms() {
+    setError('');
+    try { await auth.sendSms(phone); setSmsSent(true); }
+    catch (err: unknown) { setError((err as Error).message || '验证码发送失败'); }
+  }
+
+  async function handleCustomerLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const res = await auth.loginSms(phone, smsCode);
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      setToken(res.token);
+      window.location.href = '/brand';
+    } catch (err: unknown) {
+      setError((err as Error).message || '登录失败');
+    } finally { setLoading(false); }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -59,47 +87,41 @@ export default function LoginPage() {
     window.location.href = '/api/v2/auth/sso/login?redirect=/brand';
   }
 
+  // 仅开发环境：访客直进，跳过登录直接看工作台 UI（设临时超管态，不接真实后端数据）。
+  function handleDevGuest() {
+    localStorage.setItem('token', 'dev-guest');
+    localStorage.setItem('user', JSON.stringify({ id: 'dev-guest', name: '访客(dev)', role: 'platform_admin', roles: ['platform_admin'], permissions: ['*'] }));
+    setToken('dev-guest');
+    window.location.href = '/cmo';
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--font)' }}>
 
       {/* ── 左栏：品牌可持续底板（Mission / Vision · 水与空气 · 低碳）──── */}
       <div className="login-brand-panel" style={{
-        flex: '0 0 52%', position: 'relative', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', padding: '52px 56px',
-        background: 'linear-gradient(168deg, #08301A 0%, #0E3F22 42%, #16542C 78%, #1C6634 100%)',
+        flex: '0 0 48%', position: 'relative', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', padding: 48,
+        background: 'var(--sidebar, #111827)', color: '#fff',
       }}>
-        {/* 顶部晨雾光 + 右上生态光晕 */}
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(120% 60% at 50% -10%, rgba(190,230,180,0.18) 0%, transparent 55%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: -90, right: -70, width: 380, height: 380, background: 'radial-gradient(circle, rgba(140,210,120,0.28) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
-        {/* 水滴意象（VISION：水与空气）*/}
-        <svg viewBox="0 0 200 260" width="300" style={{ position: 'absolute', top: 70, right: 24, opacity: 0.16, pointerEvents: 'none' }} aria-hidden>
-          <path d="M100 8 C100 8 30 110 30 168 a70 70 0 0 0 140 0 C170 110 100 8 100 8 Z" fill="none" stroke="#EAF7E4" strokeWidth="2" />
-          <path d="M100 60 C100 60 60 128 60 168 a40 40 0 0 0 80 0 C140 128 100 60 100 60 Z" fill="rgba(234,247,228,0.06)" stroke="rgba(234,247,228,0.35)" strokeWidth="1" />
-        </svg>
-
-        {/* 底部森林 / 云海剪影 */}
-        <svg viewBox="0 0 600 220" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: 240, opacity: 0.9, pointerEvents: 'none' }} aria-hidden>
-          <path d="M0 150 Q80 110 150 140 T300 130 T450 145 T600 120 V220 H0 Z" fill="#0A3A1E" />
-          <path d="M0 178 Q100 150 200 172 T400 168 T600 158 V220 H0 Z" fill="#072C16" />
-          <path d="M0 200 Q120 186 260 198 T600 190 V220 H0 Z" fill="rgba(220,240,215,0.10)" />
-        </svg>
+        {/* DESIGN.md：禁渐变主色块 / 禁装饰过度 —— 纯深色底 + 一条品牌红顶栏点缀 */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--brand, #C8102E)' }} />
 
         {/* Logo：Rhautt 红字标 + 生态徽章 */}
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 56 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>
-              <span style={{ color: '#E23B36' }}>Rh</span><span style={{ color: '#fff' }}>autt.</span>
+              <span style={{ color: 'var(--brand, #C8102E)' }}>Rh</span><span style={{ color: '#fff' }}>autt.</span>
             </span>
             <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.18)' }}>{PLATFORM_TAG}</span>
           </div>
-          <span style={{ width: 46, height: 46, borderRadius: '50%', border: '1px solid rgba(234,247,228,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 7.5, fontWeight: 700, color: 'rgba(234,247,228,0.75)', lineHeight: 1.3, textAlign: 'center', letterSpacing: 0.3 }}>EARTH<br />COMFORT</span>
+          <span style={{ width: 46, height: 46, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 7.5, fontWeight: 700, color: 'rgba(255,255,255,0.75)', lineHeight: 1.3, textAlign: 'center', letterSpacing: 0.3 }}>EARTH<br />COMFORT</span>
         </div>
 
         {/* MISSION */}
         <div style={{ position: 'relative', zIndex: 1, marginBottom: 30 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 15, fontWeight: 800, color: '#E23B36', letterSpacing: '0.08em' }}>MISSION</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--brand, #C8102E)', letterSpacing: '0.08em' }}>MISSION</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>我们的使命</span>
           </div>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.82)', lineHeight: 1.7, margin: 0 }}>
@@ -110,7 +132,7 @@ export default function LoginPage() {
         {/* VISION */}
         <div style={{ position: 'relative', zIndex: 1, marginBottom: 34 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 15, fontWeight: 800, color: '#E23B36', letterSpacing: '0.08em' }}>VISION</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--brand, #C8102E)', letterSpacing: '0.08em' }}>VISION</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>我们的愿景</span>
           </div>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.82)', lineHeight: 1.7, margin: 0 }}>
@@ -122,7 +144,7 @@ export default function LoginPage() {
         <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, maxWidth: 420 }}>
           {PILLARS.map(f => (
             <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(2px)' }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>{f.icon}</span>
+              <f.Icon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: 'rgba(255,255,255,0.85)' }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{f.label}</div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{f.desc}</div>
@@ -144,13 +166,13 @@ export default function LoginPage() {
         flex: 1, background: 'var(--surface-2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 40px',
       }}>
-        <div style={{ width: '100%', maxWidth: 360 }} className="animate-fade-in">
+        <div style={{ width: '100%', maxWidth: 380 }} className="animate-fade-in">
 
-          <div style={{ marginBottom: 36 }}>
+          <div style={{ marginBottom: 28 }}>
             <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--t-strong)', letterSpacing: '-0.015em', marginBottom: 6 }}>
-              欢迎回来
+              {mode === 'customer' ? '客户入口' : mode === 'staff' ? '员工入口' : '选择入口'}
             </h2>
-            <p style={{ fontSize: 14, color: 'var(--t-tertiary)' }}>登录 {HUB_BRAND} 统一入口</p>
+            <p style={{ fontSize: 14, color: 'var(--t-tertiary)' }}>AI GTM Nexus · 瑞合数智枢纽营销中枢</p>
           </div>
 
           {error && (
@@ -159,49 +181,71 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleSsoLogin}
-            className="btn"
-            style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginBottom: 14, borderRadius: 'var(--r)', background: '#111827', color: '#fff' }}>
-            SSO 登录
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, color: 'var(--t-tertiary)', fontSize: 12 }}>
-            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span>或使用账号密码</span>
-            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          </div>
-
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--t-secondary)', marginBottom: 6 }}>账号 / 手机号</label>
-              <input
-                className="input"
-                value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="邮箱 / 手机号"
-                type="text" required autoFocus
-                style={{ fontSize: 15, padding: '11px 14px' }}
-              />
+          {/* 两道门：员工 / 客户 */}
+          {mode === 'choose' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <button type="button" onClick={() => { setError(''); setMode('staff'); }}
+                className="btn" style={{ width: '100%', justifyContent: 'flex-start', gap: 14, padding: '18px', borderRadius: 'var(--r)', background: 'var(--sidebar, #111827)', color: '#fff', textAlign: 'left' }}>
+                <Briefcase size={22} strokeWidth={1.75} style={{ flexShrink: 0 }} />
+                <span style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>员工入口</span>
+                  <span style={{ fontSize: 12, opacity: 0.7 }}>从 Tandem 账户单点登录</span>
+                </span>
+              </button>
+              <button type="button" onClick={() => { setError(''); setSmsSent(false); setMode('customer'); }}
+                className="btn btn-outline" style={{ width: '100%', justifyContent: 'flex-start', gap: 14, padding: '18px', borderRadius: 'var(--r)', textAlign: 'left' }}>
+                <UserRound size={22} strokeWidth={1.75} style={{ flexShrink: 0, color: 'var(--t-secondary)' }} />
+                <span style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>客户入口</span>
+                  <span style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>手机号验证码登录</span>
+                </span>
+              </button>
+              {process.env.NODE_ENV !== 'production' && (
+                <button type="button" onClick={handleDevGuest}
+                  className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 'var(--r)', fontSize: 13, borderStyle: 'dashed', color: 'var(--t-tertiary)' }}>
+                  访客直进（仅开发 · 看 UI，不接真实数据）
+                </button>
+              )}
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--t-secondary)', marginBottom: 6 }}>密码</label>
-              <input
-                className="input"
-                value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="请输入密码"
-                type="password" required
-                style={{ fontSize: 15, padding: '11px 14px' }}
-              />
-            </div>
+          )}
 
-            <button
-              type="submit" disabled={loading}
-              className="btn btn-brand"
-              style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, marginTop: 4, borderRadius: 'var(--r)', boxShadow: loading ? 'none' : '0 2px 8px rgba(78,154,61,0.28)' }}>
-              {loading ? '登录中…' : '登录'}
-            </button>
-          </form>
+          {/* 员工入口：Tandem SSO 直通（+ 内部账号密码备用） */}
+          {mode === 'staff' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <button type="button" onClick={handleSsoLogin}
+                className="btn" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, borderRadius: 'var(--r)', background: 'var(--sidebar, #111827)', color: '#fff' }}>
+                从 Tandem 单点登录
+              </button>
+              <p style={{ fontSize: 12, color: 'var(--t-tertiary)', textAlign: 'center', margin: 0 }}>已登录 Tandem？一键进入，无需重新登录。</p>
+
+              {!showStaffPassword ? (
+                <button type="button" onClick={() => setShowStaffPassword(true)}
+                  style={{ background: 'none', border: 'none', color: 'var(--t-tertiary)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+                  内部账号密码登录（备用）
+                </button>
+              ) : (
+                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 6 }}>
+                  <input className="input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="邮箱 / 手机号" type="text" required autoFocus style={{ fontSize: 15, padding: '11px 14px' }} />
+                  <input className="input" value={password} onChange={e => setPassword(e.target.value)} placeholder="请输入密码" type="password" required style={{ fontSize: 15, padding: '11px 14px' }} />
+                  <button type="submit" disabled={loading} className="btn btn-brand" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, borderRadius: 'var(--r)' }}>{loading ? '登录中…' : '登录'}</button>
+                </form>
+              )}
+              <button type="button" onClick={() => { setError(''); setMode('choose'); }} style={{ background: 'none', border: 'none', color: 'var(--t-tertiary)', fontSize: 13, cursor: 'pointer' }}>← 返回选择入口</button>
+            </div>
+          )}
+
+          {/* 客户入口：手机验证码 */}
+          {mode === 'customer' && (
+            <form onSubmit={handleCustomerLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <input className="input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="手机号" type="tel" required autoFocus style={{ fontSize: 15, padding: '11px 14px' }} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input className="input" value={smsCode} onChange={e => setSmsCode(e.target.value)} placeholder="验证码" type="text" required style={{ flex: 1, fontSize: 15, padding: '11px 14px' }} />
+                <button type="button" onClick={handleSendSms} disabled={!phone} className="btn btn-outline" style={{ whiteSpace: 'nowrap', padding: '11px 14px' }}>{smsSent ? '重新发送' : '获取验证码'}</button>
+              </div>
+              <button type="submit" disabled={loading} className="btn btn-brand" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: 15, borderRadius: 'var(--r)' }}>{loading ? '登录中…' : '登录'}</button>
+              <button type="button" onClick={() => { setError(''); setMode('choose'); }} style={{ background: 'none', border: 'none', color: 'var(--t-tertiary)', fontSize: 13, cursor: 'pointer' }}>← 返回选择入口</button>
+            </form>
+          )}
 
         </div>
       </div>

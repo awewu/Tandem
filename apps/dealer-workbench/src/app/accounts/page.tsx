@@ -1257,6 +1257,16 @@ function AssignRolesModal({ user, roles, onClose, onDone, onError }: { user: Adm
   const [effectiveRoles, setEffectiveRoles] = useState<EffectiveRole[]>([]);
   const [effectivePermissions, setEffectivePermissions] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [scopeType, setScopeType] = useState<'group' | 'business_unit'>('group');
+  const [scopeDim, setScopeDim] = useState<'brand' | 'category'>('brand');
+  const [scopeRef, setScopeRef] = useState('');
+  const [bu, setBu] = useState<{ brands: Array<{ code: string; name: string }>; categories: Array<{ id: string; name: string; brandCode: string }> }>({ brands: [], categories: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    adminRbac.businessUnits().then((res) => { if (!cancelled) setBu({ brands: res.brands || [], categories: res.categories || [] }); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1281,9 +1291,13 @@ function AssignRolesModal({ user, roles, onClose, onDone, onError }: { user: Adm
 
   async function submit() {
     if (!selected.length) { onError('至少选择一个角色'); return; }
+    if (scopeType === 'business_unit' && !scopeRef) { onError('事业部范围需选择具体品牌/品类'); return; }
     setBusy(true); onError('');
     try {
-      await adminUsers.setRoles(user.id, { roleIds: selected, primaryRoleId: primary || selected[0] });
+      const scope = scopeType === 'group'
+        ? { scopeType: 'group' as const }
+        : { scopeType: 'business_unit' as const, scopeDimension: scopeDim, scopeRef };
+      await adminUsers.setRoles(user.id, { roleIds: selected, primaryRoleId: primary || selected[0], scope });
       onDone();
     } catch (error) {
       onError((error as Error).message || '角色分配失败');
@@ -1317,6 +1331,31 @@ function AssignRolesModal({ user, roles, onClose, onDone, onError }: { user: Adm
             </label>
           );
         })}
+      </div>
+      <div style={{ display: 'grid', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle, #e4e4e7)' }}>
+        <strong style={{ color: 'var(--t-strong)', fontSize: 13 }}>授权范围（scope）</strong>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 13 }}>
+            <input type="radio" checked={scopeType === 'group'} onChange={() => setScopeType('group')} /> 集团
+          </label>
+          <label style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 13 }}>
+            <input type="radio" checked={scopeType === 'business_unit'} onChange={() => setScopeType('business_unit')} /> 事业部
+          </label>
+        </div>
+        {scopeType === 'business_unit' && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select value={scopeDim} onChange={(e) => { setScopeDim(e.target.value as 'brand' | 'category'); setScopeRef(''); }}>
+              <option value="brand">品牌事业部</option>
+              <option value="category">品类事业部</option>
+            </select>
+            <select value={scopeRef} onChange={(e) => setScopeRef(e.target.value)} style={{ flex: 1 }}>
+              <option value="">请选择…</option>
+              {scopeDim === 'brand'
+                ? bu.brands.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)
+                : bu.categories.map((c) => <option key={c.id} value={c.id}>{c.brandCode} · {c.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
       <ModalActions onClose={onClose}>
         <button onClick={submit} disabled={busy} className="btn btn-brand btn-sm"><Save size={14} />{busy ? '保存中...' : '保存分配'}</button>

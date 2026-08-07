@@ -37,6 +37,12 @@ export interface AiDraftResult {
   provider?: string;
 }
 
+/** 治理网关 SSE 读取结果：正文 + 末帧 token 用量（供成本计量）。 */
+interface HermesSseResult {
+  text: string;
+  tokensCost: number;
+}
+
 // 《广告法》第九条等：绝对化用语与虚假承诺（最小基线词库；生产由 compliance 域集中维护）。
 const FORBIDDEN_TERMS = [
   '国家级', '最高级', '最佳', '第一', '独家', '唯一', '全网最低',
@@ -131,12 +137,12 @@ export class AiGatewayService {
 
   private async generateHermesDraft(req: AiDraftRequest): Promise<AiDraftResult> {
     try {
-      const draft = await this.callHermesCenterAi(req);
+      const { text: draft, tokensCost } = await this.callHermesCenterAi(req);
       const complianceFlags = this.scanCompliance(draft, req.bannedTerms ?? []);
       return {
         draft,
         model: process.env.HERMES_CENTER_AI_PROVIDER || 'qwen-max',
-        tokensCost: 0,
+        tokensCost,
         complianceFlags,
         provider: 'hermes-center-ai',
       };
@@ -156,7 +162,7 @@ export class AiGatewayService {
     }
   }
 
-  private async callHermesCenterAi(req: AiDraftRequest): Promise<string> {
+  private async callHermesCenterAi(req: AiDraftRequest): Promise<HermesSseResult> {
     const baseUrl = String(process.env.HERMES_CENTER_AI_BASE_URL || '').trim().replace(/\/+$/, '');
     if (!baseUrl) throw new Error('HERMES_CENTER_AI_BASE_URL is not configured');
 
@@ -198,9 +204,9 @@ export class AiGatewayService {
       timeoutMs,
       'Hermes center AI stream timed out',
     );
-    const draft = answer.trim();
+    const draft = answer.text.trim();
     if (!draft) throw new Error('Hermes returned empty answer');
-    return draft;
+    return { text: draft, tokensCost: answer.tokensCost };
   }
 
   private hermesCopySystemPrompt(req: AiDraftRequest): string {
@@ -236,12 +242,18 @@ export class AiGatewayService {
     ].join('\n');
   }
 
-  private async readHermesSse(response: Response): Promise<string> {
+  private async readHermesSse(response: Response): Promise<HermesSseResult> {
     const reader = response.body?.getReader();
-    if (!reader) return '';
+    if (!reader) return { text: '', tokensCost: 0 };
     const decoder = new TextDecoder();
     let buffer = '';
     let answer = '';
+    let tokensCost = 0;
+    const absorb = (rawEvent: string) => {
+      const part = this.extractHermesEvent(rawEvent);
+      answer += part.text;
+      if (part.tokensCost > 0) tokensCost = part.tokensCost;
+    };
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -250,15 +262,22 @@ export class AiGatewayService {
       while ((idx = buffer.indexOf('\n\n')) !== -1) {
         const rawEvent = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 2);
-        answer += this.extractHermesEventText(rawEvent);
+        absorb(rawEvent);
       }
     }
-    if (buffer.trim()) answer += this.extractHermesEventText(buffer);
-    return answer;
+    if (buffer.trim()) absorb(buffer);
+    return { text: answer, tokensCost };
   }
 
-  private extractHermesEventText(rawEvent: string): string {
+  /**
+   * 解析单个 SSE 事件：文本增量 + 末帧 token 用量。
+   * 用量来自治理网关（Tandem）透传的 `{ usage: { totalTokens } }` 末帧——
+   * 这是护栏 §2「每次调用记 tokensCost 供 governance 计量」在流式路径上的落点，
+   * 此前该路径硬编码 0，导致 AI 成本无法计量。
+   */
+  private extractHermesEvent(rawEvent: string): HermesSseResult {
     let text = '';
+    let tokensCost = 0;
     for (const line of rawEvent.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed.startsWith('data:')) continue;
@@ -267,11 +286,19 @@ export class AiGatewayService {
       try {
         const parsed = JSON.parse(payload);
         text += this.extractTextFromHermesPayload(parsed);
+        const usage = parsed?.usage;
+        if (usage) {
+          const total = Number(usage.totalTokens ?? usage.total_tokens ?? 0);
+          const split = Number(usage.promptTokens ?? usage.prompt_tokens ?? 0)
+            + Number(usage.completionTokens ?? usage.completion_tokens ?? 0);
+          const resolved = total > 0 ? total : split;
+          if (resolved > 0) tokensCost = resolved;
+        }
       } catch {
         text += payload;
       }
     }
-    return text;
+    return { text, tokensCost };
   }
 
   private extractTextFromHermesPayload(payload: any): string {

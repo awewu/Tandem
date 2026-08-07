@@ -5109,10 +5109,11 @@ function ProductBaseView({
         <h2 className="t-headline" style={{ marginTop: 4 }}>产品目录底座</h2>
         <p style={{ marginTop: 6, color: 'var(--t-secondary)', fontSize: 13 }}>
           维护分类底座、系统方案包和产品身份键，供报价、官网和设计模块复用。
+          <span style={{ color: 'var(--warning)' }}>（方案包为示例模板，接入 system-packs 后端后替换为真实方案；单价取自产品库真实价）</span>
         </p>
         <div className="g4" style={{ gap: 12, marginTop: 16 }}>
           <Metric label="分类数" value={String(CATEGORIES.length)} hint="目录筛选底座" />
-          <Metric label="方案包" value={String(SYSTEM_PACKS.length)} hint="系统组合模板" />
+          <Metric label="方案包" value={String(SYSTEM_PACKS.length)} hint="示例模板 · 待接 system-packs" />
           <Metric label="身份键覆盖" value={`${keyed}/${items.length}`} hint="productKey 去重基础" />
           <Metric label="可报价产品编码" value={String(items.filter((item) => item.marketPrice > 0).length)} hint="已有价格字段" />
         </div>
@@ -5166,8 +5167,8 @@ function PackGrid({ productByModel }: { productByModel: Map<string, NormalizedPr
                 <h2 className="t-headline">{pack.name}</h2>
                 <p style={{ marginTop: 4, color: 'var(--t-secondary)', fontSize: 13 }}>{pack.desc}</p>
               </div>
-              <span className="pill-brand" style={{ alignSelf: 'flex-start' }}>
-                方案包
+              <span className="pill-neutral" style={{ alignSelf: 'flex-start' }} title="示例套餐：单价来自产品库真实价，套餐组合为示例模板；接入 system-packs 后替换为真实方案包">
+                方案包 · 示例
               </span>
             </div>
 

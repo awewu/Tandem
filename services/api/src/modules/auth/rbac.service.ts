@@ -5,10 +5,18 @@ import { withRlsTransaction } from '../common/rls';
 import type { UserEntity } from './auth.entity';
 import type { JwtPayload } from './auth.service';
 
+export type RbacScope = {
+  role: string;
+  scopeType: 'group' | 'business_unit';
+  scopeDimension: 'brand' | 'category' | null;
+  scopeRef: string | null;
+};
+
 export type RbacAccess = {
   role: string;
   roles: string[];
   permissions: string[];
+  scopes: RbacScope[];
 };
 
 const ADMIN_ROLES = new Set(['platform_admin', 'hq_admin']);
@@ -21,8 +29,8 @@ export class RbacService {
   async resolveUserAccess(user: Pick<UserEntity, 'id' | 'tenantId' | 'role' | 'permissions'>): Promise<RbacAccess> {
     try {
       return await withRlsTransaction(this.ds, async (em) => {
-        const rows: Array<{ code: string; is_primary: boolean; permissions: string[] | null }> = await em.query(
-          `SELECT r.code, ur.is_primary,
+        const rows: Array<{ code: string; is_primary: boolean; permissions: string[] | null; scope_type: string; scope_dimension: string | null; scope_ref: string | null }> = await em.query(
+          `SELECT r.code, ur.is_primary, ur.scope_type, ur.scope_dimension, ur.scope_ref,
                   COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code)
                     FILTER (WHERE rp.permission_code IS NOT NULL), ARRAY[]::text[]) AS permissions
              FROM rhautt_nexus.rbac_user_roles ur
@@ -31,15 +39,21 @@ export class RbacService {
             WHERE ur.tenant_id = $1
               AND ur.user_id = $2
               AND r.status = 'active'
-            GROUP BY r.code, ur.is_primary
+            GROUP BY r.code, ur.is_primary, ur.scope_type, ur.scope_dimension, ur.scope_ref
             ORDER BY ur.is_primary DESC, r.code ASC`,
           [user.tenantId, user.id],
         );
-        if (!rows.length) return { role: user.role, roles: [user.role], permissions: [] };
+        if (!rows.length) return { role: user.role, roles: [user.role], permissions: [], scopes: [] };
         const roles = rows.map((row) => row.code);
         const permissions = [...new Set(rows.flatMap((row) => row.permissions ?? []))].sort();
         const primary = rows.find((row) => row.is_primary)?.code ?? roles[0] ?? user.role;
-        return { role: primary, roles, permissions };
+        const scopes: RbacScope[] = rows.map((row) => ({
+          role: row.code,
+          scopeType: (row.scope_type as RbacScope['scopeType']) ?? 'group',
+          scopeDimension: (row.scope_dimension as RbacScope['scopeDimension']) ?? null,
+          scopeRef: row.scope_ref ?? null,
+        }));
+        return { role: primary, roles, permissions, scopes };
       }, { tenantId: user.tenantId });
     } catch {
       return this.legacyAccess(user);
@@ -75,6 +89,25 @@ export class RbacService {
         [actor.tenantId],
       );
       return { roles };
+    }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
+  }
+
+  // 事业部主数据：品牌事业部来自 tenant_brand_sites；品类事业部来自 brand_product_categories。供 scope 选择器。
+  async listBusinessUnits(actor: JwtPayload) {
+    this.assertCanReadRbac(actor);
+    return withRlsTransaction(this.ds, async (em) => {
+      const brands = await em.query(
+        `SELECT code, name_cn AS name FROM rhautt_nexus.tenant_brand_sites
+          WHERE tenant_id = $1 AND status = 'active' ORDER BY code ASC`,
+        [actor.tenantId],
+      ).catch(() => []);
+      const categories = await em.query(
+        `SELECT id, brand_code AS "brandCode", name_cn AS name, level
+           FROM rhautt_nexus.brand_product_categories
+          WHERE status = 'active' AND deleted_at IS NULL
+          ORDER BY brand_code ASC, sort_order ASC`,
+      ).catch(() => []);
+      return { brands, categories };
     }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
   }
 
@@ -126,11 +159,21 @@ export class RbacService {
     }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
   }
 
-  async setUserRoles(actor: JwtPayload, userId: string, dto: { roleIds?: string[]; primaryRoleId?: string }) {
+  private normalizeScope(raw?: { scopeType?: string; scopeDimension?: string | null; scopeRef?: string | null }): RbacScope {
+    const scopeType = raw?.scopeType === 'business_unit' ? 'business_unit' : 'group';
+    if (scopeType === 'group') return { role: '', scopeType, scopeDimension: null, scopeRef: null };
+    const scopeDimension = raw?.scopeDimension === 'brand' || raw?.scopeDimension === 'category' ? raw.scopeDimension : null;
+    const scopeRef = String(raw?.scopeRef || '').trim() || null;
+    if (!scopeDimension || !scopeRef) throw new BadRequestException('business_unit scope requires scopeDimension(brand|category) and scopeRef');
+    return { role: '', scopeType, scopeDimension, scopeRef };
+  }
+
+  async setUserRoles(actor: JwtPayload, userId: string, dto: { roleIds?: string[]; primaryRoleId?: string; scope?: { scopeType?: string; scopeDimension?: string | null; scopeRef?: string | null } }) {
     this.assertCanManageRbac(actor, 'admin.users.assign_roles');
     const roleIds = [...new Set((dto.roleIds ?? []).map(String).filter(Boolean))];
     if (!roleIds.length) throw new BadRequestException('at least one role is required');
     const primaryRoleId = dto.primaryRoleId && roleIds.includes(dto.primaryRoleId) ? dto.primaryRoleId : roleIds[0];
+    const scope = this.normalizeScope(dto.scope);
     return withRlsTransaction(this.ds, async (em) => {
       const users = await em.query('SELECT id FROM rhautt_nexus.users WHERE tenant_id = $1 AND id = $2', [actor.tenantId, userId]);
       if (!users.length) throw new NotFoundException('user not found');
@@ -143,9 +186,9 @@ export class RbacService {
       await em.query('DELETE FROM rhautt_nexus.rbac_user_roles WHERE tenant_id = $1 AND user_id = $2', [actor.tenantId, userId]);
       for (const roleId of roleIds) {
         await em.query(
-          `INSERT INTO rhautt_nexus.rbac_user_roles (tenant_id, user_id, role_id, is_primary)
-           VALUES ($1, $2, $3, $4)`,
-          [actor.tenantId, userId, roleId, roleId === primaryRoleId],
+          `INSERT INTO rhautt_nexus.rbac_user_roles (tenant_id, user_id, role_id, is_primary, scope_type, scope_dimension, scope_ref)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [actor.tenantId, userId, roleId, roleId === primaryRoleId, scope.scopeType, scope.scopeDimension, scope.scopeRef],
         );
       }
       const primary = validRoles.find((role: { id: string; code: string }) => role.id === primaryRoleId) ?? validRoles[0];
@@ -188,7 +231,8 @@ export class RbacService {
 
   private legacyAccess(user: Pick<UserEntity, 'role' | 'permissions'>): RbacAccess {
     const permissions = user.permissions ?? [];
-    return { role: user.role, roles: [user.role], permissions };
+    // 回退无 scope 记录：默认集团范围。
+    return { role: user.role, roles: [user.role], permissions, scopes: [{ role: user.role, scopeType: 'group', scopeDimension: null, scopeRef: null }] };
   }
 
   private normalizeRoleCode(raw?: string): string {

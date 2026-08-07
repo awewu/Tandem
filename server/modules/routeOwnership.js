@@ -30,9 +30,12 @@ const ROUTE_OWNERSHIP = [
   { prefix: '/api/v2/analytics',  owner: 'services/api/src/modules/analytics',  status: 'production' },
   { prefix: '/api/v2/governance', owner: 'services/api/src/modules/governance', status: 'production' },
   { prefix: '/api/v2/quotation',  owner: 'services/api/src/modules/quote', status: 'production' },
-  { prefix: '/api/v2/react-candidate', owner: 'services/api/src/modules/react-candidate', status: 'production-candidate' },
-  { prefix: '/api/v2/devices', owner: 'services/api/src/modules/react-candidate', status: 'production-candidate' },
-  { prefix: '/api/v2/projects', owner: 'services/api/src/modules/react-candidate', status: 'production-candidate' },
+  // 2026-08-04 退役（宪章 docs/NEXUS-CHARTER-PRD.md §5.2）：react-candidate 是"候选面"，
+  // 违反宪章禁令「不得提升候选面」；核实无任何前端调用，且 /api/devices、/api/projects
+  // 有 legacy-compat 等价面继续服务。模块已从 app.module 摘除。
+  { prefix: '/api/v2/react-candidate', owner: 'retired: charter §5.2', status: 'retired' },
+  { prefix: '/api/v2/devices', owner: 'retired: charter §5.2 (legacy /api/devices 仍在)', status: 'retired' },
+  { prefix: '/api/v2/projects', owner: 'retired: charter §5.2 (legacy /api/projects 仍在)', status: 'retired' },
   { prefix: '/api/health', owner: 'server/routes/ops-runtime.routes', status: 'legacy-compat' },
   { prefix: '/api/crm', owner: 'server/routes/crm', status: 'legacy-compat' },
   { prefix: '/api/customers', owner: 'server/routes/core-api legacy customer intake', status: 'legacy-compat' },

@@ -29,7 +29,8 @@ const warnings = [];
 
 const SRC = 'governance/permission-domains.json';
 const BOUNDARY = 'services/api/src/modules/module-boundary.ts';
-const CHARTER = 'PROJECT-CHARTER.md';
+// 权限域锚点随唯一最高真相源迁移（旧 PROJECT-CHARTER.md 已于 2026-08-04 归档）。
+const CHARTER = 'docs/NEXUS-CHARTER-PRD.md';
 const DOC = 'docs/ADMIN-PERMISSION-DOMAINS-AND-RLS.md';
 
 // ── Load source of truth ──────────────────────────────────────────────────

@@ -71,6 +71,11 @@ export const auth = {
     apiFetch('/api/v2/auth/login', { method: 'POST', body: JSON.stringify({ phone, password }) }),
   me: () => apiFetch('/api/v2/auth/me'),
   logout: () => apiFetch('/api/v2/auth/logout', { method: 'POST' }),
+  // 客户入口：手机验证码登录
+  sendSms: (phone: string) =>
+    apiFetch('/api/v2/auth/send-sms', { method: 'POST', body: JSON.stringify({ phone }) }),
+  loginSms: (phone: string, smsCode: string) =>
+    apiFetch('/api/v2/auth/login-sms', { method: 'POST', body: JSON.stringify({ phone, smsCode }) }),
 };
 
 export const adminUsers = {
@@ -84,7 +89,7 @@ export const adminUsers = {
     apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id) + '/reset-password', { method: 'POST', body: JSON.stringify({ newPassword }) }),
   remove: (id: string) =>
     apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id), { method: 'DELETE' }),
-  setRoles: (id: string, data: { roleIds: string[]; primaryRoleId?: string }) =>
+  setRoles: (id: string, data: { roleIds: string[]; primaryRoleId?: string; scope?: { scopeType?: string; scopeDimension?: string | null; scopeRef?: string | null } }) =>
     apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id) + '/roles', { method: 'PUT', body: JSON.stringify(data) }),
   effectivePermissions: (id: string) =>
     apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id) + '/effective-permissions'),
@@ -99,6 +104,7 @@ export const adminRbac = {
     apiFetch('/api/v2/auth/admin/roles/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(data) }),
   setRolePermissions: (id: string, permissions: string[]) =>
     apiFetch('/api/v2/auth/admin/roles/' + encodeURIComponent(id) + '/permissions', { method: 'PUT', body: JSON.stringify({ permissions }) }),
+  businessUnits: () => apiFetch('/api/v2/auth/admin/business-units'),
 };
 
 export const auditLogs = {
@@ -408,6 +414,9 @@ export const growthMaterials = {
     apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}`),
   create: (data: Record<string, unknown>) =>
     apiFetch('/api/v2/growth/materials', { method: 'POST', body: JSON.stringify(data) }),
+  // 多模态生成：AI 文生图 → 落物料库（经 Tandem 图像网关）
+  generateImage: (data: { prompt: string; title?: string; brandSlug?: string; channel?: string; size?: string; negativePrompt?: string }) =>
+    apiFetch('/api/v2/growth/materials/generate-image', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Record<string, unknown>) =>
     apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}`, {
       method: 'PATCH',
@@ -614,6 +623,24 @@ export const growthGeo = {
       }
     }
   },
+  // GEO 第 7 层 · 闭环实验（探测→缺口→内容→复投→验证 lift）
+  experiments: (query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/growth/geo/experiments${qs ? `?${qs}` : ''}`);
+  },
+  experiment: (id: string) =>
+    apiFetch(`/api/v2/growth/geo/experiments/${encodeURIComponent(id)}`),
+  startExperiment: (data: { brandSlug?: string; questionId?: string; question?: string; hypothesis?: string; killCriteria?: string; competitors?: string[] }) =>
+    apiFetch('/api/v2/growth/geo/experiments', { method: 'POST', body: JSON.stringify(data) }),
+  linkExperimentContent: (id: string, data: { copyAssetId?: string }) =>
+    apiFetch(`/api/v2/growth/geo/experiments/${encodeURIComponent(id)}/link-content`, { method: 'POST', body: JSON.stringify(data) }),
+  verifyExperiment: (id: string, data: { competitors?: string[] } = {}) =>
+    apiFetch(`/api/v2/growth/geo/experiments/${encodeURIComponent(id)}/verify`, { method: 'POST', body: JSON.stringify(data) }),
+  // 自进化策略权重（由实验 lift 反哺）
+  strategyWeights: (brandSlug?: string) =>
+    apiFetch(`/api/v2/growth/geo/strategy-weights${brandSlug ? `?brandSlug=${encodeURIComponent(brandSlug)}` : ''}`),
+  // 受治理动作引擎（Foundry 式）
+  actions: () => apiFetch('/api/v2/growth/geo/actions'),
 };
 
 export const growthCopy = {
@@ -699,4 +726,168 @@ export const growthCampaigns = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+};
+
+// L4 售前专业度：AI 问诊 → 选型计算 → 报价
+export const presale = {
+  detectPainpoints: (data: { description: string; area?: number; city?: string }) =>
+    apiFetch('/api/v2/diagnosis/painpoints/detect', { method: 'POST', body: JSON.stringify(data) }),
+  createProject: (data: { name: string; city?: string; area?: number }) =>
+    apiFetch('/api/v2/design/projects', { method: 'POST', body: JSON.stringify(data) }),
+  listProjects: () => apiFetch('/api/v2/design/projects'),
+  calc: (projectId: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/design/calc/${encodeURIComponent(projectId)}`, { method: 'POST', body: JSON.stringify(data) }),
+  generateQuote: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/quotation/generate', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// 经销商专属工作台：我的线索/客户/报价历史/业绩（连 CRM + quotation 真数据）
+export const dealerCrm = {
+  pipeline: () => apiFetch('/api/v2/crm/pipeline'),
+  customers: () => apiFetch('/api/v2/crm/customers'),
+  customer: (id: string) => apiFetch(`/api/v2/crm/customers/${encodeURIComponent(id)}`),
+  updateStage: (oppId: string, stage: string) =>
+    apiFetch(`/api/v2/crm/opportunities/${encodeURIComponent(oppId)}/stage`, { method: 'PUT', body: JSON.stringify({ stage }) }),
+  addInteraction: (data: { customerId: string; kind?: string; note?: string }) =>
+    apiFetch('/api/v2/crm/interactions', { method: 'POST', body: JSON.stringify(data) }),
+  quotations: (query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/quotation${qs ? `?${qs}` : ''}`);
+  },
+  // 报价导出（后端 ExportEngine，默认 excel/可传 format）。返回导出产物，前端触发下载。
+  exportQuote: (body: Record<string, unknown>) =>
+    apiFetch('/api/v2/quotation/export', { method: 'POST', body: JSON.stringify(body) }),
+};
+
+// 北极星驾驶舱（Phase 1）
+export const cockpit = {
+  northStar: (period?: string) =>
+    apiFetch(`/api/v2/growth/cockpit/north-star${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  dealerSuccess: (period?: string) =>
+    apiFetch(`/api/v2/growth/cockpit/dealer-success${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  brandHealth: (period?: string) =>
+    apiFetch(`/api/v2/growth/cockpit/brand-health${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  aarrrFunnel: (period?: string) =>
+    apiFetch(`/api/v2/growth/cockpit/aarrr-funnel${period ? `?period=${encodeURIComponent(period)}` : ''}`),
+  geoLoop: () => apiFetch('/api/v2/growth/cockpit/geo-loop'),
+  leadRouting: () => apiFetch('/api/v2/growth/cockpit/lead-routing'),
+  trends: (metric: string, days = 30) =>
+    apiFetch(`/api/v2/growth/cockpit/trends?metric=${encodeURIComponent(metric)}&days=${days}`),
+  recompute: (data: { dealerId: string; amount: number; period?: string }) =>
+    apiFetch('/api/v2/growth/cockpit/recompute', { method: 'POST', body: JSON.stringify(data) }),
+  cmo: (q: { period?: string; buType?: string; buId?: string } = {}) =>
+    apiFetch('/api/v2/growth/cockpit/cmo?' + new URLSearchParams(Object.fromEntries(Object.entries(q).filter(([, v]) => v))).toString()),
+};
+
+// 产品管理（4.4/4.5/4.10/4.17）
+export const productMgmt = {
+  setLifecycle: (id: string, stage: string) =>
+    apiFetch(`/api/v2/product-catalog/devices/${encodeURIComponent(id)}/lifecycle`, { method: 'PATCH', body: JSON.stringify({ stage }) }),
+  listLaunches: () => apiFetch('/api/v2/product-catalog/launches'),
+  createLaunch: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/product-catalog/launches', { method: 'POST', body: JSON.stringify(data) }),
+  updateLaunch: (id: string, status: string) =>
+    apiFetch(`/api/v2/product-catalog/launches/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  listSellingPoints: (productId?: string) =>
+    apiFetch('/api/v2/product-catalog/selling-points' + (productId ? `?productId=${encodeURIComponent(productId)}` : '')),
+  addSellingPoint: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/product-catalog/selling-points', { method: 'POST', body: JSON.stringify(data) }),
+  listPricing: () => apiFetch('/api/v2/product-catalog/pricing-policies'),
+  submitPricing: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/product-catalog/pricing-policies', { method: 'POST', body: JSON.stringify(data) }),
+  decidePricing: (id: string, decision: 'approved' | 'rejected', note?: string) =>
+    apiFetch(`/api/v2/product-catalog/pricing-policies/${encodeURIComponent(id)}/decision`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
+};
+
+// 内容工厂（模块8）
+export const content = {
+  list: (q: Record<string, string> = {}) => apiFetch('/api/v2/content?' + new URLSearchParams(q).toString()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/v2/content', { method: 'POST', body: JSON.stringify(data) }),
+  submit: (id: string) => apiFetch('/api/v2/content/' + encodeURIComponent(id) + '/submit', { method: 'POST' }),
+  decide: (id: string, decision: 'approved' | 'rejected') => apiFetch('/api/v2/content/' + encodeURIComponent(id) + '/decision', { method: 'POST', body: JSON.stringify({ decision }) }),
+  publish: (id: string) => apiFetch('/api/v2/content/' + encodeURIComponent(id) + '/publish', { method: 'POST' }),
+};
+
+// 战役/预算 MROI + OKR（模块7/10）
+export const gtmplan = {
+  listCampaigns: () => apiFetch('/api/v2/gtmplan/campaigns'),
+  createCampaign: (data: Record<string, unknown>) => apiFetch('/api/v2/gtmplan/campaigns', { method: 'POST', body: JSON.stringify(data) }),
+  updateCampaign: (id: string, patch: Record<string, unknown>) => apiFetch('/api/v2/gtmplan/campaigns/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }),
+  mroi: () => apiFetch('/api/v2/gtmplan/mroi'),
+  listOkrs: (level?: string) => apiFetch('/api/v2/gtmplan/okrs' + (level ? '?level=' + level : '')),
+  upsertOkr: (data: Record<string, unknown>) => apiFetch('/api/v2/gtmplan/okrs', { method: 'POST', body: JSON.stringify(data) }),
+  okrSummary: () => apiFetch('/api/v2/gtmplan/okr-summary'),
+};
+
+// 活动运营（模块5）
+export const activation = {
+  list: (q: Record<string, string> = {}) => apiFetch('/api/v2/activation/activities?' + new URLSearchParams(q).toString()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/v2/activation/activities', { method: 'POST', body: JSON.stringify(data) }),
+  setStatus: (id: string, status: string) => apiFetch('/api/v2/activation/activities/' + encodeURIComponent(id) + '/status', { method: 'POST', body: JSON.stringify({ status }) }),
+};
+
+// 竞品情报（模块1·按品类）
+export const insight = {
+  listByCategory: (category: string, dimension?: string) =>
+    apiFetch('/api/v2/insight/competitor?category=' + encodeURIComponent(category) + (dimension ? '&dimension=' + dimension : '')),
+  sov: (category: string) => apiFetch('/api/v2/insight/sov?category=' + encodeURIComponent(category)),
+  recordCompetitor: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/insight/competitor', { method: 'POST', body: JSON.stringify(data) }),
+  listSignals: (q: Record<string, string> = {}) =>
+    apiFetch('/api/v2/insight/signal?' + new URLSearchParams(q).toString()),
+  recordSignal: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/insight/signal', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// 渠道与伙伴营销（模块6）
+export const channel = {
+  listPartners: (q: Record<string, string> = {}) =>
+    apiFetch('/api/v2/channel/partners?' + new URLSearchParams(q).toString()),
+  recruit: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/channel/partners', { method: 'POST', body: JSON.stringify(data) }),
+  updatePartner: (id: string, patch: Record<string, unknown>) =>
+    apiFetch('/api/v2/channel/partners/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }),
+  listRebates: () => apiFetch('/api/v2/channel/rebates'),
+  submitRebate: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/channel/rebates', { method: 'POST', body: JSON.stringify(data) }),
+  decideRebate: (id: string, decision: string) =>
+    apiFetch('/api/v2/channel/rebates/' + encodeURIComponent(id) + '/decision', { method: 'POST', body: JSON.stringify({ decision }) }),
+  health: () => apiFetch('/api/v2/channel/health'),
+};
+
+// 品牌定位 messaging house（模块2）
+export const positioning = {
+  listHouses: (brandCode?: string) =>
+    apiFetch('/api/v2/positioning/houses' + (brandCode ? '?brandCode=' + encodeURIComponent(brandCode) : '')),
+  upsertHouse: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/positioning/house', { method: 'POST', body: JSON.stringify(data) }),
+  setStatus: (id: string, status: string) =>
+    apiFetch('/api/v2/positioning/house/' + encodeURIComponent(id) + '/status', { method: 'POST', body: JSON.stringify({ status }) }),
+};
+
+// AgenticGEO 自主闭环 + GEO 进化(借鉴分众智投)
+export const agenticGeo = {
+  plan: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/growth/geo/agentic/plan', { method: 'POST', body: JSON.stringify(data) }),
+  approve: (actionId: string, input: unknown) =>
+    apiFetch('/api/v2/growth/geo/agentic/approve', { method: 'POST', body: JSON.stringify({ actionId, input }) }),
+  status: () => apiFetch('/api/v2/growth/geo/agentic/status'),
+  ignite: (category: string, segment?: string, limit?: number) =>
+    apiFetch('/api/v2/growth/geo/agentic/ignite', { method: 'POST', body: JSON.stringify({ category, segment, limit }) }),
+};
+
+// GEO 选点 / 千问千面 / 认知资产漏斗（分众式进化）
+export const geoFocus = {
+  listTargets: (category?: string) =>
+    apiFetch('/api/v2/growth/geo/focus/targets' + (category ? '?category=' + encodeURIComponent(category) : '')),
+  upsertTarget: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/growth/geo/focus/targets', { method: 'POST', body: JSON.stringify(data) }),
+  select: (category: string, segment?: string, limit?: number) =>
+    apiFetch('/api/v2/growth/geo/focus/select?category=' + encodeURIComponent(category) + (segment ? '&segment=' + encodeURIComponent(segment) : '') + (limit ? '&limit=' + limit : '')),
+  recordCognition: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/growth/geo/focus/cognition', { method: 'POST', body: JSON.stringify(data) }),
+  cognitionFunnel: (category?: string) =>
+    apiFetch('/api/v2/growth/geo/focus/cognition' + (category ? '?category=' + encodeURIComponent(category) : '')),
+  reallocate: (adjustments: Array<{ id: string; deltaPriority: number }>) =>
+    apiFetch('/api/v2/growth/geo/focus/reallocate', { method: 'POST', body: JSON.stringify({ adjustments }) }),
 };

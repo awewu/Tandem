@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { InMemoryRepository, makeFakeDataSource } from '../common/testing/fake-datasource';
-import { ProductEntity } from '../product-catalog/product-catalog.entity';
 import { BrandProductCategoryEntity } from './brand-product-category.entity';
 import { BrandProductCategoryService } from './brand-product-category.service';
 
@@ -322,18 +321,19 @@ test('brand product category API surface has route ownership', () => {
 
 function serviceFixture(
   categoryRows: BrandProductCategoryEntity[] = [],
-  productRows: ProductEntity[] = [],
+  productRows: Record<string, unknown>[] = [],
 ) {
   const categories = new InMemoryRepository<BrandProductCategoryEntity>().seed(...categoryRows);
-  const products = new InMemoryRepository<ProductEntity>().seed(...productRows);
   const { ds } = makeFakeDataSource([
     [BrandProductCategoryEntity, categories],
-    [ProductEntity, products],
   ]);
+  // D2 单一事实源：产品行经 product-catalog 只读出口供给，此处以最小假实现替身。
+  const productCatalog = {
+    listRawByBrand: async (brand: string) => productRows.filter((p) => p.brand === brand),
+  } as any;
   return {
-    service: new BrandProductCategoryService(ds, categories as any, products as any),
+    service: new BrandProductCategoryService(ds, categories as any, productCatalog),
     categories,
-    products,
   };
 }
 
@@ -363,7 +363,7 @@ function category(
   };
 }
 
-function product(id: string, brand: string, meta: Record<string, unknown>): ProductEntity {
+function product(id: string, brand: string, meta: Record<string, unknown>): Record<string, unknown> {
   return {
     id,
     tenantId: 'rhautt_shared',

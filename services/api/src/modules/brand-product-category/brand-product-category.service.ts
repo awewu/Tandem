@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
-import { ProductEntity } from '../product-catalog/product-catalog.entity';
+import { ProductCatalogService } from '../product-catalog/product-catalog.service';
 import {
   BrandProductCategoryEntity, BrandProductCategoryStatus,
 } from './brand-product-category.entity';
@@ -50,8 +50,8 @@ export class BrandProductCategoryService {
     @InjectDataSource() private readonly ds: DataSource,
     @InjectRepository(BrandProductCategoryEntity)
     private readonly categories: Repository<BrandProductCategoryEntity>,
-    @InjectRepository(ProductEntity)
-    private readonly products: Repository<ProductEntity>,
+    // D2 单一事实源：产品行只经 product-catalog 只读出口读取，本模块不持产品实体仓储。
+    private readonly productCatalog: ProductCatalogService,
   ) {}
 
   async list(brandCodeInput: unknown, parentIdInput?: unknown, metricsInput?: unknown) {
@@ -70,7 +70,9 @@ export class BrandProductCategoryService {
         if (!parent) throw new NotFoundException('Parent category does not exist or has been deleted.');
       }
       const visible = items.filter((row) => (parentId ? row.parentId === parentId : !row.parentId));
-      const projected = wantsMetrics ? await this.withTreeTableMetrics(visible, items, this.products) : visible;
+      const projected = wantsMetrics
+        ? this.withTreeTableMetrics(visible, items, await this.productCatalog.listRawByBrand(brandCode))
+        : visible;
       return {
         success: true,
         data: {
@@ -166,11 +168,12 @@ export class BrandProductCategoryService {
 
   async usage(id: string) {
     const row = await this.findActiveCategoryByRepo(this.categories, id);
-    const boundProductCount = await this.countFrontendVisibleProducts(row, this.products);
-    const exactBoundProductCount = await this.countExactBoundProducts(row, this.products);
+    const products = await this.productCatalog.listRawByBrand(row.brandCode);
+    const boundProductCount = this.countFrontendVisibleProducts(row, products);
+    const exactBoundProductCount = this.countExactBoundProducts(row, products);
     const childCategoryCount = await this.countChildCategories(row, this.categories);
     const descendantCategoryCount = await this.countDescendantCategories(row, this.categories);
-    const descendantBoundProductCount = await this.countDescendantBoundProducts(row, this.categories, this.products);
+    const descendantBoundProductCount = await this.countDescendantBoundProducts(row, this.categories, products);
     const canDelete = childCategoryCount === 0 && exactBoundProductCount === 0 && descendantBoundProductCount === 0;
     return {
       success: true,
@@ -208,7 +211,9 @@ export class BrandProductCategoryService {
           `Cannot delete category ${row.code}: ${childCategoryCount} child category/categories exist. Delete child categories first.`,
         );
       }
-      const descendantBoundProductCount = await this.countDescendantBoundProducts(row, repo, em.getRepository(ProductEntity));
+      const descendantBoundProductCount = await this.countDescendantBoundProducts(
+        row, repo, await this.productCatalog.listRawByBrand(row.brandCode),
+      );
       if (descendantBoundProductCount > 0) {
         throw new ConflictException(
           `Cannot delete category ${row.code}: ${descendantBoundProductCount} product(s) are bound to it or its descendants. Move or clear product category bindings first.`,
@@ -297,23 +302,21 @@ export class BrandProductCategoryService {
     return row;
   }
 
-  private async countFrontendVisibleProducts(
+  private countFrontendVisibleProducts(
     category: BrandProductCategoryEntity,
-    repo: Repository<ProductEntity>,
+    products: Record<string, unknown>[],
   ) {
-    const rows = await repo.find({ where: { brand: category.brandCode } as any });
-    return rows.filter((product) =>
-      isProductCountedForFrontendCategory(product as unknown as Record<string, unknown>, category),
+    return products.filter((product) =>
+      isProductCountedForFrontendCategory(product, category),
     ).length;
   }
 
-  private async countExactBoundProducts(
+  private countExactBoundProducts(
     category: BrandProductCategoryEntity,
-    repo: Repository<ProductEntity>,
+    products: Record<string, unknown>[],
   ) {
-    const rows = await repo.find({ where: { brand: category.brandCode } as any });
-    return rows.filter((product) =>
-      isProductExactlyBoundToCategory(product as unknown as Record<string, unknown>, category.id),
+    return products.filter((product) =>
+      isProductExactlyBoundToCategory(product, category.id),
     ).length;
   }
 
@@ -340,42 +343,36 @@ export class BrandProductCategoryService {
   private async countDescendantBoundProducts(
     category: BrandProductCategoryEntity,
     categoryRepo: Repository<BrandProductCategoryEntity>,
-    productRepo: Repository<ProductEntity>,
+    products: Record<string, unknown>[],
   ) {
     const rows = await categoryRepo.find({
       where: { brandCode: category.brandCode, deletedAt: IsNull() } as any,
     });
     const ids = new Set([category.id, ...descendantIds(rows, category.id)]);
     const categoriesById = new Map(rows.map((row) => [row.id, row]));
-    const products = await productRepo.find({ where: { brand: category.brandCode } as any });
     return products.filter((product) =>
       [...ids].some((categoryId) => {
         const row = categoriesById.get(categoryId);
-        return row ? isProductBoundToCategory(product as unknown as Record<string, unknown>, row) : false;
+        return row ? isProductBoundToCategory(product, row) : false;
       }),
     ).length;
   }
 
-  private async withTreeTableMetrics(
+  private withTreeTableMetrics(
     rows: BrandProductCategoryEntity[],
     allCategories: BrandProductCategoryEntity[],
-    productRepo: Repository<ProductEntity>,
+    products: Record<string, unknown>[],
   ) {
-    const productsByBrand = new Map<string, ProductEntity[]>();
-    for (const brandCode of new Set(rows.map((row) => row.brandCode))) {
-      productsByBrand.set(brandCode, await productRepo.find({ where: { brand: brandCode } as any }));
-    }
     return rows.sort(compareCategories).map((row) => {
       const descendants = descendantIds(allCategories, row.id);
       const descendantSet = new Set(descendants);
-      const products = productsByBrand.get(row.brandCode) || [];
       const directProductCount = products.filter((product) =>
-        isProductBoundToCategory(product as unknown as Record<string, unknown>, row),
+        isProductBoundToCategory(product, row),
       ).length;
       const descendantProductCount = products.filter((product) =>
         [...descendantSet].some((categoryId) => {
           const category = allCategories.find((item) => item.id === categoryId);
-          return category ? isProductBoundToCategory(product as unknown as Record<string, unknown>, category) : false;
+          return category ? isProductBoundToCategory(product, category) : false;
         }),
       ).length;
       const childCategoryCount = allCategories.filter((category) => category.parentId === row.id).length;

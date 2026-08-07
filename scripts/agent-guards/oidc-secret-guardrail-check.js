@@ -19,8 +19,11 @@ const EXCLUDED_PARTS = new Set([
 ]);
 
 const BROWSER_SURFACE_PATTERN = /^(apps|public|packages[\\/]generated-client)[\\/]/;
+// 占位符白名单：除既有约定外，补充文档/运行手册常用写法——
+// 尖括号 <real OIDC client secret>、shell 变量 ${VAR}、掩码 ***、CHANGEME。
+// （此前不认尖括号占位符 → 运行手册的占位符被误判为"已提交密钥"）
 const PLACEHOLDER_SECRET_PATTERN =
-  /^(?:|replace[-_ ].*|.*placeholder.*|.*secret[-_ ]manager.*|.*do[-_ ]not[-_ ]commit.*|.*server[-_ ]side.*)$/i;
+  /^(?:|<[^>]*>|\$\{[^}]*\}|\$[A-Z_][A-Z0-9_]*|\*{3,}|change[-_ ]?me|replace[-_ ].*|.*placeholder.*|.*secret[-_ ]manager.*|.*do[-_ ]not[-_ ]commit.*|.*server[-_ ]side.*)$/i;
 
 const failures = [];
 const warnings = [];
@@ -68,6 +71,8 @@ function readTextFile(relativePath) {
   const fullPath = path.join(ROOT, relativePath);
   if (!fs.existsSync(fullPath)) return null;
   const stat = fs.statSync(fullPath);
+  // git ls-files --others 可能返回未跟踪的**目录**条目；直接 readFileSync 会抛 EISDIR 使门禁整体崩溃。
+  if (!stat.isFile()) return null;
   if (stat.size > MAX_SCAN_BYTES) return null;
 
   const buffer = fs.readFileSync(fullPath);

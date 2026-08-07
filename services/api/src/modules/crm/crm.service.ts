@@ -5,6 +5,7 @@ import { CustomerEntity, InteractionEntity, OpportunityEntity } from './crm.enti
 import { JwtPayload } from '../auth/auth.service';
 import { encryptPII, hashPII } from '../compliance/compliance.pii';
 import { AuditLogEntity } from '../governance/governance.entity';
+import { LifecycleLinkEntity } from '../delivery/delivery.entity';
 import { EventBusService } from '../mdm/event-bus.service';
 import { withRlsTransaction } from '../common/rls';
 import { TenantScope } from '../common/tenant-context';
@@ -47,12 +48,23 @@ export class CrmService {
         productDataNamespace: 'rhautt_shared',
       }));
 
+      // 项目主线（Project Spine）：一个签单项目=一套流转。迁移037 起 opportunities.project_id NOT NULL，
+      // 故建单即开项目(lifecycle_links)，商机锚定该 project；后续报价/合同/交付/终身沿同一主线聚合。
+      const projects = em.getRepository(LifecycleLinkEntity);
+      const project = await projects.save(projects.create({
+        tenantId, customerId: customer.id, stage: 'lead',
+      }));
+
       const opportunity = await opportunities.save(opportunities.create({
         tenantId, dealerId: user.dealerId, storeId: user.storeId,
         customerId: customer.id, ownerUserId: user.userId,
-        projectId: null,
+        projectId: project.id,
         stage: 'lead', productDataNamespace: 'rhautt_shared',
       }));
+
+      // 回链项目主线 → 商机
+      project.opportunityId = opportunity.id;
+      await projects.save(project);
 
       await this.recordAudit(em, tenantId, user.userId, 'customer.create', 'customer', customer.id, null, {
         ...this.customerAuditState(customer), opportunityId: opportunity.id,
@@ -159,6 +171,17 @@ export class CrmService {
       await this.eventBus.publishInTx(em, {
         tenantId, eventType: 'opportunity.signed', aggregateType: 'opportunity', aggregateId: opportunityId,
         payload: { opportunityId, quotationId, customerId: opp?.customerId, ownerUserId: opp?.ownerUserId },
+      });
+      // 飞轮 B②→C：成交事件（带金额）驱动增长中枢 cockpit 重算北极星/网络GMV。
+      // 金额取 opp.estimatedValue（商机自带），避免跨域读报价 OLTP。
+      await this.eventBus.publishInTx(em, {
+        tenantId, eventType: 'crm.deal.signed', aggregateType: 'opportunity', aggregateId: opportunityId,
+        payload: {
+          opportunityId,
+          dealerId: opp?.dealerId ?? null,
+          amount: Number((opp as any)?.estimatedValue) || 0,
+          signedAt: new Date().toISOString(),
+        },
       });
     }, this.rls(user));
     // P2-4 · 同步实时化：签单事务已提交，立即催投该租户 pending 事件（站内通知等），

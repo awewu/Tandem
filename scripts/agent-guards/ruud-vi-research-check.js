@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('docs/_archive/RUUD-VI-RESEARCH.md', {
+  guard: 'guard:ruud-vi', reason: 'docs/_archive VI 研究文档 git 历史 0 次、从未入库；Ruud 站 VI 由 guard:rheem-vi-production 体系覆盖',
+});
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..', '..');

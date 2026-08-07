@@ -156,3 +156,21 @@ training-ppt/shots/
 # TypeScript incremental build info
 *.tsbuildinfo
 apps/*/tsconfig.tsbuildinfo
+
+# Windows reserved-name junk (blocks git index) + scratch temp files
+nul
+.tmp-*
+services/api/src/__bc.ts
+services/api/src/__bootcheck*.ts
+
+# Tauri build artifacts
+src-tauri/target/
+src-tauri/gen/
+
+# Next.js dev build cache
+.next-dev/
+
+# Guard ledger scratch outputs
+.guard-ledger.json
+.guard-ledger.txt
+.guard-ledger2.txt

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
@@ -7,6 +7,7 @@ import {
   ProductContentEntity,
   ProductContentEventEntity,
   ProductRelationEntity,
+  BrandPublishGrantEntity,
 } from './product-catalog.entity';
 import { BrandProductCategoryEntity } from '../brand-product-category/brand-product-category.entity';
 import { withRlsTransaction } from '../common/rls';
@@ -58,7 +59,26 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: EventBusService,
     private readonly fileArtifacts: FileArtifactService,
     @InjectRepository(BrandProductCategoryEntity) private readonly categories?: Repository<BrandProductCategoryEntity>,
+    @InjectRepository(BrandPublishGrantEntity) private readonly grants?: Repository<BrandPublishGrantEntity>,
   ) {}
+
+  // ── D4 发布投影：经销商(消费租户)按品牌只读已发布产品事实（不复制、经 grant 授权）──
+  async listConsumerGrants(actor: Pick<JwtPayload, 'userId' | 'tenantId' | 'role'>) {
+    return withRlsTransaction(this.ds, async (em) => {
+      const rows = await em.getRepository(BrandPublishGrantEntity).find({ where: { consumerTenantId: actor.tenantId, status: 'granted' } });
+      return { brands: rows.map((r) => r.brandCode) };
+    }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
+  }
+
+  async listPublishedProductsForConsumer(actor: Pick<JwtPayload, 'userId' | 'tenantId' | 'role'>, brandCode: string) {
+    const { brands } = await this.listConsumerGrants(actor);
+    if (!brands.includes(brandCode)) throw new ForbiddenException('该租户无此品牌发布授权: ' + brandCode);
+    const rows = await this.products!.find({ where: { brand: brandCode, published: true, status: 'active' } });
+    return {
+      brand: brandCode,
+      products: rows.map((p) => ({ sku: p.sku, name: p.name, category: p.category, spec: p.spec, positioning: p.positioning })),
+    };
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // A1 · 定时发布调度器：进程内周期扫描，把到期 scheduled 内容自动提升为 published。
@@ -784,6 +804,16 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     }));
     const items = rows.sort((a, b) => this.sortForWebsite(a, b)).map((p) => this.publicProductProjection(p, DEFAULT_LOCALE, null));
     return { success: true, data: { items, total: items.length } };
+  }
+
+  /**
+   * D2 单一事实源只读供给：按品牌返回产品原始行（跨租户共享 HQ 目录，含所有状态）。
+   * 供 brand-product-category 计数「分类绑定的产品」用——消费方绝不持 ProductEntity/写能力，
+   * 只经此只读出口读事实，符合蓝图 §4「只读供给、不被下游反写」。
+   */
+  async listRawByBrand(brand: string): Promise<Record<string, unknown>[]> {
+    const rows = await this.products.find({ where: { brand } as any });
+    return rows as unknown as Record<string, unknown>[];
   }
 
   async upsert(dto: Partial<ProductEntity>, actor?: ProductMutationActor) {

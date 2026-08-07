@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 2,
+  "exportedAt": "2026-05-07T10:06:08.824Z",
+  "source": "nanie",
+  "cycles": [
+    {
+      "id": "cy1",
+      "name": "2026-Q1",
+      "type": "quarter",
+      "startDate": 1778148368824,
+      "endDate": 1778148368824,
+      "isActive": true
+    }
+  ],
+  "people": [
+    {
+      "id": "p1",
+      "name": "张三"
+    },
+    {
+      "id": "p2",
+      "name": "李四"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "o1",
+      "title": "提升用户留存",
+      "description": "通过 AI 推荐改善次日留存",
+      "cycleId": "cy1",
+      "ownerId": "p1",
+      "parentId": null,
+      "weight": 100,
+      "status": "active",
+      "confidence": "on-track",
+      "visibility": "public",
+      "tags": [
+        "增长",
+        "北极星"
+      ],
+      "progressOverride": null,
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    },
+    {
+      "id": "o2",
+      "title": "冷启动用户体验优化",
+      "cycleId": "cy1",
+      "ownerId": "p2",
+      "parentId": "o1",
+      "weight": 50,
+      "status": "active",
+      "confidence": "at-risk",
+      "visibility": "public",
+      "tags": [
+        "增长"
+      ],
+      "progressOverride": null,
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    }
+  ],
+  "keyResults": [
+    {
+      "id": "k1",
+      "objectiveId": "o1",
+      "title": "次日留存从 30% 提升到 45%",
+      "ownerId": "p1",
+      "type": "percentage",
+      "startValue": 30,
+      "currentValue": 38,
+      "targetValue": 45,
+      "unit": "%",
+      "weight": 60,
+      "confidence": "on-track",
+      "status": "active",
+      "tags": [],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    },
+    {
+      "id": "k2",
+      "objectiveId": "o1",
+      "title": "AI 推荐覆盖率 100%",
+      "ownerId": "p1",
+      "type": "percentage",
+      "startValue": 0,
+      "currentValue": 80,
+      "targetValue": 100,
+      "unit": "%",
+      "weight": 40,
+      "confidence": "at-risk",
+      "status": "active",
+      "tags": [
+        "ml"
+      ],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    },
+    {
+      "id": "k3",
+      "objectiveId": "o2",
+      "title": "新用户引导完成率 80%",
+      "ownerId": "p2",
+      "type": "percentage",
+      "startValue": 50,
+      "currentValue": 65,
+      "targetValue": 80,
+      "unit": "%",
+      "weight": 100,
+      "confidence": "at-risk",
+      "status": "active",
+      "tags": [],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    }
+  ],
+  "checkIns": [],
+  "initiatives": [
+    {
+      "id": "i1",
+      "scope": "kr",
+      "scopeId": "k1",
+      "title": "优化新手引导流程",
+      "ownerId": "p1",
+      "status": "in-progress",
+      "priority": "high",
+      "tags": [],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    },
+    {
+      "id": "i2",
+      "scope": "kr",
+      "scopeId": "k1",
+      "title": "首日激活推送",
+      "ownerId": "p1",
+      "status": "todo",
+      "priority": "medium",
+      "tags": [],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    },
+    {
+      "id": "i3",
+      "scope": "kr",
+      "scopeId": "k2",
+      "title": "搭建 A/B 测试基础设施",
+      "ownerId": "p1",
+      "status": "done",
+      "priority": "urgent",
+      "tags": [],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    },
+    {
+      "id": "i4",
+      "scope": "objective",
+      "scopeId": "o2",
+      "title": "招募一位 UX 设计师",
+      "ownerId": "p2",
+      "status": "blocked",
+      "priority": "high",
+      "tags": [],
+      "createdAt": 1778148368824,
+      "updatedAt": 1778148368824
+    }
+  ],
+  "comments": [],
+  "activities": []
+}

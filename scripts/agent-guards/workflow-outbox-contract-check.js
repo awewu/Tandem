@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('docs/_archive/RHAUTT-NEXUS-WORKFLOW-OUTBOX-CONTRACT.md', {
+  guard: 'guard:workflow-outbox-contract', reason: 'docs/_archive 契约文档 git 历史 0 次、从未入库；outbox 语义已由 guard:redis-stream-dispatch + guard:event-contract 覆盖',
+});
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..', '..');

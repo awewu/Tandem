@@ -62,22 +62,6 @@
       ]
     },
     {
-      "groupId": "quote-calculation",
-      "currentDomain": "quote-calculation",
-      "currentStatus": "legacy-compat",
-      "ownerAgent": "quote-cost-governor",
-      "defaultMigrationAction": "replace-with-target-module",
-      "defaultTargetModules": ["quote", "product-catalog"],
-      "routes": [
-        { "id": "oneclick", "prefix": "/api/oneclick", "modulePath": "../routes/oneclick-api", "targetApiNamespaces": ["/api/v2/quote", "/api/v2/product-catalog"] },
-        { "id": "quotation", "prefix": "/api/quotation", "modulePath": "../routes/customQuotation", "targetModules": ["quote"], "targetApiNamespaces": ["/api/v2/quote"] },
-        { "id": "quotation-v2", "prefix": "/api/quotation-v2", "modulePath": "../routes/quotation-v2", "targetModules": ["quote"], "targetApiNamespaces": ["/api/v2/quote"] },
-        { "id": "calculation", "prefix": "/api/calc", "modulePath": "../routes/calculation-api", "targetModules": ["quote", "product-catalog"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/product-catalog"] },
-        { "id": "three-tier", "prefix": "/api/three-tier", "modulePath": "../routes/threeTier", "targetModules": ["quote", "product-catalog", "analytics"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/product-catalog", "/api/v2/analytics"] },
-        { "id": "package-purchase", "prefix": "/api/package", "modulePath": "../routes/packagePurchase", "targetModules": ["quote", "delivery", "workflow"], "targetApiNamespaces": ["/api/v2/quote", "/api/v2/delivery", "/api/v2/workflow"] }
-      ]
-    },
-    {
       "groupId": "ai-channel",
       "currentDomain": "ai-channel",
       "currentStatus": "legacy-compat",
@@ -108,7 +92,6 @@
       "defaultTargetModules": ["tenant", "crm", "diagnosis", "quote", "file-artifact", "analytics", "governance"],
       "routes": [
         { "id": "core-api", "prefix": "/", "modulePath": "../routes/core-api", "targetApiNamespaces": ["/api/v2/tenants", "/api/v2/dealers", "/api/v2/stores", "/api/v2/crm", "/api/v2/diagnosis", "/api/v2/quote", "/api/v2/file-artifact", "/api/v2/analytics", "/api/v2/governance"] },
-        { "id": "v2", "prefix": "/api/v2", "modulePath": "./v2.router", "targetModules": ["tenant", "crm", "diagnosis", "product-catalog", "quote", "delivery", "lifecycle", "analytics", "governance", "file-artifact", "notification", "workflow"], "targetApiNamespaces": ["/api/v2"] },
         { "id": "standards", "prefix": "/", "modulePath": "../routes/standards.routes", "targetModules": ["product-catalog"], "targetApiNamespaces": ["/api/v2/product-catalog"] }
       ]
     },

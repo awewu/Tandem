@@ -26,6 +26,18 @@ export class AuthController {
   @Public()
   @Get('sso/login')
   async ssoLogin(@Query('redirect') redirect: string | string[] | undefined, @Res() res: any) {
+    // 本地开发 SSO 直通桩（仅 NEXUS_DEV_SSO=1 且非生产）：模拟"从牛马搭子已登录直通"，
+    // 跳过真 OIDC，直接为已播种员工账号发会话。生产环境不启用（走下方真 OIDC）。
+    if (process.env.NODE_ENV !== 'production' && process.env.NEXUS_DEV_SSO === '1') {
+      try {
+        const dev = await this.svc.issueDevSsoLogin();
+        return res
+          .status(302)
+          .header('Set-Cookie', `nx_token=${dev.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`)
+          .header('Location', this.oidcSsoLogin.safeRedirect(redirect))
+          .send();
+      } catch { /* 桩失败则回落真 OIDC 流程 */ }
+    }
     try {
       const next = await this.oidcSsoLogin.createLoginRedirect(redirect);
       return res
@@ -167,7 +179,7 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
   @Permissions('admin.users.assign_roles')
-  adminSetUserRoles(@Req() req: any, @Param('id') id: string, @Body() body: { roleIds?: string[]; primaryRoleId?: string }) {
+  adminSetUserRoles(@Req() req: any, @Param('id') id: string, @Body() body: { roleIds?: string[]; primaryRoleId?: string; scope?: { scopeType?: string; scopeDimension?: string | null; scopeRef?: string | null } }) {
     return this.svc.adminSetUserRoles(req.user, id, body);
   }
 
@@ -234,5 +246,14 @@ export class AuthController {
   @Permissions('admin.roles.assign_permissions')
   adminSetRolePermissions(@Req() req: any, @Param('id') id: string, @Body() body: { permissions?: string[] }) {
     return this.svc.adminSetRolePermissions(req.user, id, body);
+  }
+
+  // 事业部主数据（供 RBAC scope 选择器：集团/事业部{品牌|品类}）
+  @Get('admin/business-units')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.read')
+  adminBusinessUnits(@Req() req: any) {
+    return this.svc.adminBusinessUnits(req.user);
   }
 }

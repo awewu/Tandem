@@ -154,6 +154,8 @@
       var product = normalize(raw);
       var image = imageUrl(product.image);
       document.title = product.name + ' | Rheem 中国';
+      var heading = document.querySelector('[data-product-title]');
+      if (heading) heading.textContent = product.name;
       host.innerHTML = '<div class="product-detail-media">'
         + (image ? '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(product.name) + '">' : '<div class="product-placeholder">Rheem</div>')
         + '</div><div class="product-detail-copy"><span>' + escapeHtml(product.series || product.category || '') + '</span>'

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ToastProvider } from '@rhautt/ui';
 import DealerNav from '../components/DealerNav';
 import DealerTopBar from '../components/DealerTopBar';
 
@@ -10,11 +11,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <head><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
       <body>
-        <div className="layout">
-          <DealerNav />
-          <DealerTopBar />
-          <main className="content">{children}</main>
-        </div>
+        <ToastProvider>
+          <div className="layout">
+            <DealerNav />
+            <DealerTopBar />
+            <main className="content">{children}</main>
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

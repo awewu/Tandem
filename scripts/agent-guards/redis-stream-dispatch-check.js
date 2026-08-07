@@ -21,9 +21,16 @@ if (!fs.existsSync(path.join(ROOT, SEMANTICS_TEST))) {
   failures.push(`缺少 Redis Stream 语义单测：${SEMANTICS_TEST}`);
 } else {
   try {
+    // 跨平台：环境变量走 execSync 的 env 选项，不能用 `VAR=value cmd` 前缀
+    // （该前缀是 POSIX shell 语法，在 Windows cmd/PowerShell 下会导致命令解析失败 → 门禁恒红）。
     const out = execSync(
-      `TS_NODE_PROJECT=services/api/tsconfig.json node -r ts-node/register/transpile-only --test ${SEMANTICS_TEST}`,
-      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      `node -r ts-node/register/transpile-only --test ${SEMANTICS_TEST}`,
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, TS_NODE_PROJECT: 'services/api/tsconfig.json' },
+      },
     );
     const fail = (out.match(/^# fail (\d+)/m) || [])[1];
     if (fail && Number(fail) > 0) failures.push(`Redis Stream 语义单测有 ${fail} 个失败`);

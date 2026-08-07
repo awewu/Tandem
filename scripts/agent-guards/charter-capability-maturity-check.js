@@ -15,7 +15,10 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
-const CHARTER = 'PROJECT-CHARTER.md';
+// 唯一最高真相源已合并为 docs/NEXUS-CHARTER-PRD.md（旧 PROJECT-CHARTER.md / governance/agent-charter.md
+// / docs/NEXUS-VISION-AND-PRD.md 均已归档）。本门禁守的「能力成熟度矩阵」是防「把规划写成已建成」
+// 的核心机制，故随真相源迁移而非退役。
+const CHARTER = 'docs/NEXUS-CHARTER-PRD.md';
 
 const failures = [];
 const charterPath = path.join(ROOT, CHARTER);

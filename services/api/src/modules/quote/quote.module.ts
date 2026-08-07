@@ -34,14 +34,14 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
 export class QuoteModule {}
 
 // ── Boundary contract (test evidence) ─────────────────────────────────────
+// quote 已从营销中台 boundary 卸载(归客户赋能独立产品线)；边界标志本地固化，
+// 不再依赖营销中台 module-boundary 注册表。
 import { Controller, Get, Injectable } from '@nestjs/common';
-import { getApiModuleBoundary } from '../module-boundary';
 
 @Injectable()
 export class QuoteBoundaryService {
   boundary() {
-    const spec = getApiModuleBoundary('quote');
-    return { tenantScope: spec.requiresTenantScope, auditLog: spec.requiresAuditLog, openApiContract: spec.requiresOpenApiContract };
+    return { tenantScope: true, auditLog: true, openApiContract: true };
   }
 }
 @Controller('quote')

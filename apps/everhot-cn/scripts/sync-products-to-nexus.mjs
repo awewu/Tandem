@@ -7,6 +7,9 @@
  * 运行：node apps/everhot-cn/scripts/sync-products-to-nexus.mjs
  *      [--base http://localhost:5500/api/v2] [--tenant <brand-tenant-uuid>] [--dry]
  * 依赖环境：JWT_SECRET（与 API 一致；缺省从 .env.nestjs/.env 读取）。
+ *
+ * 纪律：本脚本**只做幂等 upsert**，不含任何破坏性动词（guard:product-authoring 规则 4）。
+ * 批量归档等破坏性维护已拆出为 `archive-nexus-products.mjs`，须显式 --confirm 调用。
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -99,57 +102,14 @@ async function loadProducts() {
   return products;
 }
 
-async function fetchExistingActiveProducts() {
-  const url = new URL(`${BASE}/product-catalog/devices`);
-  url.searchParams.set('tenantId', TENANT);
-  url.searchParams.set('brand', 'everhot');
-  url.searchParams.set('status', 'active');
-  url.searchParams.set('pageSize', '100');
-  const res = await fetch(url, { headers: authHeaders });
-  if (!res.ok) throw new Error(`list active products HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const json = await res.json();
-  return Array.isArray(json?.data?.items) ? json.data.items : [];
-}
-
-async function archiveExistingActiveProducts() {
-  const existing = await fetchExistingActiveProducts();
-  console.log(`先归档现有 active Everhot 产品：${existing.length} 条`);
-  let archived = 0;
-  for (const product of existing) {
-    if (!product.id) continue;
-    if (DRY) {
-      console.log('[dry archive]', product.sku, product.name);
-      archived++;
-      continue;
-    }
-    const url = new URL(`${BASE}/product-catalog/devices/${product.id}`);
-    url.searchParams.set('tenantId', TENANT);
-    const res = await fetch(url, { method: 'DELETE', headers: authHeaders });
-    if (!res.ok) {
-      const text = (await res.text()).slice(0, 200);
-      if (res.status < 500) throw new Error(`archive ${product.sku || product.id} HTTP ${res.status}: ${text}`);
-      console.warn(`archive endpoint failed for ${product.sku || product.id}; fallback PATCH status=archived`);
-      const patchRes = await fetch(`${BASE}/product-catalog/devices/${product.id}`, {
-        method: 'PATCH',
-        headers: jsonHeaders,
-        body: JSON.stringify({ tenantId: TENANT, status: 'archived' }),
-      });
-      if (!patchRes.ok) {
-        throw new Error(`archive fallback ${product.sku || product.id} HTTP ${patchRes.status}: ${(await patchRes.text()).slice(0, 200)}`);
-      }
-    }
-    archived++;
-  }
-  return archived;
-}
-
 const products = await loadProducts();
 console.log(`读取 ${products.length} 个产品 → ${BASE}/product-catalog/devices  (tenant=${TENANT})`);
 
 if (SOURCE) console.log(`source=${SOURCE}`);
 if (ARCHIVE_EXISTING) {
-  const archived = await archiveExistingActiveProducts();
-  console.log(`${DRY ? '[dry] ' : ''}已归档准备：${archived} 条`);
+  console.error('✗ --archive-existing 已从本导入脚本移除：seed 脚本只做幂等 upsert，不做破坏性操作。');
+  console.error('  批量归档请显式执行：node apps/everhot-cn/scripts/archive-nexus-products.mjs --confirm');
+  process.exit(1);
 }
 
 function toDto(p) {

@@ -37,29 +37,43 @@ function Bars({ data, color }: { data: Slice[]; color?: boolean }) {
 type Slice = { label: string; value: number; color: string };
 
 export default function AnalyticsPage() {
-  const [gmvTrend, setGmvTrend] = useState<MonthPoint[]>(GMV_TREND);
-  const [funnel,   setFunnel]   = useState<FunnelStep[]>(FUNNEL);
-  const [cities,   setCities]   = useState<Slice[]>(CITIES);
-  const [s,        setS]        = useState(analyticsSummary());
+  // 诚实原则：不以假种子作为展示值。初始为空 + 加载态；真数据(CRM pipeline)到位才显示；
+  // CRM 无商机则显示空态，不回落假数据误导经营判断。
+  const [gmvTrend, setGmvTrend] = useState<MonthPoint[]>([]);
+  const [funnel,   setFunnel]   = useState<FunnelStep[]>([]);
+  const [cities,   setCities]   = useState<Slice[]>([]);
+  const [s,        setS]        = useState<ReturnType<typeof analyticsSummary> | null>(null);
+  const [state, setState] = useState<'loading' | 'live' | 'empty'>('loading');
 
   useEffect(() => {
     loadLiveAnalytics().then(live => {
-      if (!live) return;
+      if (!live) { setState('empty'); return; }
       setGmvTrend(live.gmvTrend);
       setFunnel(live.funnel);
       setCities(live.cities);
       setS(live.summary);
-    });
+      setState('live');
+    }).catch(() => setState('empty'));
   }, []);
 
-  const maxGmv    = Math.max(...gmvTrend.map(m => Math.max(m.gmv, m.target)));
+  const maxGmv    = Math.max(1, ...gmvTrend.map(m => Math.max(m.gmv, m.target)));
   const maxSeason = Math.max(...SEASON.map(m => m.demand));
 
   return (
     <div style={{ background: 'linear-gradient(to bottom, var(--surface-1) 0%, var(--surface-2) 100%)', minHeight: '100%' }}><div className="page-container">
-      <PageHeader title="经营分析" subtitle="业务数据总览与趋势分析" />
+      <PageHeader title="经营分析" subtitle="业务数据总览与趋势分析（来自 CRM 商机管道）" />
 
-      {/* KPI 行 */}
+      {state === 'loading' ? (
+        <div className="card-elevated" style={{ padding: 32, textAlign: 'center', color: 'var(--t-tertiary)' }}>正在加载真实经营数据…</div>
+      ) : null}
+      {state === 'empty' ? (
+        <div className="card-elevated" style={{ padding: 24, color: 'var(--t-secondary)', fontSize: 14, borderLeft: '3px solid var(--warning)' }}>
+          暂无经营数据：CRM 商机管道为空或未登录。录入商机后，此处展示真实 GMV / 漏斗 / 城市分布。
+        </div>
+      ) : null}
+
+      {/* KPI 行（真数据） */}
+      {state === 'live' && s ? (
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         {[
           { label: '年度 GMV', value: fmt(s.ytdGmv), sub: `目标 ${fmt(s.ytdTarget)}` },
@@ -75,7 +89,9 @@ export default function AnalyticsPage() {
           </div>
         ))}
       </div>
+      ) : null}
 
+      {state === 'live' ? (
       <div className="g3" style={{ gap: 16 }}>
         {/* GMV 趋势 */}
         <Card title="月度 GMV 趋势（实际 vs 目标）" span={2}>
@@ -111,15 +127,15 @@ export default function AnalyticsPage() {
           ))}
         </Card>
 
-        {/* 渠道来源 */}
-        <Card title="客户来源渠道"><Bars data={CHANNELS} color /></Card>
-        {/* 城市分布 */}
+        {/* 渠道来源（后端暂无此维度，标示例） */}
+        <Card title="客户来源渠道（示例）"><Bars data={CHANNELS} color /></Card>
+        {/* 城市分布（真数据） */}
         <Card title="城市订单分布"><Bars data={cities} color /></Card>
-        {/* 产品结构 */}
-        <Card title="产品组合结构"><Bars data={PRODUCT_MIX} color /></Card>
+        {/* 产品结构（后端暂无此维度，标示例） */}
+        <Card title="产品组合结构（示例）"><Bars data={PRODUCT_MIX} color /></Card>
 
-        {/* 季节需求曲线 */}
-        <Card title="季节需求曲线（备货预测）" span={3}>
+        {/* 季节需求曲线（行业经验示例，非本租户数据） */}
+        <Card title="季节需求曲线 · 备货预测（行业示例）" span={3}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 100 }}>
             {SEASON.map(m => (
               <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -131,6 +147,7 @@ export default function AnalyticsPage() {
           <div style={{ fontSize: 11, color: 'var(--t-secondary)', marginTop: 8 }}>🔴 制冷季(6-8月) / 🟠 采暖季(11-12月) 双高峰 — 提前 1-2 月备货</div>
         </Card>
       </div>
+      ) : null}
     </div></div>
   );
 }

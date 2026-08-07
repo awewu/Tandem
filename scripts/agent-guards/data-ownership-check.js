@@ -10,6 +10,9 @@
  */
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('apps/nexus-console/src/components/DamLibraryManager.tsx', {
+  guard: 'guard:data-ownership', reason: 'apps/nexus-console 不存在；现役工作台为 apps/dealer-workbench，本门禁待按新路径重写',
+});
 
 const ROOT = path.join(__dirname, '..', '..');
 

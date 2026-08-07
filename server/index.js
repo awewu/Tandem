@@ -25,7 +25,6 @@ const customQuotationRoutes = require('./routes/customQuotation')
 const reportsRoutes = require('./routes/reports')
 const drawingsRoutes = require('./routes/drawings')
 const contractsRoutes = require('./routes/contracts')
-const createV2Router = require('./modules/v2.router')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -129,12 +128,8 @@ app.use('/api/drawings', drawingsRoutes)
 app.use('/api/package', packagePurchaseRoutes)
 app.use('/api/crm', crmRoutes)
 app.use('/api/contracts', contractsRoutes)
-// ⚠️ 冻结：本地 Express /api/v2 实现默认已下线（/api/v2/** 由上方代理转发到 NestJS）。
-// 仅当 LEGACY_V2_INPROCESS=true 时挂载，用于紧急回退。退场详情见 docs/ARCHITECTURE-BLUEPRINT.md。
-if (LEGACY_V2_INPROCESS) {
-  console.warn('[legacy] LEGACY_V2_INPROCESS=true —— 挂载本地 Express /api/v2（冻结实现），生产不应启用')
-  app.use('/api/v2', createV2Router())
-}
+// 退场波1(2026-08-06)：本地 Express /api/v2 实现(v2.router)已退役删除。
+// /api/v2/** 一律由上方代理转发到 NestJS 单一真相源(services/api)。不再提供本地回退。
 
 // 【Phase 1-3进化】渠道赋能与产业平台API
 const channelRoutes = require('./api/channel-api')

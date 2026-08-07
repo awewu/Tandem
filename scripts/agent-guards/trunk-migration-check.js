@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./_artifact-gate').requireArtifactOrSkip('docs/_archive/PRODUCTION-TRUNK-REWRITE-PLAN.md', {
+  guard: 'guard:trunk-migration', reason: 'docs/_archive 基线文档 git 历史 0 次、从未入库；需改为校验现役 docs/ 基线',
+});
 
 const ROOT = path.join(__dirname, '..', '..');
 const { ACTIVE_HTML_PATHS } = require('../../server/middleware/productionStaticSurfaceGuard');

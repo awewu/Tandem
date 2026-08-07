@@ -24,21 +24,166 @@ class ExportEngine {
    * 支持：Excel/PDF/JSON格式
    */
   exportQuotation(quotationData, format = 'excel') {
-    const { quoteId, projectName, customer, items, totals, versions } = quotationData;
-    
-    console.log(`[ExportEngine] 导出报价单 ${quoteId}`);
-    
-    switch (format.toLowerCase()) {
+    const data = quotationData || {};
+    const fmt = String(format || 'excel').toLowerCase();
+
+    // 兼容两套 schema：
+    // (1) 旧「三版本报价」{versions:{economy,standard,premium}} —— 保持既有渲染。
+    // (2) 现库单版本报价 {items, costBreakdown}（services/api quote 模块）—— 经适配层
+    //     归一为忠实的单版本明细报告，绝不伪造三档（不谎报/不编造）。
+    if (!this.isLegacyVersionedQuote(data)) {
+      const model = this.adaptModernQuotation(data);
+      console.log(`[ExportEngine] 导出报价单 ${model.quoteId}（现库单版本 schema）`);
+      switch (fmt) {
+        case 'excel':
+        case 'xlsx':
+        case 'csv':
+          return this.generateModernQuotationCSV(model);
+        case 'pdf':
+        case 'html':
+          return this.generateModernQuotationHTML(model);
+        case 'json':
+          return this.generateJSONExport('quotation', model);
+        default:
+          throw new Error(`不支持的报价导出格式: ${format}`);
+      }
+    }
+
+    console.log(`[ExportEngine] 导出报价单 ${data.quoteId}`);
+
+    switch (fmt) {
       case 'excel':
       case 'xlsx':
-        return this.generateQuotationExcel(quotationData);
+        return this.generateQuotationExcel(data);
       case 'pdf':
-        return this.generateQuotationPDF(quotationData);
+        return this.generateQuotationPDF(data);
       case 'json':
-        return this.generateJSONExport('quotation', quotationData);
+        return this.generateJSONExport('quotation', data);
       default:
         throw new Error(`不支持的报价导出格式: ${format}`);
     }
+  }
+
+  // 是否为旧「三版本报价」结构（economy/standard/premium 三档齐备）。
+  isLegacyVersionedQuote(data) {
+    const v = data && data.versions;
+    return !!(v && v.economy && v.standard && v.premium);
+  }
+
+  // 适配层（B方案）：现库单版本报价 {items, costBreakdown} → 忠实的归一化导出模型。
+  adaptModernQuotation(dto) {
+    const project = (dto.project && typeof dto.project === 'object') ? dto.project : {};
+    const rawItems = Array.isArray(dto.items) ? dto.items : [];
+    const items = rawItems.map((it, index) => {
+      const quantity = Number(it.quantity ?? 1) || 0;
+      const unitPrice = Number(it.unitPrice ?? it.price ?? 0) || 0;
+      const amount = Number(it.amount ?? unitPrice * quantity) || 0;
+      return {
+        index: index + 1,
+        name: it.name ?? it.model ?? it.sku ?? '未命名项目',
+        spec: it.spec ?? it.model ?? '',
+        unit: it.unit ?? '套',
+        quantity,
+        unitPrice,
+        amount,
+      };
+    });
+    const itemsSubtotal = items.reduce((s, it) => s + it.amount, 0);
+
+    const cb = (dto.costBreakdown && typeof dto.costBreakdown === 'object') ? dto.costBreakdown : {};
+    const TOTAL_KEYS = ['total', 'grandTotal', 'totalAmount', 'grand_total', 'total_amount'];
+    const costRows = Object.entries(cb)
+      .filter(([k, v]) => !TOTAL_KEYS.includes(k) && typeof v === 'number')
+      .map(([label, amount]) => ({ label, amount: Number(amount) || 0 }));
+    const explicitTotalEntry = Object.entries(cb).find(([k]) => TOTAL_KEYS.includes(k));
+    const explicitTotal = explicitTotalEntry ? Number(explicitTotalEntry[1]) : null;
+    const costSubtotal = costRows.reduce((s, r) => s + r.amount, 0);
+    const grandTotal = explicitTotal != null && !Number.isNaN(explicitTotal)
+      ? explicitTotal
+      : (costRows.length ? costSubtotal : itemsSubtotal);
+
+    return {
+      quoteId: dto.quotationNo ?? dto.quoteId ?? dto.quotationId ?? `QT${Date.now()}`,
+      projectName: project.name ?? dto.projectName ?? '未命名项目',
+      systemFamilies: Array.isArray(dto.systemFamilies) ? dto.systemFamilies : [],
+      generatedAt: new Date().toISOString(),
+      items,
+      itemsSubtotal,
+      costRows,
+      grandTotal,
+    };
+  }
+
+  generateModernQuotationCSV(model) {
+    let csv = 'Rhautt Nexus - 报价单\n\n';
+    csv += `报价单号,${model.quoteId}\n`;
+    csv += `项目名称,${model.projectName}\n`;
+    if (model.systemFamilies.length) csv += `系统族,${model.systemFamilies.join('/')}\n`;
+    csv += `生成日期,${new Date(model.generatedAt).toLocaleString()}\n\n`;
+
+    csv += '序号,项目,规格,单位,数量,单价,金额\n';
+    for (const it of model.items) {
+      csv += `${it.index},${it.name},${it.spec || '-'},${it.unit},${it.quantity},${it.unitPrice},${it.amount}\n`;
+    }
+    csv += `,,,,,明细小计,${model.itemsSubtotal}\n\n`;
+
+    if (model.costRows.length) {
+      csv += '成本构成,金额\n';
+      for (const r of model.costRows) csv += `${r.label},${r.amount}\n`;
+      csv += '\n';
+    }
+    csv += `合计,${model.grandTotal}\n`;
+
+    return this.saveExport('quotation', `${model.quoteId}_报价单`, 'csv', csv);
+  }
+
+  generateModernQuotationHTML(model) {
+    const RED = '#E4002B';
+    const rows = model.items.map((it) => `
+      <tr>
+        <td>${it.index}</td><td>${it.name}</td><td>${it.spec || '-'}</td>
+        <td>${it.unit}</td><td>${it.quantity}</td>
+        <td>¥${it.unitPrice.toLocaleString()}</td><td>¥${it.amount.toLocaleString()}</td>
+      </tr>`).join('');
+    const costRows = model.costRows.map((r) => `
+      <tr><td>${r.label}</td><td>¥${r.amount.toLocaleString()}</td></tr>`).join('');
+    const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>报价单 - ${model.projectName}</title>
+  <style>
+    body { font-family: 'Microsoft YaHei', sans-serif; margin: 40px; color: #1A1A1A; }
+    .header { text-align: center; border-bottom: 3px solid ${RED}; padding-bottom: 16px; }
+    .header h1 { color: ${RED}; margin: 0 0 6px; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background: #f5f5f5; }
+    .total { text-align: right; font-size: 18px; font-weight: bold; }
+    .total span { color: ${RED}; font-size: 24px; }
+    .footer { margin-top: 32px; text-align: center; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Rhautt Nexus 报价单</h1>
+    <p>${model.projectName}${model.systemFamilies.length ? ' · ' + model.systemFamilies.join('/') : ''}</p>
+    <p>报价单号: ${model.quoteId} | 日期: ${new Date(model.generatedAt).toLocaleDateString()}</p>
+  </div>
+  <h3>明细清单</h3>
+  <table>
+    <tr><th>序号</th><th>项目</th><th>规格</th><th>单位</th><th>数量</th><th>单价</th><th>金额</th></tr>
+    ${rows || '<tr><td colspan="7">无明细</td></tr>'}
+    <tr><td colspan="6" style="text-align:right;font-weight:bold">明细小计</td><td>¥${model.itemsSubtotal.toLocaleString()}</td></tr>
+  </table>
+  ${model.costRows.length ? `<h3>成本构成</h3><table><tr><th>费用项</th><th>金额</th></tr>${costRows}</table>` : ''}
+  <div class="total">合计: <span>¥${model.grandTotal.toLocaleString()}</span></div>
+  <div class="footer"><p>本报价有效期 30 天，最终价格以签约为准 · Powered by Rysnova</p></div>
+</body>
+</html>`;
+    const saved = this.saveExport('quotation', `${model.quoteId}_报价单`, 'html', html);
+    return { ...saved, format: 'PDF', content: html, note: '使用 puppeteer 或 wkhtmltopdf 转换为 PDF', previewUrl: saved.downloadUrl };
   }
 
   generateQuotationExcel(data) {

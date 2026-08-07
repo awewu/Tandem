@@ -150,7 +150,6 @@ function assertProductionDatabaseFailFast() {
 
 function assertAuditTrailContract() {
   const auditServiceSource = read('server/modules/audit/audit.service.js');
-  const v2RouterSource = read('server/modules/v2.router.js');
 
   for (const token of [
     'class AuditService',
@@ -161,9 +160,8 @@ function assertAuditTrailContract() {
   ]) {
     if (!auditServiceSource.includes(token)) failures.push(`AuditService contract missing token: ${token}`);
   }
-  if (!v2RouterSource.includes("router.use('/audit'")) {
-    failures.push('v2.router.js must mount /api/v2/audit routes');
-  }
+  // 退场波1(2026-08-06)：本地 v2.router 已退役，/api/v2/audit 由 NestJS(services/api audit-log) 服务；
+  // 移除对已删 v2.router.js 的挂载断言。
 }
 
 function main() {

@@ -1,0 +1,78 @@
+/* =============================================================
+   Nexus 营销中台 · 内部工具 UI Token（console.css）
+   —— 镜像 Tandem 设计 token 体系（Apple HIG + MS Fluent + Vercel Geist）。
+   源：Tandem app/globals.css；参照 docs/dev/hermes-tandem-vi-ui-design-audit.md。
+
+   适用：营销中台【内部员工工具】—— 操作台 / 品牌控制台 / CMO·事业部·职能 驾驶舱 /
+        dealer-workbench / 搭子工作台等。由 packages/ui 共享组件消费。
+
+   ⚠️ 宪章基座1：本 token 是【内部工具】识别，**禁用于对外品牌站**。
+      对外站(rheem/ruud/everhot/lithnova)各守其独立官方 VI（packages/tokens/<brand>.css）。
+      内部工具主色 #C8202C ≠ Rheem 对外官方红 #E4002B，不得混用。
+   约定：颜色以 "R G B" 空格三元组存放，配 rgb(var(--x) / <alpha>) 使用。
+   ============================================================= */
+:root {
+  /* ---- 品牌阶梯（内部工具红，Rheem Red scale） ---- */
+  --brand-50:  252 233 235;   /* #FCE9EB */
+  --brand-100: 250 203 207;   /* #FACBCF */
+  --brand-200: 245 150 156;   /* #F5969C */
+  --brand-300: 237 96 104;    /* #ED6068 */
+  --brand-400: 220 61 69;     /* #DC3D45 */
+  --brand-500: 200 32 44;     /* #C8202C 主色 primary */
+  --brand-600: 159 24 34;     /* #9F1822 hover */
+  --brand-700: 126 19 26;     /* #7E131A */
+  --brand-800: 93 14 19;      /* #5D0E13 */
+  --brand-900: 61 9 12;       /* #3D090C */
+
+  /* ---- 表面（Apple System Gray） ---- */
+  --surface-1: 255 255 255;   /* 主背景 */
+  --surface-2: 250 250 250;   /* 卡片 */
+  --surface-3: 244 244 245;   /* 输入 */
+  --surface-elevated: 255 255 255 / 0.72; /* 玻璃 */
+
+  /* ---- 文本 ---- */
+  --text-primary:   9 9 11;
+  --text-secondary: 82 82 91;
+  --text-tertiary:  161 161 170;
+  --text-on-brand:  255 255 255;
+
+  /* ---- 边框 ---- */
+  --border-subtle:  228 228 231;
+  --border-default: 212 212 216;
+  --border-strong:  161 161 170;
+
+  /* ---- 语义色（对应 Agent 动作分区 / SLA） ---- */
+  --semantic-success: 16 185 129;   /* green 区：自动执行+审计 */
+  --semantic-warning: 245 158 11;   /* yellow 区：24h 可否决窗 / SLA 警告 */
+  --semantic-danger:  239 68 68;    /* red 区：人工 only / 否决 / 逾期 */
+  --semantic-info:    59 130 246;
+
+  /* ---- 分身阶段（persona，5 阶，供搭子工作台） ---- */
+  --persona-newborn:    254 243 199;
+  --persona-apprentice: 199 210 254;
+  --persona-assistant:  165 243 252;
+  --persona-deputy:     253 230 138;
+  --persona-partner:    251 207 232;
+
+  /* ---- 阴影（Apple 柔和分层，非 Material elevation） ---- */
+  --shadow-xs: 0 1px 1px rgba(9, 9, 11, 0.03), 0 1px 2px rgba(9, 9, 11, 0.04);
+  --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.04), 0 2px 8px rgba(9, 9, 11, 0.05);
+  --shadow-md: 0 1px 3px rgba(9, 9, 11, 0.05), 0 6px 16px rgba(9, 9, 11, 0.07);
+  --shadow-lg: 0 2px 6px rgba(9, 9, 11, 0.06), 0 12px 32px rgba(9, 9, 11, 0.09);
+  --shadow-xl: 0 4px 10px rgba(9, 9, 11, 0.08), 0 24px 64px rgba(9, 9, 11, 0.12);
+  --shadow-glow-brand: 0 0 0 4px rgba(200, 32, 44, 0.16);
+
+  /* ---- 圆角 ---- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  --radius: 0.625rem; /* 10px 默认 */
+
+  /* ---- 动效（语义化，非装饰） ---- */
+  --duration-instant: 100ms;
+  --duration-fast:    200ms;
+  --duration-base:    300ms;
+}

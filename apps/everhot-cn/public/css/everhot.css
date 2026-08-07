@@ -1306,7 +1306,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   transform: translateY(-2px);
 }
 .ev-backtop:focus-visible {
-  outline: 3px solid rgba(196, 18, 48, 0.24);
+  outline: 3px solid rgba(191, 25, 36, 0.24);
   outline-offset: 3px;
 }
 .ev-backtop span {

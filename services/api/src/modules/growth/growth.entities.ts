@@ -57,6 +57,8 @@ export class GrowthCopyAssetEntity {
   @Column({ type: 'varchar', nullable: true }) model: string | null;
   @Column({ name: 'tokens_cost', type: 'numeric', precision: 12, scale: 4, default: 0 }) tokensCost: string;
   @Column({ name: 'compliance_flags', type: 'jsonb', default: [] }) complianceFlags: string[]; // 命中的合规词
+  // 生成该内容所用的 GEO 策略键（AgenticGEO 归因基础：实验 lift → 归因到策略 → 反哺权重）
+  @Column({ name: 'strategy_keys', type: 'jsonb', default: [] }) strategyKeys: string[];
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
 }
@@ -234,16 +236,132 @@ export class GrowthMarketingMaterialEntity {
   @Column({ name: 'archived_at', type: 'timestamptz', nullable: true }) archivedAt: Date | null;
 }
 
+// ── cockpit · 北极星地基（Phase 1 · migration 068）────────────────────────────
+// 北极星="活跃盈利经销商数"；盈利=混合口径(profit_proxy 代理 + profit_actual 可选真实)。
+@Entity('dealer_success_snapshot')
+@Index(['tenantId', 'period', 'active'])
+@Index(['tenantId', 'dealerId', 'period'], { unique: true })
+export class DealerSuccessSnapshotEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'dealer_id', type: 'varchar' }) dealerId: string;
+  @Column({ type: 'varchar' }) period: string;                         // YYYY-MM
+  @Column({ type: 'boolean', default: true }) active: boolean;
+  @Column({ type: 'numeric', precision: 16, scale: 2, default: 0 }) gmv: string;
+  @Column({ name: 'profit_proxy', type: 'numeric', precision: 16, scale: 2, default: 0 }) profitProxy: string;
+  @Column({ name: 'profit_actual', type: 'numeric', precision: 16, scale: 2, nullable: true }) profitActual: string | null;
+  @Column({ name: 'close_rate', type: 'numeric', precision: 6, scale: 4, default: 0 }) closeRate: string;
+  @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true }) nps: string | null;
+  @Column({ type: 'numeric', precision: 6, scale: 4, nullable: true }) retention: string | null;
+  @Column({ type: 'int', default: 0 }) deals: number;
+  @Column({ name: 'computed_at', type: 'timestamptz', default: () => 'now()' }) computedAt: Date;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
+// 成交事件 inbox（幂等）：dealer_success 由此求和重算，重投靠唯一约束去重。
+@Entity('growth_dealer_deal_inbox')
+@Index(['tenantId', 'dealerId', 'period'])
+@Index(['tenantId', 'sourceEventId'], { unique: true })
+export class GrowthDealerDealInboxEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'source_event_id', type: 'varchar' }) sourceEventId: string;
+  @Column({ name: 'dealer_id', type: 'varchar' }) dealerId: string;
+  @Column({ type: 'numeric', precision: 16, scale: 2, default: 0 }) amount: string;
+  @Column({ type: 'varchar' }) period: string;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+}
+
+// AARRR 漏斗事件（幂等：每合格事件一行，source_event_id 唯一去重，COUNT 分组即漏斗）
+@Entity('growth_funnel_event')
+@Index(['tenantId', 'period', 'stage'])
+@Index(['tenantId', 'sourceEventId'], { unique: true })
+export class GrowthFunnelEventEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'source_event_id', type: 'varchar' }) sourceEventId: string;
+  @Column({ type: 'varchar' }) stage: 'reach' | 'lead' | 'visit' | 'proposal' | 'revenue' | 'referral';
+  @Column({ name: 'subject_id', type: 'varchar', nullable: true }) subjectId: string | null;
+  // 获客渠道（归一自事件 payload.source，见 geo-attribution.ts）：北极星分渠道归因用。
+  // 现存历史行为 null（未归因），诚实计入总数但不算 GEO。
+  @Column({ type: 'varchar', nullable: true }) channel: string | null;
+  @Column({ type: 'varchar' }) period: string;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+}
+
+// 驾驶舱指标日快照（趋势）：(tenant, metric_key, snapshot_date) 唯一 → 同日幂等 upsert
+@Entity('growth_metric_daily_snapshot')
+@Index(['tenantId', 'metricKey', 'snapshotDate'], { unique: true })
+export class GrowthMetricDailySnapshotEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'metric_key', type: 'varchar' }) metricKey: string;
+  @Column({ type: 'numeric', default: 0 }) value: string;
+  @Column({ name: 'snapshot_date', type: 'date', default: () => 'CURRENT_DATE' }) snapshotDate: string;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+}
+
+@Entity('growth_north_star_snapshot')
+@Index(['tenantId', 'metric', 'period'], { unique: true })
+export class GrowthNorthStarSnapshotEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ type: 'varchar' }) metric: string;                          // active_profitable_dealers / network_gmv / ...
+  @Column({ type: 'numeric', precision: 18, scale: 4, default: 0 }) value: string;
+  @Column({ type: 'varchar' }) period: string;
+  @Column({ name: 'computed_at', type: 'timestamptz', default: () => 'now()' }) computedAt: Date;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+}
+
+// ── GEO 第 7 层 · 闭环实验（探测→缺口→内容→复投→验证 lift）─────────────────
+@Entity('growth_geo_experiment')
+@Index(['tenantId', 'brandSlug', 'status', 'createdAt'])
+export class GrowthGeoExperimentEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'brand_slug', type: 'varchar' }) brandSlug: string;
+  @Column({ name: 'question_id', type: 'uuid', nullable: true }) questionId: string | null;
+  @Column({ type: 'text' }) question: string;
+  @Column({ type: 'text', nullable: true }) hypothesis: string | null;
+  @Column({ type: 'varchar', default: 'baseline' })
+  status: 'baseline' | 'content-linked' | 'verifying' | 'improved' | 'no-change' | 'regressed' | 'killed';
+  @Column({ name: 'baseline_batch_id', type: 'uuid', nullable: true }) baselineBatchId: string | null;
+  @Column({ name: 'baseline_cited_rate', type: 'int', nullable: true }) baselineCitedRate: number | null;
+  @Column({ name: 'baseline_at', type: 'timestamptz', nullable: true }) baselineAt: Date | null;
+  @Column({ name: 'copy_asset_id', type: 'uuid', nullable: true }) copyAssetId: string | null;
+  @Column({ name: 'content_published_at', type: 'timestamptz', nullable: true }) contentPublishedAt: Date | null;
+  @Column({ name: 'verify_batch_id', type: 'uuid', nullable: true }) verifyBatchId: string | null;
+  @Column({ name: 'verify_cited_rate', type: 'int', nullable: true }) verifyCitedRate: number | null;
+  @Column({ name: 'verify_at', type: 'timestamptz', nullable: true }) verifyAt: Date | null;
+  @Column({ type: 'int', nullable: true }) lift: number | null;
+  @Column({ name: 'kill_criteria', type: 'text', nullable: true }) killCriteria: string | null;
+  @Column({ type: 'text', nullable: true }) conclusion: string | null;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
+export { GeoTargetEntity, GeoCognitionAssetEntity } from './geo-focus.entity';
+import { GeoTargetEntity, GeoCognitionAssetEntity } from './geo-focus.entity';
+
 export const GROWTH_ENTITIES = [
+  GeoTargetEntity,
+  GeoCognitionAssetEntity,
   GrowthOpinionMentionEntity,
   GrowthOpinionAlertEntity,
   GrowthCopyAssetEntity,
   GrowthGeoProbeEntity,
   GrowthGeoQuestionEntity,
+  GrowthGeoExperimentEntity,
   GrowthGeoProbeBatchEntity,
   GrowthGeoProbeJobEntity,
   GrowthGeoAnswerSnapshotEntity,
   GrowthCampaignEntity,
   GrowthCampaignMetricEntity,
   GrowthMarketingMaterialEntity,
+  DealerSuccessSnapshotEntity,
+  GrowthDealerDealInboxEntity,
+  GrowthFunnelEventEntity,
+  GrowthMetricDailySnapshotEntity,
+  GrowthNorthStarSnapshotEntity,
 ];

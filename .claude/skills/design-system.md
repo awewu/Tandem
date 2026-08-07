@@ -71,3 +71,14 @@ export default function MyPage() {
 - Status: `<span className="badge badge-green">完成</span>`
 - Page wrap: layout is in layout.tsx — pages just return fragments `<>...</>`
 - Font: Inter loads from Google Fonts in layout.tsx
+
+## UX 体验层（DESIGN.md §9-16，v2 · 所有界面必守）
+使用统一组件库（`src/components/ui/`）而非手搓状态：
+- **状态五态**：异步区用 `<AsyncBoundary>`（loading→`<Skeleton/>`、empty→`<EmptyState/>`、error→`<ErrorState onRetry/>`）；禁白屏/禁无限 spinner。
+- **反馈**：提交按钮用 loading 态；结果用 `toast()`；<100ms 反馈。
+- **A11y**：交互区 ≥40px、可见 focus ring、表单 label/aria、对比 ≥4.5:1。
+- **渐进披露**：一屏 ≤7 主区块，细节走抽屉/详情。
+- **响应式**：工作台 ≥1280/1024/768 不塌；C 端移动优先。
+- **表单**：行内校验、错误贴字段旁、破坏性操作二次确认、长表单存草稿。
+- **导航**：面包屑+当前位置、⌘K 命令面板、返回不丢状态。
+- **性能**：长列表(>50)虚拟化/分页、图片懒加载、路由级骨架屏。
