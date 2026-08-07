@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { Gauge, ShieldCheck, Filter, Store, Network, Search, Boxes, Swords, Coins, Target, AlertTriangle } from 'lucide-react';
-import { PageHeader, AsyncBoundary, type AsyncStatus } from '@rhautt/ui';
-import { cockpit } from '../../lib/api';
+import { Gauge, ShieldCheck, Filter, Store, Network, Search, Boxes, Swords, Coins, Target, AlertTriangle, GitBranch, RefreshCw } from 'lucide-react';
+import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
+import { cockpit, metrics } from '../../lib/api';
+
+const MODEL_LABEL: Record<string, string> = { linear: '线性', position: '位置(U型)', time_decay: '时间衰减' };
+const thisPeriod = () => new Date().toISOString().slice(0, 7);
 
 type Scope = { role: string; scopeType: string; scopeDimension: string | null; scopeRef: string | null };
 type Panel = { source?: string; data?: unknown; status?: string; note?: string };
@@ -82,6 +85,18 @@ export default function CmoCockpitPage() {
   const key = `cmo:${bu.buType || 'group'}:${bu.buId || ''}`;
   const { data, error, isLoading, mutate } = useSWR<CmoDashboard>(key, () => cockpit.cmo(bu));
 
+  const { toast } = useToast();
+  const [model, setModel] = useState('position');
+  const [period] = useState(thisPeriod());
+  const [refreshing, setRefreshing] = useState(false);
+  const attr = useSWR(`metrics:attr:${period}:${model}`, () => metrics.attribution(period, model));
+  async function refreshMetrics() {
+    setRefreshing(true);
+    try { await metrics.refresh(period, model); await attr.mutate(); toast('读模型已刷新（含多触点归因）', 'success'); }
+    catch (e) { toast((e as Error).message, 'error'); } finally { setRefreshing(false); }
+  }
+  const attrChannels: any[] = attr.data?.channels || [];
+
   return (
     <div className="page-container">
       <PageHeader
@@ -154,6 +169,36 @@ export default function CmoCockpitPage() {
           })}
         </div>
       </AsyncBoundary>
+
+      {/* 多触点归因（度量中台读模型：RLS 读模型 + 线性/位置/时间衰减，替代直查 OLTP） */}
+      <div className="card" style={{ padding: 18, marginTop: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <GitBranch size={16} style={{ color: 'var(--brand)' }} />
+          <span className="t-lg" style={{ fontWeight: 700 }}>多触点归因 · {period}</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            {(['linear', 'position', 'time_decay'] as const).map((m) => (
+              <button key={m} className={model === m ? 'btn btn-brand btn-sm' : 'btn btn-outline btn-sm'} onClick={() => setModel(m)}>{MODEL_LABEL[m]}</button>
+            ))}
+            <button className="btn btn-outline btn-sm" disabled={refreshing} onClick={refreshMetrics}><RefreshCw size={13} />{refreshing ? '刷新中…' : '重算读模型'}</button>
+          </div>
+        </div>
+        <AsyncBoundary status={statusOf(attr.isLoading, attr.error, attrChannels.length === 0)} errorMessage="归因加载失败（需 API + 数据库）" onRetry={() => attr.mutate()} emptyTitle="暂无归因数据" emptyDescription="点「重算读模型」从漏斗旅程重建；有已签约旅程后显示各渠道信用份额。">
+          <div style={{ display: 'grid', gap: 10 }}>
+            {attrChannels.map((c) => (
+              <div key={c.channel}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }} className="t-sm">
+                  <span>{c.channel} <span className="t-xs" style={{ color: 'var(--t-tertiary)' }}>· {c.touches} 触点</span></span>
+                  <span className="t-num" style={{ color: 'var(--brand)' }}>{(c.share * 100).toFixed(1)}% · {c.creditedConversions.toFixed(2)} 信用</span>
+                </div>
+                <div style={{ background: 'var(--surface-3)', borderRadius: 4, height: 8, overflow: 'hidden', marginTop: 4 }}>
+                  <div style={{ width: `${Math.min(c.share * 100, 100)}%`, background: 'var(--brand)', height: '100%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </AsyncBoundary>
+        <div className="t-xs" style={{ color: 'var(--t-tertiary)', marginTop: 10, opacity: 0.8 }}>源：metric_channel_attribution（RLS 读模型）· 信用按 {MODEL_LABEL[model]} 模型跨触点分配,和=转化数</div>
+      </div>
     </div>
   );
 }

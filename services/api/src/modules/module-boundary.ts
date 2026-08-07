@@ -20,7 +20,8 @@ export const apiModuleBoundary = [
   'positioning',
   'gtmplan',
   'content',
-  'activation'
+  'activation',
+  'metrics'
 ] as const;
 
 // 客户赋能(独立产品线)模块：已从营销中台停挂载(目录留存·代码保留·可逆)，营销中台不暴露其 API，
@@ -148,6 +149,17 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     dataStores: ['postgresql'],
     requiresTenantScope: true,
     requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
+  },
+  metrics: {
+    name: 'metrics',
+    apiNamespace: '/api/v2/metrics',
+    owner: 'data-platform-architect',
+    productSurface: 'metrics semantic layer: RLS read-model rollups + multi-touch attribution (replaces live OLTP aggregation)',
+    dataStores: ['postgresql'],
+    requiresTenantScope: true,
+    requiresAuditLog: false,
     requiresOpenApiContract: true,
     writeApisRequireOutbox: false
   },

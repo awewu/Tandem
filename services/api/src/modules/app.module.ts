@@ -42,6 +42,7 @@ import { PositioningModule } from './positioning/positioning.module';
 import { GtmplanModule } from './gtmplan/gtmplan.module';
 import { ContentModule } from './content/content.module';
 import { ActivationModule } from './activation/activation.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
 
 @Module({
@@ -106,6 +107,7 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     GtmplanModule,
     ContentModule,
     ActivationModule,
+    MetricsModule,
   ],
   controllers: [HealthController],
   providers: [

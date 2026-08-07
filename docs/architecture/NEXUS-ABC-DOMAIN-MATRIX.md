@@ -12,7 +12,7 @@
 | 层 | 子域 | 域/控制器 | 单写/只读 | 事件(生产→消费) |
 |---|---|---|---|---|
 | **C** | 身份/治理/数据 | auth · tenant · entitlement · mdm · compliance · governance · audit-log · analytics · notification · file-artifact · workflow · dispatch · event-consumers · health · cdp | 主数据单写 | `dealer.success.recomputed`(analytics→A/cockpit) |
-| **A** | 营销中枢 | growth(intel/studio/channel/campaign/assets/**geo**/cockpit/experiments) · insight(竞品情报/SoV·按品类) · channel(渠道招募/分层认证/返利毛利闸/绩效) · gtmplan(战役预算MROI/三级OKR) · content(内容工厂:brief→审核→发布·基座4) · activation(活动运营:券/拼团/秒杀/裂变/转介绍) | 只读消费 catalog/brand | `growth.lead.attributed`→B①；`growth.geo.gap_detected`→studio；`growth.copy.approved`→channel/file-artifact |
+| **A** | 营销中枢 | growth(intel/studio/channel/campaign/assets/**geo**/cockpit/experiments) · insight(竞品情报/SoV·按品类) · channel(渠道招募/分层认证/返利毛利闸/绩效) · gtmplan(战役预算MROI/三级OKR) · content(内容工厂:brief→审核→发布·基座4) · activation(活动运营:券/拼团/秒杀/裂变/转介绍) · metrics(度量中台:RLS读模型滚动+多触点归因·替代直查OLTP) | 只读消费 catalog/brand | `growth.lead.attributed`→B①；`growth.geo.gap_detected`→studio；`growth.copy.approved`→channel/file-artifact |
 | **A** | 品牌资产/官网 | brand-registry(brands/brand-sites/site-news/site-inquiry/site-basic-settings/site-product-assignment) · brand · brand-product-category · positioning(定位 messaging house) | 品牌真相单写(registry) | 官网发布→GEO 复测 |
 | **A** | 产品(营销读) | product-catalog(public + devices/content/relations 营销读侧) | 只读(真相在 mdm) | schema 输出供 GEO |
 | **A** | 社媒/渠道 | wechat-publishing(→收编 channel connector) · site-materials(→assets) | — | `social.post.published`→GEO/归因 |

@@ -57,7 +57,7 @@
     "D5": {
       "name": "推广与增长",
       "board": "板块三",
-      "ownedModules": ["growth", "insight", "channel", "gtmplan", "content", "activation"],
+      "ownedModules": ["growth", "insight", "channel", "gtmplan", "content", "activation", "metrics"],
       "dataPlane": ["增长库"],
       "rlsKey": "tenant=hq + hq_marketing",
       "roles": ["hq_marketing", "brand_ops"],

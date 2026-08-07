@@ -826,6 +826,13 @@ export const activation = {
   setStatus: (id: string, status: string) => apiFetch('/api/v2/activation/activities/' + encodeURIComponent(id) + '/status', { method: 'POST', body: JSON.stringify({ status }) }),
 };
 
+// 度量中台（读模型 + 多触点归因）
+export const metrics = {
+  refresh: (period?: string, model?: string) => apiFetch('/api/v2/metrics/refresh', { method: 'POST', body: JSON.stringify({ period, model }) }),
+  daily: (from?: string, to?: string) => apiFetch('/api/v2/metrics/daily?' + new URLSearchParams({ ...(from ? { from } : {}), ...(to ? { to } : {}) }).toString()),
+  attribution: (period: string, model = 'position') => apiFetch('/api/v2/metrics/attribution?period=' + encodeURIComponent(period) + '&model=' + model),
+};
+
 // 竞品情报（模块1·按品类）
 export const insight = {
   listByCategory: (category: string, dimension?: string) =>
