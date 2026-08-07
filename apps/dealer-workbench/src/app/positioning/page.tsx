@@ -30,7 +30,7 @@ export default function PositioningPage() {
   const rows: any[] = houses.data?.houses || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="品牌定位 · Messaging House" subtitle="每个 品牌×品类 的定位话术弹药：核心承诺 / 价值支柱 / 信任状(事实依据) / 竞品差异 —— 喂 AgenticGEO 与内容，决定“凭什么被 AI 首选”" />
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
@@ -69,6 +69,6 @@ export default function PositioningPage() {
           ))}
         </div>
       </AsyncBoundary>
-    </>
+    </div>
   );
 }

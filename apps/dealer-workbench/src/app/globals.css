@@ -149,32 +149,27 @@ button { cursor:pointer; }
   top: 0;
   z-index: 40;
 }
-.dealer-topbar-title {
+/* 顶部面包屑（单行·导航定位）——不与内容区 PageHeader 标题重复 */
+.dealer-topbar-crumb {
   min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.dealer-topbar-title h1 {
-  margin: 0;
-  color: #FFFFFF;
-  font-size: 15px;
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+  font-weight: 600;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dealer-topbar-title p {
-  margin: 0;
-  color: rgba(255,255,255,0.62);
-  font-size: 12px;
-  line-height: 1.25;
+.dealer-topbar-crumb .crumb-section { flex: 0 0 auto; }
+.dealer-topbar-crumb .crumb-current {
+  color: rgba(255,255,255,0.55);
   font-weight: 500;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
+.dealer-topbar-crumb svg { color: rgba(255,255,255,0.35); flex: 0 0 auto; }
 .dealer-topbar-icon {
   width: 32px;
   height: 32px;
@@ -202,14 +197,47 @@ button { cursor:pointer; }
   overflow-x: hidden;
   overscroll-behavior: contain;
   background: var(--bg);
-  transition: padding-left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* 统一工作区留白（此前依赖已移除的二级竖栏 padding-left；现下沉到 content，所有页一致） */
+  padding: var(--s8) var(--s10);
 }
-.layout:has(.workbench-subnav) .content {
-  padding-left: 244px;
+/* 二级菜单横向 tab 栏（取代竖向 subnav）——一级菜单占满工作区 */
+.workbench-tabbar {
+  position: fixed;
+  top: 48px;
+  left: 64px;
+  right: 0;
+  height: 44px;
+  z-index: 37;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
 }
-.layout:has(.workbench-subnav.is-collapsed) .content {
-  padding-left: 48px;
+.workbench-tabbar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
+.workbench-tabbar a:hover { background: var(--surface-2); color: var(--t-primary); }
+.workbench-tabbar a.is-active {
+  color: var(--brand-700, var(--brand));
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--brand);
+}
+/* 有横向 tab 栏时，内容需清开固定的 44px tab 栏 + 保留呼吸留白 */
+.layout:has(.workbench-tabbar) .content { padding-top: calc(44px + var(--s6)); }
 .workbench-subnav {
   position: fixed;
   left: 64px;
@@ -515,7 +543,8 @@ button { cursor:pointer; }
   border: 0;
   background: var(--surface-2);
 }
-.page-container { padding: var(--s8) var(--s10); max-width: 1280px; }
+/* 留白已下沉到 .content；page-container 只负责阅读宽度上限 + 居中，避免双重内边距 */
+.page-container { max-width: 1280px; margin-left: auto; margin-right: auto; }
 .page-container.growth-copywriter-page { max-width: none; width: 100%; }
 
 /* ── Apple 8级字阶 (Tandem type scale) ── */
@@ -903,9 +932,9 @@ button { cursor:pointer; }
   }
   .sidebar  { display: none; }
   .topbar   { grid-area: topbar; }
-  .layout:has(.workbench-subnav) .content,
-  .layout:has(.workbench-subnav.is-collapsed) .content { padding-left: 0; }
-  .page-container { padding: var(--s5); }
+  .workbench-tabbar { display: none !important; }
+  .content { padding: var(--s4); }
+  .layout:has(.workbench-tabbar) .content { padding-top: var(--s4); }
   .workbench-section-header { display:grid; }
   .workbench-filter-toolbar { align-items:stretch; }
   .workbench-filter-toolbar > * { min-width:0; }

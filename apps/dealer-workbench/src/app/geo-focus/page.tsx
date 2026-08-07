@@ -44,7 +44,7 @@ export default function GeoFocusPage() {
   const tRows: any[] = targets.data?.targets || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader
         title="GEO 进化 · 选点 / 认知资产 / 引爆"
         subtitle="借鉴分众智投「选点·千楼千面·可归因·引爆」：把 AI 答案里的品牌存在做成可选点、可累积、可爆破的护城河资产"
@@ -118,6 +118,6 @@ export default function GeoFocusPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

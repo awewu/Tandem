@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { MdmModule } from '../mdm/mdm.module';
 import { CdpController } from './cdp.controller';
 import { CdpService } from './cdp.service';
 import { CdpProfileEntity, CdpSegmentEntity, CdpConsentEntity } from './cdp.entity';
@@ -10,6 +11,7 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
   imports: [
     ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([CdpProfileEntity, CdpSegmentEntity, CdpConsentEntity])]),
     AuthModule,
+    MdmModule,
   ],
   controllers: [CdpController],
   providers: [

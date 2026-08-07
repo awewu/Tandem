@@ -37,7 +37,7 @@ export default function InsightPage() {
   const sigRows: any[] = signals.data?.signals || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="市场洞察 · 竞品情报" subtitle="按品类跟踪竞品与 AI 声量份额(SoV) —— 看清中央热水/壁挂炉/水机空调竞争格局，剑指行业冠军" />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -92,6 +92,6 @@ export default function InsightPage() {
           </div>
         </AsyncBoundary>
       </div>
-    </>
+    </div>
   );
 }

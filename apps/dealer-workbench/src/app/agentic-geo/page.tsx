@@ -25,7 +25,7 @@ export default function AgenticGeoPage() {
   }
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader
         title="AgenticGEO · 自主闭环"
         subtitle="选策略→生成草稿→受治理动作提案(green自动/yellow代行需核准/red人工)→lift 验证 · 推理收口 Tandem 治理网关 · 无事实源不出对外内容、无 lift 不宣称有效（基座4）"
@@ -77,6 +77,6 @@ export default function AgenticGeoPage() {
           <div className="t-xs" style={{ color: 'var(--t-tertiary)' }}>④ lift 验证：{plan.lift?.note}</div>
         </div>
       )}
-    </>
+    </div>
   );
 }

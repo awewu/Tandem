@@ -1,9 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
 import { hashPII, encryptPII } from '../compliance/compliance.pii';
 import type { JwtPayload } from '../auth/auth.service';
+import { EventBusService } from '../mdm/event-bus.service';
+import type { OutboxEventEntity } from '../mdm/outbox-event.entity';
 import { CdpProfileEntity, CdpSegmentEntity, CdpConsentEntity } from './cdp.entity';
 
 function normalizePhone(raw: string): string {
@@ -12,8 +15,56 @@ function normalizePhone(raw: string): string {
 }
 
 @Injectable()
-export class CdpService {
-  constructor(@InjectDataSource() private readonly ds: DataSource) {}
+export class CdpService implements OnModuleInit {
+  private readonly logger = new Logger('CdpIngest');
+  constructor(
+    @InjectDataSource() private readonly ds: DataSource,
+    private readonly eventBus: EventBusService,
+  ) {}
+
+  // ── 数据连接（接缝·成效回流）──────────────────────────────────────────
+  // 终端用户「管理」由瑞诺瓦 AI 问诊模块负责；GTM 不深化终端用户。
+  // CDP 仅作【数据连接层】：从 diagnosis.completed / crm.deal.signed 事件自动摄取
+  // 终端用户画像(按 customerId 外部引用 + 痛点/系统/来源/成交)，供 GTM 分群→GEO/战役。
+  // 不落原始 PII、不建端用户管理界面。
+  onModuleInit(): void {
+    this.eventBus.subscribe('diagnosis.completed', (e: OutboxEventEntity) => this.ingestFromDiagnosis(e));
+    this.eventBus.subscribe('crm.deal.signed', (e: OutboxEventEntity) => this.markConverted(e));
+  }
+
+  private async ingestFromDiagnosis(event: OutboxEventEntity) {
+    const p: any = event.payload || {};
+    if (!event.tenantId || !p.customerId) return;
+    const tenantId = event.tenantId;
+    const externalRef = String(p.customerId);
+    const attrs = {
+      painPoints: p.painPoints ?? [], systems: p.systems ?? [],
+      sourceSurface: p.sourceSurface ?? null, lastDiagnosisAt: new Date().toISOString(),
+    };
+    await withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(CdpProfileEntity);
+      const existing = await repo.findOne({ where: { tenantId, externalRef } });
+      if (existing) {
+        await repo.update({ id: existing.id }, { attributes: { ...(existing.attributes || {}), ...attrs }, updatedAt: new Date() } as any);
+      } else {
+        await repo.save(repo.create({ tenantId, externalRef, attributes: attrs, source: 'rysnova-diagnosis', consentStatus: 'unknown' } as any));
+      }
+    }, { tenantId, actorId: 'system:cdp-ingest' }).catch((err) => this.logger.warn(`ingestFromDiagnosis 失败: ${err?.message || err}`));
+  }
+
+  private async markConverted(event: OutboxEventEntity) {
+    const p: any = event.payload || {};
+    if (!event.tenantId || !p.customerId) return;
+    const tenantId = event.tenantId;
+    const externalRef = String(p.customerId);
+    await withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(CdpProfileEntity);
+      const existing = await repo.findOne({ where: { tenantId, externalRef } });
+      if (existing) {
+        await repo.update({ id: existing.id }, { attributes: { ...(existing.attributes || {}), stage: 'signed', dealSignedAt: new Date().toISOString() }, updatedAt: new Date() } as any);
+      }
+    }, { tenantId, actorId: 'system:cdp-ingest' }).catch((err) => this.logger.warn(`markConverted 失败: ${err?.message || err}`));
+  }
 
   // 终端用户档案 upsert（PII 加密 + 检索哈希；PIPL：默认 consent unknown，成交/留资另记同意）。
   async upsertProfile(actor: JwtPayload, dto: { phone?: string; name?: string; email?: string; externalRef?: string; attributes?: Record<string, unknown>; source?: string }) {

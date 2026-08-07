@@ -80,32 +80,70 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
       { key: 'positioning', label: '品牌定位 Messaging House', href: '/positioning', icon: BadgeCheck },
     ],
   },
+  // ── 市场增长：功能主栏目已升级为一级菜单（便于一键直达）──
   {
-    key: 'growth',
-    label: '市场增长',
-    shortLabel: '市场增长',
-    desc: 'GEO · 文案 Copilot · 舆情雷达 · 营销自动化',
-    href: '/growth',
-    icon: Rocket,
-    group: 1,
-    permission: 'marketing.campaigns.view',
+    key: 'geo', label: 'GEO 引擎', shortLabel: 'GEO',
+    desc: 'GEO 探测 · AgenticGEO 自主闭环 · 选点/认知资产/引爆',
+    href: '/growth/geo', icon: Search, group: 1, permission: 'marketing.campaigns.view',
     children: [
-      { key: 'geo', label: 'GEO', href: '/growth/geo', icon: Search },
+      { key: 'geo', label: 'GEO 探测', href: '/growth/geo', icon: Search },
       { key: 'agentic-geo', label: 'AgenticGEO 自主闭环', href: '/agentic-geo', icon: Zap },
-      { key: 'geo-focus', label: 'GEO 选点·认知资产·引爆', href: '/geo-focus', icon: Search },
-      { key: 'insight', label: '竞品情报(按品类)', href: '/insight', icon: Radio },
-      { key: 'channel', label: '渠道与伙伴营销', href: '/channel', icon: Megaphone },
+      { key: 'geo-focus', label: '选点·认知资产·引爆', href: '/geo-focus', icon: Flame },
+    ],
+  },
+  {
+    key: 'insight', label: '竞品情报', shortLabel: '竞品',
+    desc: '按品类跟踪竞品与 AI 声量份额(SoV)',
+    href: '/insight', icon: Radio, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'insight', label: '竞品情报(按品类)', href: '/insight', icon: Radio }],
+  },
+  {
+    key: 'content', label: '内容工厂', shortLabel: '内容',
+    desc: '内容生产·审核·发布 · 文案 Copilot · 公众号发布',
+    href: '/content', icon: PenTool, group: 1, permission: 'marketing.campaigns.view',
+    children: [
       { key: 'content', label: '内容工厂', href: '/content', icon: PenTool },
-      { key: 'activation', label: '活动运营', href: '/activation', icon: Zap },
-      { key: 'gtm', label: '战役·预算MROI·OKR', href: '/gtm', icon: Rocket },
       { key: 'copywriter', label: '文案 Copilot', href: '/growth/copywriter', icon: PenTool },
       { key: 'wechat-review', label: '内容审核', href: '/growth/wechat-review', icon: BadgeCheck },
       { key: 'wechat-accounts', label: '发布账号配置', href: '/growth/wechat-accounts', icon: Settings2 },
       { key: 'wechat-drafts', label: '发布记录', href: '/growth/wechat-drafts', icon: Send },
-      { key: 'sentiment', label: '舆情雷达', href: '/growth/sentiment', icon: Radio },
-      { key: 'automation', label: '营销自动化', href: '/growth/automation', icon: Zap },
-      { key: 'materials', label: '营销物料库管理', href: '/growth/materials', icon: FolderOpen },
     ],
+  },
+  {
+    key: 'channel', label: '渠道营销', shortLabel: '渠道',
+    desc: '招募 · 分层认证 · 返利毛利闸 · 绩效',
+    href: '/channel', icon: Megaphone, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'channel', label: '渠道与伙伴营销', href: '/channel', icon: Megaphone }],
+  },
+  {
+    key: 'activation', label: '活动运营', shortLabel: '活动',
+    desc: '优惠券 · 拼团 · 秒杀 · 裂变 · 转介绍',
+    href: '/activation', icon: Zap, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'activation', label: '活动运营', href: '/activation', icon: Zap }],
+  },
+  {
+    key: 'gtm', label: '战役·MROI·OKR', shortLabel: '战役',
+    desc: '战役预算 · MROI 投产比 · 三级 OKR',
+    href: '/gtm', icon: Rocket, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'gtm', label: '战役·预算MROI·OKR', href: '/gtm', icon: Rocket }],
+  },
+  {
+    key: 'sentiment', label: '舆情雷达', shortLabel: '舆情',
+    desc: '全网舆情监测与预警',
+    href: '/growth/sentiment', icon: Radio, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'sentiment', label: '舆情雷达', href: '/growth/sentiment', icon: Radio }],
+  },
+  {
+    key: 'automation', label: '营销自动化', shortLabel: '自动化',
+    desc: '营销自动化编排',
+    href: '/growth/automation', icon: Zap, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'automation', label: '营销自动化', href: '/growth/automation', icon: Zap }],
+  },
+  {
+    key: 'materials', label: '营销物料', shortLabel: '物料',
+    desc: '营销物料库管理',
+    href: '/growth/materials', icon: FolderOpen, group: 1, permission: 'marketing.campaigns.view',
+    children: [{ key: 'materials', label: '营销物料库管理', href: '/growth/materials', icon: FolderOpen }],
   },
   {
     key: 'product',
@@ -153,14 +191,24 @@ export function canSeeNavItem(
 }
 
 export function navItemForPath(path: string | null): WorkbenchNavItem {
-  if (path?.startsWith('/cockpit') || path?.startsWith('/cmo')) return WORKBENCH_NAV.find((item) => item.key === 'cockpit')!;
-  if (path?.startsWith('/agentic-geo') || path?.startsWith('/geo-focus') || path?.startsWith('/insight') || path?.startsWith('/channel') || path?.startsWith('/content') || path?.startsWith('/activation') || path?.startsWith('/gtm')) return WORKBENCH_NAV.find((item) => item.key === 'growth')!;
-  if (path?.startsWith('/positioning')) return WORKBENCH_NAV.find((item) => item.key === 'brand-sites')!;
-  if (path?.startsWith('/product-mgmt')) return WORKBENCH_NAV.find((item) => item.key === 'product')!;
-  if (path?.startsWith('/accounts')) return WORKBENCH_NAV.find((item) => item.key === 'accounts')!;
-  if (path?.startsWith('/products')) return WORKBENCH_NAV.find((item) => item.key === 'product')!;
-  if (path?.startsWith('/growth')) return WORKBENCH_NAV.find((item) => item.key === 'growth')!;
-  if (path?.startsWith('/comfort')) return WORKBENCH_NAV.find((item) => item.key === 'brand-sites')!;
-  if (path?.startsWith('/brand')) return WORKBENCH_NAV.find((item) => item.key === 'brand-sites')!;
+  const byKey = (k: string) => WORKBENCH_NAV.find((item) => item.key === k)!;
+  if (path?.startsWith('/cockpit') || path?.startsWith('/cmo')) return byKey('cockpit');
+  // 增长功能一级菜单
+  if (path?.startsWith('/agentic-geo') || path?.startsWith('/geo-focus') || path?.startsWith('/growth/geo')) return byKey('geo');
+  if (path?.startsWith('/insight')) return byKey('insight');
+  if (path?.startsWith('/content') || path?.startsWith('/growth/copywriter') || path?.startsWith('/growth/wechat')) return byKey('content');
+  if (path?.startsWith('/channel')) return byKey('channel');
+  if (path?.startsWith('/activation')) return byKey('activation');
+  if (path?.startsWith('/gtm')) return byKey('gtm');
+  if (path?.startsWith('/growth/sentiment')) return byKey('sentiment');
+  if (path?.startsWith('/growth/automation')) return byKey('automation');
+  if (path?.startsWith('/growth/materials')) return byKey('materials');
+  if (path?.startsWith('/positioning')) return byKey('brand-sites');
+  if (path?.startsWith('/product-mgmt')) return byKey('product');
+  if (path?.startsWith('/accounts')) return byKey('accounts');
+  if (path?.startsWith('/products')) return byKey('product');
+  if (path?.startsWith('/growth/geo') || path?.startsWith('/growth')) return byKey('geo');
+  if (path?.startsWith('/comfort')) return byKey('brand-sites');
+  if (path?.startsWith('/brand')) return byKey('brand-sites');
   return WORKBENCH_NAV[0];
 }

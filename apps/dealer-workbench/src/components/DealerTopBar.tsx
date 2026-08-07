@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell } from 'lucide-react';
+import { Bell, ChevronRight } from 'lucide-react';
 import { WORKBENCH_NAV, navItemForPath } from '../lib/workbench-navigation';
 import { brandSites } from '../lib/api';
 
@@ -50,11 +50,6 @@ function selectedChildLabel(path: string, search: string, brandSiteLabels: Recor
   return activeItem.children[0]?.label || activeItem.desc;
 }
 
-function primaryTitle(key: string, fallback: string): string {
-  if (key === 'growth') return '市场营销';
-  return fallback;
-}
-
 export default function DealerTopBar() {
   const path = usePathname() || '';
   const [search, setSearch] = useState('');
@@ -99,15 +94,17 @@ export default function DealerTopBar() {
   if (path === '/') return null;
 
   const activeItem = navItemForPath(path);
-  const title = primaryTitle(activeItem.key, activeItem.label);
+  const title = activeItem.label;
   const childLabel = selectedChildLabel(path, search, brandSiteLabels);
+  const showChild = Boolean(childLabel) && childLabel !== title;
 
   return (
     <header className="topbar dealer-topbar">
-      <div className="dealer-topbar-title">
-        <h1>{title}</h1>
-        <p>{childLabel}</p>
-      </div>
+      {/* 面包屑（导航定位）——页面标题由内容区 PageHeader 承担，避免一级重复表述 */}
+      <nav className="dealer-topbar-crumb" aria-label="面包屑">
+        <span className="crumb-section">{title}</span>
+        {showChild && <><ChevronRight size={12} /><span className="crumb-current">{childLabel}</span></>}
+      </nav>
       <div style={{ flex: 1 }} />
       <button type="button" className="dealer-topbar-icon" aria-label="通知">
         <Bell size={15} />

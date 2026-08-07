@@ -29,7 +29,7 @@ export default function GtmPage() {
   const sum = okrSum.data?.byLevel || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="战役 · 预算 MROI · OKR" subtitle="营销战役预算/花费/归因收入 → MROI；集团→事业部→职能 三级 OKR" />
 
       <AsyncBoundary status={statusOf(mroi.isLoading, mroi.error, false)} errorMessage="MROI 加载失败（需 API + 数据库）" onRetry={() => mroi.mutate()}>
@@ -80,6 +80,6 @@ export default function GtmPage() {
           </div>
         </AsyncBoundary>
       </div>
-    </>
+    </div>
   );
 }

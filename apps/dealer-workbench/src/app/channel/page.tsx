@@ -40,7 +40,7 @@ export default function ChannelPage() {
   const hh = health.data;
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="渠道与伙伴营销" subtitle="招募 · 分层认证 · 返利(毛利闸·基座3) · 绩效 —— 经销商网络扩张驱动销售倍增" />
 
       <AsyncBoundary status={statusOf(health.isLoading, health.error, false)} errorMessage="渠道健康加载失败（需 API + 数据库）" onRetry={() => health.mutate()}>
@@ -109,6 +109,6 @@ export default function ChannelPage() {
           </div>
         </AsyncBoundary>
       </div>
-    </>
+    </div>
   );
 }

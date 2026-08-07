@@ -30,7 +30,7 @@ export default function ProductMgmtPage() {
   const pRows: any[] = pricing.data?.policies || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="产品管理" subtitle="生命周期 · 新品上市 NPI · 卖点体系 · 定价审批（毛利闸·基座3）" />
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
@@ -75,6 +75,6 @@ export default function ProductMgmtPage() {
           </div>
         </AsyncBoundary>
       </div>
-    </>
+    </div>
   );
 }

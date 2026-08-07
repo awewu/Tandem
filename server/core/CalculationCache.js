@@ -30,6 +30,7 @@ class CalculationCache {
     });
     
     // Redis缓存 (可选)
+    /** @type {any} */
     this.redis = null;
     this.redisEnabled = false;
     

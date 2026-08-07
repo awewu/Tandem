@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, LogOut, UserCog, UserRound } from 'lucide-react';
+import { LogOut, UserCog, UserRound } from 'lucide-react';
 import { clearToken } from '@rhautt/shared-auth';
 import { WORKBENCH_NAV, canSeeNavItem, navItemForPath } from '../lib/workbench-navigation';
 import type { WorkbenchChild } from '../lib/workbench-navigation';
@@ -133,7 +133,6 @@ async function enrichProfileFromAccountDirectory(profile: AccountProfile): Promi
 
 export default function DealerNav() {
   const path = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState('');
   const [siteNavItems, setSiteNavItems] = useState<BrandSiteNavItem[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -143,8 +142,6 @@ export default function DealerNav() {
   const currentHref = `${path || ''}${search}`;
 
   useEffect(() => {
-    const stored = localStorage.getItem('rhautt-subnav-collapsed');
-    if (stored) setCollapsed(stored === 'true');
     setSearch(window.location.search);
   }, [path]);
 
@@ -229,14 +226,6 @@ export default function DealerNav() {
           ...activeItem.children.slice(4),
         ]
       : activeItem.children;
-
-  function toggleSubnav() {
-    setCollapsed((current) => {
-      const next = !current;
-      localStorage.setItem('rhautt-subnav-collapsed', String(next));
-      return next;
-    });
-  }
 
   function isChildSelected(href: string) {
     const childPath = href.split('?')[0];
@@ -372,50 +361,21 @@ export default function DealerNav() {
         </div>
       </aside>
 
-      <aside className={`workbench-subnav${collapsed ? ' is-collapsed' : ''}`}>
-        <button
-          type="button"
-          aria-label={collapsed ? '展开二级菜单' : '折叠二级菜单'}
-          title={collapsed ? '展开二级菜单' : '折叠二级菜单'}
-          className="workbench-subnav-toggle"
-          onClick={toggleSubnav}
-        >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-
-        <div className="workbench-subnav-expanded" aria-hidden={collapsed}>
-          <div className="workbench-subnav-head">
-            <p>Marketing</p>
-            <h2>{activeItem.shortLabel}</h2>
-            <span>{activeItem.desc}</span>
-          </div>
-          <nav className="workbench-subnav-list" aria-label={`${activeItem.label}二级菜单`}>
-            {activeChildren.map((child) => {
-              const ChildIcon = child.icon;
-              const selected = isChildSelected(child.href);
-              return (
-                <Link key={child.key} href={child.href} title={child.label} className={selected ? 'is-active' : undefined} tabIndex={collapsed ? -1 : undefined} onClick={() => rememberChildSearch(child.href)}>
-                  <ChildIcon size={16} strokeWidth={selected ? 2.3 : 1.8} />
-                  <span>{child.label}</span>
-                  {selected && <ChevronRight size={14} />}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
-        <nav className="workbench-subnav-icon-list" aria-label={`${activeItem.label}折叠菜单`} aria-hidden={!collapsed}>
+      {/* 二级菜单：横向 tab 栏（仅当有多个子视图时显示），置于内容区顶部，一级菜单直接占满工作区 */}
+      {activeChildren.length > 1 && (
+        <nav className="workbench-tabbar" aria-label={`${activeItem.label}二级菜单`}>
           {activeChildren.map((child) => {
             const ChildIcon = child.icon;
             const selected = isChildSelected(child.href);
             return (
-              <Link key={child.key} href={child.href} title={child.label} aria-label={child.label} className={selected ? 'is-active' : undefined} tabIndex={!collapsed ? -1 : undefined} onClick={() => rememberChildSearch(child.href)}>
-                <ChildIcon size={17} strokeWidth={selected ? 2.4 : 1.8} />
+              <Link key={child.key} href={child.href} title={child.label} className={selected ? 'is-active' : undefined} onClick={() => rememberChildSearch(child.href)}>
+                <ChildIcon size={15} strokeWidth={selected ? 2.3 : 1.8} />
+                <span>{child.label}</span>
               </Link>
             );
           })}
         </nav>
-      </aside>
+      )}
 
       <nav className="mobile-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', padding: '6px 0', gridTemplateColumns: `repeat(${Math.max(visibleNav.length, 1)}, minmax(58px, 1fr))`, overflowX: 'auto' }} aria-label="移动端营销导航">
         {visibleNav.map((item) => {

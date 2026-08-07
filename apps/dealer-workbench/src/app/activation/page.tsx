@@ -23,7 +23,7 @@ export default function ActivationPage() {
   const rows: any[] = list.data?.activities || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="活动运营" subtitle="优惠券 · 拼团 · 秒杀 · 裂变 · 转介绍 —— 裂变/转介绍带来的线索计入线索飞轮" />
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
@@ -49,6 +49,6 @@ export default function ActivationPage() {
           ))}
         </div>
       </AsyncBoundary>
-    </>
+    </div>
   );
 }

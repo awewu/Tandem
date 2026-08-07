@@ -29,7 +29,7 @@ export default function ContentPage() {
   const rows: any[] = list.data?.contents || [];
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader title="内容工厂" subtitle="brief→草稿→审核→发布 全流水线 · 基座4：无事实源引用不得对外发布（发布按钮会拦）" />
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
@@ -64,6 +64,6 @@ export default function ContentPage() {
           ))}
         </div>
       </AsyncBoundary>
-    </>
+    </div>
   );
 }

@@ -35,6 +35,46 @@ function statusOf(isLoading: boolean, error: unknown, empty: boolean): AsyncStat
   return 'ok';
 }
 
+const yuan = (n: unknown) => `¥${(Number(n) || 0).toLocaleString('zh-CN')}`;
+const pct = (n: unknown) => `${(Number(n) || 0)}%`;
+
+// 把各面板的数据抽成"关键指标卡"（消除原始 JSON 展示）。
+function panelStats(key: string, data: any): Array<{ label: string; value: string | number; accent?: boolean }> {
+  const d = data || {};
+  switch (key) {
+    case 'northStar': return [
+      { label: '⭐ GEO 高意向线索', value: d.geoAttributedLeads ?? 0, accent: true },
+      { label: '高意向线索', value: d.highIntentLeads ?? 0 },
+      { label: 'GEO 触达', value: d.geoReach ?? 0 },
+    ];
+    case 'brandEquity': return [
+      { label: 'AI 被引率', value: pct(d.citedRate) }, { label: 'SoV', value: pct(d.sov) }, { label: '正声量', value: pct(d.positiveSentiment) },
+    ];
+    case 'demandFunnel': return (d.stages || []).map((s: any) => ({ label: s.label || s.stage, value: s.count ?? 0 }));
+    case 'channelDealer': return [{ label: '经销商', value: Array.isArray(d) ? d.length : (d.dealers ?? 0) }, { label: '活跃盈利', value: Array.isArray(d) ? d.filter((x: any) => x.active && x.profit > 0).length : 0 }];
+    case 'channelHealth': return [
+      { label: '经销商', value: d.partners ?? 0 }, { label: '活跃', value: d.active ?? 0 }, { label: '活跃盈利', value: d.activeProfitable ?? 0 }, { label: '网络GMV', value: yuan(d.networkGmv) },
+    ];
+    case 'geoLoop': return [
+      { label: '被引率', value: pct(d.citedRate) }, { label: '可见度缺口', value: d.gaps ?? 0, accent: true }, { label: '已发布', value: d.content?.published ?? 0 },
+    ];
+    case 'productPortfolio': { const s = d.byStage || {}; return [
+      { label: '引入', value: s.intro ?? 0 }, { label: '成长', value: s.growth ?? 0 }, { label: '成熟', value: s.mature ?? 0 }, { label: '退市', value: s.eol ?? 0 }, { label: '在途上市', value: d.activeLaunches ?? 0 },
+    ]; }
+    case 'competitive': return (d.shareOfVoice || []).slice(0, 4).map((s: any) => ({ label: s.competitor, value: `${(Number(s.share) * 100).toFixed(0)}%` }));
+    case 'mroi': return [
+      { label: 'MROI', value: d.mroi != null ? `${Number(d.mroi).toFixed(2)}×` : '—', accent: true }, { label: '花费', value: yuan(d.spend) }, { label: '归因收入', value: yuan(d.attributedRevenue) },
+    ];
+    case 'teamOkr': return (d.byLevel || []).map((b: any) => ({ label: b.level, value: `${(Number(b.avgProgress) * 100).toFixed(0)}%` }));
+    case 'riskAlerts': return [
+      { label: '定价毛利闸告警', value: d.pricingMarginGateFail ?? 0, accent: (d.pricingMarginGateFail ?? 0) > 0 },
+      { label: '返利毛利闸告警', value: d.rebateMarginGateFail ?? 0, accent: (d.rebateMarginGateFail ?? 0) > 0 },
+      { label: '内容审核积压', value: d.contentReviewBacklog ?? 0 },
+    ];
+    default: return [];
+  }
+}
+
 export default function CmoCockpitPage() {
   const [bu, setBu] = useState<{ buType?: string; buId?: string }>({});
   const scopes = readScopes();
@@ -43,7 +83,7 @@ export default function CmoCockpitPage() {
   const { data, error, isLoading, mutate } = useSWR<CmoDashboard>(key, () => cockpit.cmo(bu));
 
   return (
-    <>
+    <div className="page-container">
       <PageHeader
         title="CMO 营销管理驾驶舱"
         subtitle="经营层总舵 · 九屏聚合 · 按事业部切片 —— 一套真实度量源，不造虚荣数（基座4）"
@@ -94,17 +134,26 @@ export default function CmoCockpitPage() {
                 </div>
                 {todo ? (
                   <p className="t-xs" style={{ color: 'var(--t-tertiary)', margin: 0 }}>{panel?.note}</p>
-                ) : (
-                  <pre className="t-num" style={{ color: 'var(--t-secondary)', fontSize: 11, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 168, overflow: 'auto', flex: 1 }}>
-                    {panel?.data ? JSON.stringify(panel.data, null, 2).slice(0, 900) : '（暂无数据）'}
-                  </pre>
-                )}
+                ) : (() => {
+                  const stats = panelStats(k, panel?.data);
+                  if (!stats.length) return <p className="t-xs" style={{ color: 'var(--t-tertiary)', margin: 0 }}>（暂无数据）</p>;
+                  return (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, flex: 1, alignContent: 'flex-start' }}>
+                      {stats.map((s, i) => (
+                        <div key={i} style={{ minWidth: 72 }}>
+                          <div className="t-num" style={{ fontSize: 20, fontWeight: 700, color: s.accent ? 'var(--brand)' : 'var(--t-strong)', lineHeight: 1.2 }}>{s.value}</div>
+                          <div className="t-xs" style={{ color: 'var(--t-tertiary)', marginTop: 2 }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {panel?.source && <div className="t-xs" style={{ marginTop: 8, color: 'var(--t-tertiary)', opacity: 0.7 }}>源：{panel.source}</div>}
               </div>
             );
           })}
         </div>
       </AsyncBoundary>
-    </>
+    </div>
   );
 }
