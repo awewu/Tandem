@@ -592,14 +592,18 @@ button { cursor:pointer; }
 .ph p  { font-size:13px; color:var(--t-secondary); margin-top:3px; }
 
 /* ── Card Elevated (Tandem card-elevated) ── */
+/* 去豆腐块：顶层区块无框透明,作为白色整页上的连续分区（结构靠区块标题 + 间距;
+   相邻区块之间加一条发丝分隔线区隔）。表格/.inset 等内层元素仍保留描边。 */
 .card-elevated {
-  background:var(--surface-1);
-  border:1px solid var(--border);
-  border-radius:var(--r-lg);
+  background:transparent;
+  border:none;
+  border-radius:0;
   box-shadow:none;
   transition:box-shadow 200ms cubic-bezier(0.4,0,0.2,1), transform 100ms cubic-bezier(0.4,0,0.2,1);
 }
 .card-elevated:hover { box-shadow:none; }
+/* 同一栈中相邻顶层区块之间的分隔线（避免完全无界限、丧失可扫描性） */
+.card-elevated + .card-elevated { border-top:1px solid var(--border); padding-top:var(--s6); margin-top:var(--s2); }
 .surface-card {
   background:var(--surface-1);
   border:1px solid var(--border);
