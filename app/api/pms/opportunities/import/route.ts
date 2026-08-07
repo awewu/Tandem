@@ -2,7 +2,7 @@
  * PMS API · 商机批量导入
  *
  * POST /api/pms/opportunities/import
- * body: { rows: ImportRow[], defaultDealerOrgId?: string }
+ * body: { rows: ImportRow[], defaultDealerOrgId?: string, skipDuplicateCheck?: boolean }
  *
  * 逐行调用 createOpportunity(含五维查重), 返回每行回执:
  *   status: 'created' | 'duplicate' | 'error'
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const rows = body.rows as ImportRow[] | undefined;
     const defaultDealerOrgId = typeof body.defaultDealerOrgId === 'string' ? body.defaultDealerOrgId.trim() : '';
+    const skipDuplicateCheck = body.skipDuplicateCheck === true;
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ error: '缺少导入数据 (rows)' }, { status: 400 });
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
           orgId: resolvedOrgId,
           dealerOrgId: resolvedDealerOrgId,
           reporterId: auth.userId,
+          bypassDuplicateCheck: skipDuplicateCheck,
           customerName,
           projectName,
           customerIndustry: (row.customerIndustry || '').trim() || undefined,

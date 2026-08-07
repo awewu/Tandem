@@ -188,6 +188,48 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     expect(checks.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('删除疑似商机后，剩余商机的疑似标记会自动清除', async () => {
+    const first = await createOpportunity(baseOppInput({
+      customerName: '广州星光酒店管理有限公司',
+      projectName: '星光酒店空调改造项目',
+    }));
+    const second = await createOpportunity(baseOppInput({
+      reporterId: 'itest_user_2',
+      bypassDuplicateCheck: true,
+      customerName: '广州星光酒店管理有限公司',
+      projectName: '星光酒店空调改造项目',
+    }));
+
+    expect(first.opportunity).toBeDefined();
+    expect(second.opportunity).toBeDefined();
+
+    await db.insert(pmsDuplicateChecks).values({
+      id: 'itest_dup_check_refresh',
+      tenantId: TEST_TENANT,
+      opportunityId: first.opportunity!.id,
+      duplicateOpportunityId: second.opportunity!.id,
+      similarityScore: '0.88',
+      dimensions: ['customerName', 'projectName'],
+      status: 'warning',
+      resolvedBy: null,
+      resolvedAt: null,
+      createdAt: new Date(),
+    });
+    await db
+      .update(pmsOpportunities)
+      .set({ duplicateStatus: 'questioned' })
+      .where(eq(pmsOpportunities.id, first.opportunity!.id));
+    await db
+      .update(pmsOpportunities)
+      .set({ duplicateStatus: 'questioned' })
+      .where(eq(pmsOpportunities.id, second.opportunity!.id));
+
+    await archiveOpportunity(first.opportunity!.id, TEST_TENANT);
+
+    const remaining = (await getOpportunity(second.opportunity!.id, TEST_TENANT))!;
+    expect(remaining.duplicateStatus).toBeUndefined();
+  });
+
   it('智能查重: 完全无关的报备判 pass', async () => {
     await createOpportunity(baseOppInput());
     const res = await checkDuplicate({

@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
         offset: page.offset,
         hasMore: page.hasMore,
       },
+      duplicateStats: page.duplicateStats,
     });
   } catch (error: any) {
     console.error('List opportunities error:', error);

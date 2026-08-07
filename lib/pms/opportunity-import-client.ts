@@ -104,33 +104,6 @@ function nonemptyRows(rows: ImportRow[]): ImportEntry[] {
     .filter(({ row }) => row.customerName || row.projectName);
 }
 
-function exactDuplicateKey(row: ImportRow): string {
-  return [
-    normalizeKeyPart(row.customerName),
-    normalizeKeyPart(row.customerAddress),
-    normalizeKeyPart(row.projectName),
-  ].join('|');
-}
-
-function customerPhoneKey(row: ImportRow): string {
-  return [
-    normalizeKeyPart(row.customerName),
-    normalizePhone(row.customerPhone),
-  ].join('|');
-}
-
-function groupByKey(entries: ImportEntry[], keyOf: (row: ImportRow) => string): ImportEntry[][] {
-  const groups = new Map<string, ImportEntry[]>();
-  for (const entry of entries) {
-    const key = keyOf(entry.row);
-    if (!key || key === '|') continue;
-    const group = groups.get(key) || [];
-    group.push(entry);
-    groups.set(key, group);
-  }
-  return Array.from(groups.values()).filter((group) => group.length > 1);
-}
-
 function analyzeOpportunityImportEntries(rows: ImportRow[]): {
   preflight: ImportPreflight;
   importableEntries: ImportEntry[];
@@ -144,60 +117,16 @@ function analyzeOpportunityImportEntries(rows: ImportRow[]): {
     }));
   const invalidRows = new Set(validationIssues.map((issue) => issue.row));
   const validEntries = entries.filter((entry) => !invalidRows.has(entry.rowNumber));
-  const duplicateRows = new Map<number, ImportIssue>();
-
-  const exactGroups = groupByKey(validEntries, exactDuplicateKey).map((group) => {
-    const first = group[0];
-    for (const duplicate of group.slice(1)) {
-      duplicateRows.set(duplicate.rowNumber, {
-        row: duplicate.rowNumber,
-        reason: `文件内重复: 与第 ${first.rowNumber} 行客户/地址/项目相同，已跳过`,
-      });
-    }
-    return {
-      type: 'exact' as const,
-      reason: '客户名称、客户地址、项目名称完全相同',
-      rows: group.map((entry) => entry.rowNumber),
-      customerName: first.row.customerName,
-      projectName: first.row.projectName,
-      customerAddress: first.row.customerAddress,
-      customerPhone: first.row.customerPhone,
-    };
-  });
-
-  const phoneGroups = groupByKey(
-    validEntries.filter(({ row }) => normalizePhone(row.customerPhone)),
-    customerPhoneKey,
-  ).map((group) => {
-    const first = group[0];
-    for (const duplicate of group.slice(1)) {
-      if (!duplicateRows.has(duplicate.rowNumber)) {
-        duplicateRows.set(duplicate.rowNumber, {
-          row: duplicate.rowNumber,
-          reason: `撞单风险: 与第 ${first.rowNumber} 行客户名称和电话相同，系统会判为重复，已跳过`,
-        });
-      }
-    }
-    return {
-      type: 'same_customer_phone' as const,
-      reason: '客户名称和客户电话相同，按系统查重规则会被判为撞单',
-      rows: group.map((entry) => entry.rowNumber),
-      customerName: first.row.customerName,
-      customerPhone: first.row.customerPhone,
-    };
-  });
-
-  const duplicateIssues = Array.from(duplicateRows.values()).sort((a, b) => a.row - b.row);
-  const duplicateRowNumbers = new Set(duplicateIssues.map((issue) => issue.row));
-  const importableEntries = validEntries.filter((entry) => !duplicateRowNumbers.has(entry.rowNumber));
+  const duplicateIssues: ImportIssue[] = [];
+  const importableEntries = validEntries;
 
   return {
     preflight: {
       total: entries.length,
       importable: importableEntries.length,
-      duplicate: duplicateIssues.length,
+      duplicate: 0,
       failed: validationIssues.length,
-      duplicateGroups: [...exactGroups, ...phoneGroups].sort((a, b) => b.rows.length - a.rows.length),
+      duplicateGroups: [],
       duplicateIssues,
       validationIssues,
     },
@@ -279,11 +208,9 @@ export async function preflightOpportunityImportRows(
   fetcher: typeof fetch = fetch,
   options: { batchSize?: number } = {},
 ): Promise<ImportPreflight> {
-  const local = analyzeOpportunityImportEntries(rows);
-  const batchSize = Math.max(1, Math.min(options.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE));
-  if (local.importableEntries.length === 0) return local.preflight;
-  const serverResults = await preflightServerDuplicates(local.importableEntries, fetcher, batchSize);
-  return mergePreflightWithServerDuplicates(local, serverResults).preflight;
+  void fetcher;
+  void options;
+  return analyzeOpportunityImportEntries(rows).preflight;
 }
 
 export async function importOpportunityRows(
@@ -296,10 +223,8 @@ export async function importOpportunityRows(
 ): Promise<ImportResult> {
   const local = analyzeOpportunityImportEntries(rows);
   const batchSize = Math.max(1, Math.min(options.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE));
-  const serverResults = local.importableEntries.length > 0
-    ? await preflightServerDuplicates(local.importableEntries, fetcher, batchSize)
-    : [];
-  const { preflight, importableEntries } = mergePreflightWithServerDuplicates(local, serverResults);
+  const preflight = local.preflight;
+  const importableEntries = local.importableEntries;
   if (preflight.total === 0) {
     return { total: 0, success: 0, duplicate: 0, failed: [], notices: [] };
   }
@@ -319,7 +244,7 @@ export async function importOpportunityRows(
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows: batchEntries.map((entry) => entry.row) }),
+      body: JSON.stringify({ rows: batchEntries.map((entry) => entry.row), skipDuplicateCheck: true }),
     });
     const data = await res.json().catch(() => null) as ImportApiResult | null;
 

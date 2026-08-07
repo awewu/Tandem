@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PMS · 商机管理主页
  */
 
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Search, Filter, Upload, Download } from 'lucide-react';
+import { Plus, Search, Filter, Upload, Download, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   analyzeOpportunityImportRows,
   importOpportunityRows,
@@ -37,6 +37,10 @@ interface Opportunity {
   estimatedAmount: number;
   dealerOrgId: string;
   createdAt: string;
+  duplicateStatus?: string;
+  duplicateGroupSize?: number;
+  duplicatePeerIds?: string[];
+  isDuplicateNow?: boolean;
   contactName?: string;
   contactTitle?: string;
   leadSource?: string;
@@ -371,6 +375,8 @@ export default function PMSPage() {
   const [databasePreflight, setDatabasePreflight] = useState<ImportPreflight | null>(null);
   const [preflightChecking, setPreflightChecking] = useState(false);
   const [preflightPage, setPreflightPage] = useState(1);
+  const [rebuildingDuplicates, setRebuildingDuplicates] = useState(false);
+  const [rebuildProgress, setRebuildProgress] = useState<string | null>(null);
   const localImportPreflight = useMemo(() => analyzeOpportunityImportRows(importRows), [importRows]);
   const importPreflight = databasePreflight || localImportPreflight;
   const duplicatePageSize = 3;
@@ -518,6 +524,40 @@ export default function PMSPage() {
     }
   }
 
+  async function handleRebuildDuplicateFlags() {
+    if (!window.confirm('确定要重建历史疑似撞库标记吗？')) return;
+    setRebuildingDuplicates(true);
+    setRebuildProgress('准备重建...');
+    try {
+      const batchSize = 50;
+      let offset = 0;
+      let total = 0;
+      while (true) {
+        const res = await fetch('/api/pms/opportunities/duplicate-backfill', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: batchSize, offset }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || '重建失败');
+        }
+        total = data.result?.total ?? total;
+        offset = data.result?.nextOffset ?? (offset + (data.result?.processed ?? 0));
+        setRebuildProgress(`已处理 ${offset}${total ? ` / ${total}` : ''} 条`);
+        if (data.result?.done) break;
+        if ((data.result?.processed ?? 0) === 0) break;
+      }
+      setRebuildProgress('重建完成');
+      await loadOpportunities(currentPage);
+    } catch (err: any) {
+      setRebuildProgress(err.message || '重建失败');
+    } finally {
+      setRebuildingDuplicates(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -559,6 +599,14 @@ export default function PMSPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            onClick={() => void handleRebuildDuplicateFlags()}
+            disabled={rebuildingDuplicates}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${rebuildingDuplicates ? 'animate-spin' : ''}`} />
+            {rebuildingDuplicates ? '重建中' : '重建疑似撞库'}
+          </Button>
+          <Button
+            variant="outline"
             onClick={openImportDialog}
             className="rounded-2xl"
           >
@@ -574,6 +622,11 @@ export default function PMSPage() {
           </Button>
         </div>
       </div>
+      {rebuildProgress && (
+        <div className="mb-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-caption text-ink-secondary">
+          {rebuildProgress}
+        </div>
+      )}
 
       <Card className="mb-6">
         <CardContent className="p-4">
@@ -633,9 +686,19 @@ export default function PMSPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="text-headline font-semibold text-ink-primary">
-                      {opp.customerName}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-headline font-semibold text-ink-primary">
+                        {opp.customerName}
+                      </h3>
+                      {opp.isDuplicateNow && opp.duplicateStatus !== 'resolved' && (
+                        <span
+                          className="inline-flex items-center justify-center rounded-full border border-danger/20 bg-danger/10 p-1 text-danger"
+                          title={`疑似重复，待人工核验 · 当前组 ${opp.duplicateGroupSize || 0} 条`}
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </div>
                     <p className="text-body text-ink-secondary mt-1">
                       {opp.projectName}
                     </p>
@@ -773,8 +836,8 @@ export default function PMSPage() {
 
             {importPreflight.total > 0 && (
               <div className={`rounded-lg border px-3 py-2 text-caption ${importPreflight.duplicate > 0 || importPreflight.failed > 0 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-success/30 bg-success/10 text-success'}`}>
-                已读取 {importPreflight.total} 条，可导入 {importPreflight.importable} 条，撞单跳过 {importPreflight.duplicate} 条，缺必填 {importPreflight.failed} 条。
-                {preflightChecking && <span className="ml-2 text-ink-secondary">正在和数据库比对...</span>}
+                已读取 {importPreflight.total} 条，可导入 {importPreflight.importable} 条，重复行 {importPreflight.duplicate} 条，缺必填 {importPreflight.failed} 条。
+                {preflightChecking && <span className="ml-2 text-ink-secondary">正在分析导入数据...</span>}
                 {importPreflight.duplicateGroups.length > 0 && (
                   <div className="mt-2 grid gap-2 text-ink-secondary">
                     {visibleDuplicateGroups.map((group, index) => {
@@ -837,7 +900,7 @@ export default function PMSPage() {
               <div className={`rounded-lg border px-3 py-2 text-caption ${importResult.failed.length > 0 || importResult.duplicate > 0 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-success/30 bg-success/10 text-success'}`}>
                 <div className="font-medium">导入完成</div>
                 <div className="mt-1">
-                  已处理 {importResult.total} 条，成功 {importResult.success} 条，撞单跳过 {importResult.duplicate} 条，失败 {importResult.failed.length} 条。
+                  已处理 {importResult.total} 条，成功 {importResult.success} 条，重复跳过 {importResult.duplicate} 条，失败 {importResult.failed.length} 条。
                 </div>
                 {(importResult.notices.length > 0 || importResult.failed.length > 0) && (
                   <div className="mt-1 text-ink-secondary">
@@ -870,7 +933,7 @@ export default function PMSPage() {
                 disabled={importing || preflightChecking || importRows.length === 0 || importPreflight.importable === 0}
                 className="bg-brand-500 hover:bg-brand-600"
               >
-                {importing ? '导入中...' : preflightChecking ? '比对中...' : importPreflight.importable > 0 ? `导入 ${importPreflight.importable} 条` : '导入'}
+                {importing ? '导入中...' : preflightChecking ? '分析中...' : importPreflight.importable > 0 ? `导入 ${importPreflight.importable} 条` : '导入'}
               </Button>
             )}
           </DialogFooter>

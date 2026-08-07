@@ -8,10 +8,18 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Edit, Trash2, MessageSquare, Save, X, Waves, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, MessageSquare, Save, X, Waves, FileText, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 // L2C 商机阶段漏斗 (有序 — 支持推进到后续节点)
 const STAGES: Array<{ value: string; label: string }> = [
@@ -78,6 +86,10 @@ export default function OpportunityDetailPage() {
   const [savingField, setSavingField] = useState<'stage' | 'status' | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [duplicateReviewOpen, setDuplicateReviewOpen] = useState(false);
+  const [duplicateReviewDecision, setDuplicateReviewDecision] = useState<'duplicate' | 'not_duplicate'>('duplicate');
+  const [duplicateReviewNote, setDuplicateReviewNote] = useState('');
+  const [submittingDuplicateReview, setSubmittingDuplicateReview] = useState(false);
 
   useEffect(() => {
     loadOpportunity();
@@ -281,6 +293,33 @@ export default function OpportunityDetailPage() {
     }
   }
 
+  async function handleSubmitDuplicateReview(decision: 'duplicate' | 'not_duplicate') {
+    setSubmittingDuplicateReview(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/pms/opportunities/${id}/duplicate-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          decision,
+          note: duplicateReviewNote.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || '上传核验结果失败');
+      }
+      setDuplicateReviewOpen(false);
+      setDuplicateReviewNote('');
+      await loadOpportunity();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setSubmittingDuplicateReview(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -329,6 +368,18 @@ export default function OpportunityDetailPage() {
             <p className="text-body text-ink-secondary mt-1">
               {opportunity.projectName}
             </p>
+            {opportunity.isDuplicateNow && opportunity.duplicateStatus !== 'resolved' && (
+              <span className="inline-flex items-center gap-1 mt-2 rounded-full border border-danger/20 bg-danger/10 px-2.5 py-1 text-caption text-danger">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                疑似重复，待人工核验
+              </span>
+            )}
+            {opportunity.duplicateStatus === 'resolved' && (
+              <span className="inline-flex items-center gap-1 mt-2 rounded-full border border-success/20 bg-success/10 px-2.5 py-1 text-caption text-success">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                已上传核验结果
+              </span>
+            )}
             {opportunity.reviewStatus && REVIEW_META[opportunity.reviewStatus] && (
               <span className={`inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-caption ${REVIEW_META[opportunity.reviewStatus].cls}`}>
                 报备{REVIEW_META[opportunity.reviewStatus].label}
@@ -355,6 +406,16 @@ export default function OpportunityDetailPage() {
               </>
             ) : (
               <>
+                {opportunity.isDuplicateNow && opportunity.duplicateStatus !== 'resolved' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDuplicateReviewOpen(true)}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    上传核验结果
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -690,6 +751,55 @@ export default function OpportunityDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={duplicateReviewOpen} onOpenChange={setDuplicateReviewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>上传疑似重复核验结果</DialogTitle>
+            <DialogDescription>
+              请选择人工核验结果。提交后会写入重复核验记录，并将当前商机标记为已核验。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <Textarea
+              value={duplicateReviewNote}
+              onChange={(e) => setDuplicateReviewNote(e.target.value)}
+              placeholder="填写核验说明，例如：与 XX 项目确认非重复，或已确认与现有商机重复。"
+              rows={4}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={duplicateReviewDecision === 'duplicate' ? 'default' : 'outline'}
+                onClick={() => setDuplicateReviewDecision('duplicate')}
+                className={duplicateReviewDecision === 'duplicate' ? 'bg-brand-500 hover:bg-brand-600' : ''}
+              >
+                判定重复
+              </Button>
+              <Button
+                type="button"
+                variant={duplicateReviewDecision === 'not_duplicate' ? 'default' : 'outline'}
+                onClick={() => setDuplicateReviewDecision('not_duplicate')}
+                className={duplicateReviewDecision === 'not_duplicate' ? 'bg-brand-500 hover:bg-brand-600' : ''}
+              >
+                判定非重复
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDuplicateReviewOpen(false)} disabled={submittingDuplicateReview}>
+              取消
+            </Button>
+            <Button
+              onClick={() => void handleSubmitDuplicateReview(duplicateReviewDecision)}
+              disabled={submittingDuplicateReview}
+              className="bg-brand-500 hover:bg-brand-600"
+            >
+              {submittingDuplicateReview ? '提交中...' : '上传结果'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

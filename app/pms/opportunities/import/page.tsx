@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PMS · 商机批量导入
  * 支持粘贴 (Excel 复制) 或上传 CSV → 解析预览 → 逐行查重导入 → 结果回执。
  */
@@ -174,7 +174,7 @@ export default function ImportOpportunitiesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ rows, defaultDealerOrgId: defaultDealerOrgId.trim() || undefined }),
+        body: JSON.stringify({ rows, defaultDealerOrgId: defaultDealerOrgId.trim() || undefined, skipDuplicateCheck: true }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '导入失败');
@@ -198,7 +198,7 @@ export default function ImportOpportunitiesPage() {
           批量导入商机
         </h1>
         <p className="text-body text-ink-secondary mt-1">
-          从 Excel 复制粘贴，或上传 Excel(.xlsx/.xls)/CSV 文件，系统逐行自动查重后导入。前两列（客户名称、项目名称）必填。
+          从 Excel 复制粘贴，或上传 Excel(.xlsx/.xls)/CSV 文件，当前仅做必填校验后导入，不再自动拦截重复行。前两列（客户名称、项目名称）必填。
         </p>
       </div>
 
@@ -294,7 +294,7 @@ export default function ImportOpportunitiesPage() {
           <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-4">
               <span className="inline-flex items-center gap-1 text-success"><CheckCircle2 className="w-4 h-4" /> 成功 {results.summary.created}</span>
-              <span className="inline-flex items-center gap-1 text-warning"><AlertTriangle className="w-4 h-4" /> 撞单跳过 {results.summary.duplicate}</span>
+              <span className="inline-flex items-center gap-1 text-warning"><AlertTriangle className="w-4 h-4" /> 重复跳过 {results.summary.duplicate}</span>
               <span className="inline-flex items-center gap-1 text-danger"><XCircle className="w-4 h-4" /> 失败 {results.summary.error}</span>
               <span className="text-ink-tertiary">共 {results.summary.total} 行</span>
             </div>
@@ -318,7 +318,7 @@ export default function ImportOpportunitiesPage() {
                         {r.status === 'created' && r.id ? (
                           <a href={`/pms/opportunities/${r.id}`} className="text-success hover:underline">已创建 →</a>
                         ) : r.status === 'duplicate' ? (
-                          <span className="text-warning">{r.message || '撞单跳过'}</span>
+                          <span className="text-warning">{r.message || '重复跳过'}</span>
                         ) : (
                           <span className="text-danger">{r.message || '失败'}</span>
                         )}

@@ -7,6 +7,7 @@ import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import {
   getOpportunity,
+  getOpportunityWithLiveDuplicateState,
   updateOpportunity,
   archiveOpportunity,
 } from '@/lib/pms/opportunity-service';
@@ -67,7 +68,7 @@ export async function GET(
     const { id } = await params;
     const visibleOrgIds = auth.isInternal ? undefined : auth.visibleOrgIds;
     
-    const opportunity = await getOpportunity(id, auth.tenantId, visibleOrgIds);
+    const opportunity = await getOpportunityWithLiveDuplicateState(id, auth.tenantId, visibleOrgIds);
     
     if (!opportunity) {
       return NextResponse.json(

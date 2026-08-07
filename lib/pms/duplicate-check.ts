@@ -6,7 +6,7 @@
 import { nanoid } from 'nanoid';
 import { db } from '../infra/drizzle-client';
 import { pmsOpportunities, pmsDuplicateChecks } from '../infra/drizzle-schema';
-import { eq, and, gte, isNull } from 'drizzle-orm';
+import { eq, and, gte, isNull, sql } from 'drizzle-orm';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
 import { logger } from '../infra/logger';
 
@@ -156,6 +156,7 @@ export async function checkDuplicate(input: {
   customerAddress?: string;
   customerPhone?: string;
   projectName: string;
+  excludeOpportunityId?: string;
 }): Promise<{
   status: 'pass' | 'suspect' | 'warning' | 'duplicate';
   matchedOpportunities: string[];
@@ -176,7 +177,8 @@ export async function checkDuplicate(input: {
       eq(pmsOpportunities.tenantId, input.tenantId),
       eq(pmsOpportunities.status, 'active'),
       gte(pmsOpportunities.createdAt, ninetyDaysAgo),
-      isNull(pmsOpportunities.archivedAt)
+      isNull(pmsOpportunities.archivedAt),
+      input.excludeOpportunityId ? sql`${pmsOpportunities.id} <> ${input.excludeOpportunityId}` : sql`true`
     ));
   
   // 1.5 语义层 (fail-soft): embedding 可用时对"客户名+项目名"做语义相似,
