@@ -306,7 +306,7 @@ export default function DealerNav() {
                     borderRadius: 8,
                     margin: '1px auto',
                     color: active ? '#fff' : 'rgba(255,255,255,0.52)',
-                    background: active ? 'rgba(228,0,43,0.22)' : 'transparent',
+                    background: active ? 'rgba(200,32,44,0.22)' : 'transparent',
                     transition: 'all 0.12s',
                     textDecoration: 'none',
                     flexShrink: 0,
@@ -401,7 +401,7 @@ export default function DealerNav() {
           color: rgba(255,255,255,0.85) !important;
         }
         .sidebar nav a[aria-current="page"]:hover {
-          background: rgba(228,0,43,0.26) !important;
+          background: rgba(200,32,44,0.26) !important;
           color: #fff !important;
         }
       `}</style>

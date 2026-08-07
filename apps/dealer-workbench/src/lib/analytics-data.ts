@@ -23,14 +23,14 @@ export const FUNNEL: FunnelStep[] = [
 ];
 
 export const CHANNELS: Slice[] = [
-  { label: '瑞诺瓦AI问诊', value: 42, color: '#E4002B' },
+  { label: '瑞诺瓦AI问诊', value: 42, color: '#C8202C' },
   { label: '老客户转介绍', value: 28, color: '#16a34a' },
   { label: '线下展厅',     value: 18, color: '#2563eb' },
   { label: '官网/线上',    value: 12, color: '#d97706' },
 ];
 
 export const CITIES: Slice[] = [
-  { label: '上海', value: 35, color: '#E4002B' },
+  { label: '上海', value: 35, color: '#C8202C' },
   { label: '杭州', value: 22, color: '#2563eb' },
   { label: '成都', value: 20, color: '#16a34a' },
   { label: '苏州', value: 13, color: '#d97706' },
@@ -38,7 +38,7 @@ export const CITIES: Slice[] = [
 ];
 
 export const PRODUCT_MIX: Slice[] = [
-  { label: '地源热泵',   value: 40, color: '#E4002B' },
+  { label: '地源热泵',   value: 40, color: '#C8202C' },
   { label: '地暖热泵',   value: 28, color: '#2563eb' },
   { label: '新风系统',   value: 20, color: '#16a34a' },
   { label: 'Econet控制', value: 12, color: '#9ca3af' },

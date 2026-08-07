@@ -2664,7 +2664,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           height: 42px;
           display: inline-grid;
           place-items: center;
-          border: 1px solid rgba(228, 0, 43, 0.22);
+          border: 1px solid rgba(200, 32, 44, 0.22);
           border-radius: 999px;
           background: var(--brand);
           color: #fff;
@@ -2687,7 +2687,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           box-shadow: 0 16px 34px rgba(15, 23, 42, 0.24);
         }
         .brand-console-backtop:focus-visible {
-          outline: 3px solid rgba(228, 0, 43, 0.24);
+          outline: 3px solid rgba(200, 32, 44, 0.24);
           outline-offset: 3px;
         }
         .brand-console-notice {
@@ -3074,7 +3074,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .site-inquiry-date-input:hover,
         .site-inquiry-date-input.is-open,
         .site-inquiry-date-input:focus-visible {
-          border-color: rgba(228, 0, 43, 0.34);
+          border-color: rgba(200, 32, 44, 0.34);
           background: #fff;
           outline: none;
         }
@@ -3114,7 +3114,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           line-height: 1;
         }
         .site-inquiry-calendar-nav:hover {
-          border-color: rgba(228, 0, 43, 0.3);
+          border-color: rgba(200, 32, 44, 0.3);
           color: var(--brand);
           background: var(--brand-soft);
         }
@@ -3147,19 +3147,19 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           font-weight: 700;
         }
         .site-inquiry-calendar-day:hover {
-          border-color: rgba(228, 0, 43, 0.25);
+          border-color: rgba(200, 32, 44, 0.25);
           background: var(--brand-soft);
           color: var(--brand);
         }
         .site-inquiry-calendar-day.is-today {
-          border-color: rgba(228, 0, 43, 0.38);
+          border-color: rgba(200, 32, 44, 0.38);
           color: var(--brand);
         }
         .site-inquiry-calendar-day.is-selected {
           border-color: var(--brand);
           background: var(--brand);
           color: #fff;
-          box-shadow: 0 8px 16px rgba(228, 0, 43, 0.22);
+          box-shadow: 0 8px 16px rgba(200, 32, 44, 0.22);
         }
         .site-inquiry-calendar-day:disabled {
           cursor: not-allowed;
@@ -3305,7 +3305,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .category-filter-trigger.is-open {
           border-color: var(--brand);
-          box-shadow: 0 0 0 2px rgba(228, 0, 43, 0.08);
+          box-shadow: 0 0 0 2px rgba(200, 32, 44, 0.08);
         }
         .category-filter-menu {
           position: absolute;
@@ -3631,7 +3631,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           width: fit-content;
           padding: 4px 8px;
           border-radius: 999px;
-          background: rgba(228, 0, 43, 0.08);
+          background: rgba(200, 32, 44, 0.08);
           color: var(--brand-500);
           font-size: 12px;
           font-weight: 700;
@@ -3817,7 +3817,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           min-width: 0;
         }
         .site-basic-image-preview.is-error {
-          border-color: rgba(228, 0, 43, .32);
+          border-color: rgba(200, 32, 44, .32);
           background: #fff5f6;
         }
         .site-basic-image-purpose {
@@ -3924,7 +3924,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           display: grid;
           gap: 14px;
           padding: 16px;
-          border: 1px solid rgba(228, 0, 43, 0.14);
+          border: 1px solid rgba(200, 32, 44, 0.14);
           border-radius: 10px;
           background: #fff;
           box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
@@ -3980,7 +3980,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           transition: background .15s, opacity .15s;
         }
         .hero-carousel-table tbody tr:hover {
-          background: rgba(228, 0, 43, .035);
+          background: rgba(200, 32, 44, .035);
         }
         .hero-carousel-table tbody tr.is-dragging {
           opacity: .56;
@@ -4014,7 +4014,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           cursor: zoom-in;
         }
         .hero-carousel-thumb-button:focus-visible {
-          outline: 3px solid rgba(228, 0, 43, .16);
+          outline: 3px solid rgba(200, 32, 44, .16);
           outline-offset: 2px;
         }
         .hero-carousel-file {
@@ -4057,8 +4057,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .hero-carousel-link-control:focus-within,
         .hero-carousel-order:focus,
         .hero-carousel-remark:focus {
-          border-color: rgba(228, 0, 43, .42);
-          box-shadow: 0 0 0 3px rgba(228, 0, 43, .08);
+          border-color: rgba(200, 32, 44, .42);
+          box-shadow: 0 0 0 3px rgba(200, 32, 44, .08);
           outline: none;
         }
         .hero-carousel-link-control input {
@@ -4194,7 +4194,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           transition: background .15s, opacity .15s;
         }
         .hero-carousel-card:hover {
-          background: rgba(228, 0, 43, .035);
+          background: rgba(200, 32, 44, .035);
         }
         .hero-carousel-card.is-dragging {
           opacity: .56;
@@ -4619,7 +4619,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .site-news-richtext-editor img.is-selected {
           border-color: var(--brand);
-          box-shadow: 0 0 0 3px rgba(228, 0, 43, 0.14);
+          box-shadow: 0 0 0 3px rgba(200, 32, 44, 0.14);
         }
         .site-news-detail-preview-content figcaption,
         .site-news-richtext-editor figcaption {
@@ -4638,7 +4638,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .site-news-richtext:focus-within {
           border-color: var(--brand);
-          box-shadow: 0 0 0 3px rgba(228, 0, 43, 0.14);
+          box-shadow: 0 0 0 3px rgba(200, 32, 44, 0.14);
         }
         .site-news-richtext-toolbar {
           display: flex;
@@ -4697,7 +4697,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           color: var(--brand);
           border-color: var(--brand-100);
           background: var(--brand-50);
-          box-shadow: inset 0 0 0 1px rgba(228, 0, 43, 0.14);
+          box-shadow: inset 0 0 0 1px rgba(200, 32, 44, 0.14);
         }
         .site-news-richtext-select {
           min-height: 30px;
@@ -4809,7 +4809,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           box-shadow: var(--sh-lg);
         }
         .floating-dialog-card.is-danger {
-          border-color: rgba(228, 0, 43, .28);
+          border-color: rgba(200, 32, 44, .28);
         }
         .floating-dialog-head,
         .floating-dialog-actions {
@@ -4978,7 +4978,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           cursor: pointer;
         }
         .product-manual-pdf-remove:hover:not(:disabled) {
-          background: rgba(228, 0, 43, 0.1);
+          background: rgba(200, 32, 44, 0.1);
           color: var(--brand);
         }
         .product-manual-pdf-remove:disabled {
@@ -5315,7 +5315,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           border-color: var(--brand);
           background: var(--brand-soft);
           color: var(--brand);
-          box-shadow: 0 8px 22px rgba(228, 0, 43, 0.12);
+          box-shadow: 0 8px 22px rgba(200, 32, 44, 0.12);
           cursor: progress;
           animation: shelfActionPulse 0.8s ease-in-out infinite alternate;
         }
@@ -5328,7 +5328,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           background: var(--brand-soft);
           color: var(--brand);
           cursor: progress;
-          box-shadow: 0 8px 22px rgba(228, 0, 43, 0.1);
+          box-shadow: 0 8px 22px rgba(200, 32, 44, 0.1);
           animation: shelfActionPulse 0.8s ease-in-out infinite alternate;
         }
         @keyframes shelfActionPulse {

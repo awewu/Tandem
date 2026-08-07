@@ -65,8 +65,8 @@ export default function CockpitPage() {
               return (
                 <span key={c.channel} className="t-xs" style={{
                   padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap',
-                  background: isGeo ? 'rgba(228,0,43,0.08)' : 'var(--surface-2, #F3F4F6)',
-                  color: isGeo ? '#E4002B' : 'var(--t-secondary, #6B7280)',
+                  background: isGeo ? 'rgba(200,32,44,0.08)' : 'var(--surface-2, #F3F4F6)',
+                  color: isGeo ? '#C8202C' : 'var(--t-secondary, #6B7280)',
                   fontWeight: isGeo ? 700 : 500,
                 }}>{c.label} {c.count}{isGeo ? ' · GEO' : ''}</span>
               );

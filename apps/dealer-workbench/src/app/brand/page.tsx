@@ -24,7 +24,7 @@ const HERO_SLIDES: HeroSlide[] = [
     eyebrow: '品牌中心',
     title: '瑞合瑞德 · 经销商品牌协同平台',
     subtitle: '活动参与 · 培训认证 · 返点追踪 · 物料下载 — 一站直达',
-    bgGradient: 'linear-gradient(135deg, #1F1F1F 0%, #680014 58%, #E4002B 100%)',
+    bgGradient: 'linear-gradient(135deg, #1F1F1F 0%, #680014 58%, #C8202C 100%)',
     href: '/brand',
     badge: 'Rheem Partner',
   },
@@ -34,7 +34,7 @@ const HERO_SLIDES: HeroSlide[] = [
     title: c.title,
     subtitle: c.incentive,
     bgGradient: i === 0
-      ? 'linear-gradient(135deg, #1F1F1F 0%, #8F001B 62%, #E4002B 100%)'
+      ? 'linear-gradient(135deg, #1F1F1F 0%, #8F001B 62%, #C8202C 100%)'
       : 'linear-gradient(135deg, #101828 0%, #680014 60%, #B80023 100%)',
     href: '/brand',
     badge: c.status,
@@ -68,7 +68,7 @@ export default function BrandPage() {
     eyebrow: 'Rheem 品牌动态',
     title: n.title,
     subtitle: n.date || '',
-    bgGradient: 'linear-gradient(135deg, #101828 0%, #680014 60%, #E4002B 100%)',
+    bgGradient: 'linear-gradient(135deg, #101828 0%, #680014 60%, #C8202C 100%)',
     href: n.url || '/brand',
     badge: '品牌资讯',
   }));
@@ -215,7 +215,7 @@ export default function BrandPage() {
             <a href="/brand" style={{ display:'block', borderRadius:16, overflow:'hidden', boxShadow:'var(--sh-lg)', textDecoration:'none' }}>
               <div style={{
                 position:'relative', padding:20, color:'#fff',
-                background:'linear-gradient(135deg, #1F1F1F 0%, #680014 56%, #E4002B 100%)',
+                background:'linear-gradient(135deg, #1F1F1F 0%, #680014 56%, #C8202C 100%)',
               }}>
                 <div style={{ position:'absolute', inset:0, opacity:0.15, backgroundImage:'radial-gradient(circle,white 1px,transparent 1px)', backgroundSize:'18px 18px', pointerEvents:'none' }} />
                 <div style={{ position:'relative' }}>

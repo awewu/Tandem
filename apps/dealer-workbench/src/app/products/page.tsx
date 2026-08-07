@@ -1385,7 +1385,7 @@ function ProductsContent() {
           box-shadow: var(--sh-lg);
         }
         .product-floating-dialog.is-danger {
-          border-color: rgba(228, 0, 43, .28);
+          border-color: rgba(200, 32, 44, .28);
         }
         .product-floating-dialog header,
         .product-floating-dialog footer {
@@ -1936,7 +1936,7 @@ function ProductCatalogShell({
                 justifyContent: 'space-between',
                 gap: 12,
                 flexWrap: 'wrap',
-                background: 'rgba(228, 0, 43, 0.04)',
+                background: 'rgba(200, 32, 44, 0.04)',
               }}
             >
               <span style={{ fontSize: 12, fontWeight: 800 }}>已选 {selectedItems.length} 个产品库产品</span>
@@ -3199,7 +3199,7 @@ function OfficialProductDetailEditor({
           box-shadow: var(--sh-lg);
         }
         :global(.product-floating-dialog.is-danger) {
-          border-color: rgba(228, 0, 43, .28);
+          border-color: rgba(200, 32, 44, .28);
         }
         :global(.product-floating-dialog header),
         :global(.product-floating-dialog footer) {
@@ -3576,7 +3576,7 @@ function ProductManualPdfItem({
           cursor: pointer;
         }
         .product-manual-pdf-remove:hover:not(:disabled) {
-          background: rgba(228, 0, 43, 0.1);
+          background: rgba(200, 32, 44, 0.1);
           color: var(--brand);
         }
         .product-manual-pdf-remove:disabled {
