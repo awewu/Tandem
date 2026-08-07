@@ -254,13 +254,17 @@ button { cursor:pointer; }
   white-space: nowrap;
   transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
+.workbench-tabbar a svg { color: var(--t-tertiary); transition: color 0.15s; }
 .workbench-tabbar a:hover { background: var(--surface-2); color: var(--t-primary); }
+.workbench-tabbar a:hover svg { color: var(--t-secondary); }
+/* 激活态：品牌红实心药丸 + 白字白图标,最强显著性、纯品牌色 */
 .workbench-tabbar a.is-active {
-  color: var(--brand-700, var(--brand));
-  background: var(--brand-50);
-  font-weight: 800;
-  box-shadow: inset 0 -2px 0 var(--brand);
+  color: #fff;
+  background: var(--brand);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(200,32,44,0.30);
 }
+.workbench-tabbar a.is-active svg { color: #fff; }
 /* 有横向 tab 栏时，内容需清开固定的 44px tab 栏 + 保留呼吸留白 */
 .layout:has(.workbench-tabbar) .content { padding-top: calc(44px + var(--s6)); }
 .workbench-subnav {
