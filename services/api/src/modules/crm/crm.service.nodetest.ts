@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { AuditLogEntity } from '../governance/governance.entity';
 import { hashPII } from '../compliance/compliance.pii';
 import { CustomerEntity, InteractionEntity, OpportunityEntity } from './crm.entity';
+import { LifecycleLinkEntity } from '../delivery/delivery.entity';
 import { CrmService } from './crm.service';
 
 type Row = Record<string, any>;
@@ -46,6 +47,8 @@ function fixture() {
   const opportunities = repository([], 'opportunity');
   const interactions = repository([], 'interaction');
   const audits = repository([], 'audit');
+  // 项目主线（迁移037 起 opportunities.project_id NOT NULL，建单即开 lifecycle_links）
+  const projects = repository([], 'project');
   const events: Row[] = [];
   const manager = {
     async query() { return undefined; },
@@ -54,6 +57,7 @@ function fixture() {
       if (entity === OpportunityEntity) return opportunities;
       if (entity === InteractionEntity) return interactions;
       if (entity === AuditLogEntity) return audits;
+      if (entity === LifecycleLinkEntity) return projects;
       throw new Error('unexpected repository');
     }
   };
@@ -163,5 +167,8 @@ test('sign writes audit and outbox in the opportunity transaction', async () => 
   const result = await f.service.sign(f.user, 'opp-a', 'quote-1');
   assert.equal(result.signed, true);
   assert.equal(f.audits.rows.at(-1)?.action, 'opportunity.sign');
-  assert.equal(f.events.at(-1)?.eventType, 'opportunity.signed');
+  // sign 同事务发两事件:opportunity.signed（生命周期）+ crm.deal.signed（成效回流→analytics/CDP）
+  const signEventTypes = f.events.map((e) => e.eventType);
+  assert.ok(signEventTypes.includes('opportunity.signed'), 'should emit opportunity.signed');
+  assert.ok(signEventTypes.includes('crm.deal.signed'), 'should emit crm.deal.signed');
 });

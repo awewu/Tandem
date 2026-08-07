@@ -127,7 +127,7 @@
     "release:workflow-replay:smoke": "node scripts/release/workflow-replay-smoke.js",
     "smoke:p1-v2-proxy": "node scripts/release/p1-v2-proxy-smoke.js",
     "metrics:north-star": "node scripts/release/north-star-metrics.js",
-    "test:api-units": "TS_NODE_PROJECT=services/api/tsconfig.json node -r ts-node/register/transpile-only --test $(find services/api/src -name '*.nodetest.ts')",
+    "test:api-units": "node scripts/test-api-units.js",
     "guard:all:nonvisual:evidence": "node scripts/release/update-guard-all-nonvisual-evidence.js",
     "release:evidence": "npm run sbom:generate && npm run release:provenance && npm run release:rollback:drill && npm run release:backup-restore:drill && npm run release:workflow-replay:smoke && npm run release:target-api:boot-smoke && npm run release:redis-runtime:smoke && node scripts/release/update-production-readiness-evidence.js",
     "release:redis-runtime:smoke": "node scripts/release/redis-runtime-smoke.js",
