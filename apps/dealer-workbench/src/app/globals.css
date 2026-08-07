@@ -219,7 +219,8 @@ button { cursor:pointer; }
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  background: var(--bg);
+  /* 白色连续画布：内容作为一整页,分区靠描边/间距界定,不再是浮在灰底上的独立豆腐块 */
+  background: var(--surface-1);
   /* 统一工作区留白（此前依赖已移除的二级竖栏 padding-left；现下沉到 content，所有页一致） */
   padding: var(--s8) var(--s10);
 }
@@ -595,10 +596,10 @@ button { cursor:pointer; }
   background:var(--surface-1);
   border:1px solid var(--border);
   border-radius:var(--r-lg);
-  box-shadow:var(--sh-card);
+  box-shadow:none;
   transition:box-shadow 200ms cubic-bezier(0.4,0,0.2,1), transform 100ms cubic-bezier(0.4,0,0.2,1);
 }
-.card-elevated:hover { box-shadow:var(--sh-hover); }
+.card-elevated:hover { box-shadow:none; }
 .surface-card {
   background:var(--surface-1);
   border:1px solid var(--border);
