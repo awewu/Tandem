@@ -2,6 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
+import { computeRebateMargin } from './rebate-gate';
 import type { JwtPayload } from '../auth/auth.service';
 import { ChannelPartnerEntity, ChannelRebateEntity, ChannelPerformanceEntity } from './channel.entity';
 
@@ -50,16 +52,10 @@ export class ChannelService {
     }, this.scope(actor));
   }
 
-  // 6.4 返利（毛利闸·基座3）：grossMargin = 返利前毛利率 - 返利占比
-  private computeRebateMargin(amount: number, gmv: number, baseMarginRate: number) {
-    const rebateRatio = gmv > 0 ? amount / gmv : 0;
-    const netMarginRate = baseMarginRate - rebateRatio;
-    return { rebateRatio, baseMarginRate, netMarginRate, floor: REBATE_MARGIN_FLOOR, gatePassed: netMarginRate >= REBATE_MARGIN_FLOOR };
-  }
-
+  // 6.4 返利（毛利闸·基座3,纯逻辑见 rebate-gate.ts）
   async submitRebate(actor: JwtPayload, dto: { partnerId?: string; period?: string; basis?: string; amount?: number; gmv?: number; baseMarginRate?: number }) {
     if (!dto.period || !['sell_through', 'gmv', 'coop'].includes(String(dto.basis))) throw new BadRequestException('period and valid basis required');
-    const marginCalc = this.computeRebateMargin(Number(dto.amount) || 0, Number(dto.gmv) || 0, Number(dto.baseMarginRate) || 0);
+    const marginCalc = computeRebateMargin(Number(dto.amount) || 0, Number(dto.gmv) || 0, Number(dto.baseMarginRate) || 0, REBATE_MARGIN_FLOOR);
     return withRlsTransaction(this.ds, async (em) => {
       const repo = em.getRepository(ChannelRebateEntity);
       const row = await repo.save(repo.create({
@@ -77,6 +73,11 @@ export class ChannelService {
       if (!row) throw new NotFoundException('rebate not found');
       if (decision === 'approved' && !(row.marginCalc as any)?.gatePassed) throw new ForbiddenException('毛利闸未通过，不得批准返利（基座3）');
       await repo.update({ id }, { status: decision, approver: actor.userId, updatedAt: new Date() });
+      await writeAudit(em, {
+        tenantId: actor.tenantId, actorUserId: actor.userId, action: `channel.rebate.${decision}`,
+        resourceType: 'channel_rebate', resourceId: id,
+        beforeState: { status: row.status }, afterState: { status: decision, amount: row.amount, marginCalc: row.marginCalc },
+      });
       return { id, status: decision };
     }, this.scope(actor));
   }

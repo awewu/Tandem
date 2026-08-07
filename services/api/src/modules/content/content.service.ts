@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
 import type { JwtPayload } from '../auth/auth.service';
 import { ContentAssetEntity } from './content.entity';
 
@@ -43,6 +44,10 @@ export class ContentService {
       const c = await repo.findOne({ where: { id, tenantId: actor.tenantId } });
       if (!c) throw new NotFoundException('content not found');
       await repo.update({ id }, { status: decision, reviewer: reviewer ?? actor.userId, updatedAt: new Date() });
+      await writeAudit(em, {
+        tenantId: actor.tenantId, actorUserId: actor.userId, action: `content.${decision}`,
+        resourceType: 'content_asset', resourceId: id, beforeState: { status: c.status }, afterState: { status: decision, title: c.title },
+      });
       return { id, status: decision };
     }, this.scope(actor));
   }
@@ -56,6 +61,10 @@ export class ContentService {
       if (c.status !== 'approved') throw new ForbiddenException('内容须先审核通过才能发布');
       if (!(c.factRefs || []).length) throw new ForbiddenException('无事实源引用不得对外发布（基座4）');
       await repo.update({ id }, { status: 'published', updatedAt: new Date() });
+      await writeAudit(em, {
+        tenantId: actor.tenantId, actorUserId: actor.userId, action: 'content.publish',
+        resourceType: 'content_asset', resourceId: id, afterState: { status: 'published', channel: c.channel, factRefs: (c.factRefs || []).length },
+      });
       return { id, status: 'published' };
     }, this.scope(actor));
   }

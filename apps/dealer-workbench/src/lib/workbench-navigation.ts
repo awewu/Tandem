@@ -6,8 +6,10 @@ import {
   FolderOpen,
   Gauge,
   Globe2,
+  Landmark,
   Megaphone,
   Package,
+  Route,
   PenTool,
   Radio,
   Rocket,
@@ -60,6 +62,9 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     children: [
       { key: 'cockpit-northstar', label: '北极星总览', href: '/cockpit', icon: Gauge },
       { key: 'cockpit-cmo', label: 'CMO 管理驾驶舱', href: '/cmo', icon: Gauge },
+      { key: 'strategy-overview', label: '集团战略概览', href: '/strategy/overview', icon: Landmark },
+      { key: 'strategy-turbine', label: '品牌涡轮', href: '/strategy/brand-turbine', icon: Rocket },
+      { key: 'strategy-roadmap', label: '营销战略路线图', href: '/strategy/roadmap', icon: Route },
     ],
   },
   {
@@ -192,7 +197,7 @@ export function canSeeNavItem(
 
 export function navItemForPath(path: string | null): WorkbenchNavItem {
   const byKey = (k: string) => WORKBENCH_NAV.find((item) => item.key === k)!;
-  if (path?.startsWith('/cockpit') || path?.startsWith('/cmo')) return byKey('cockpit');
+  if (path?.startsWith('/cockpit') || path?.startsWith('/cmo') || path?.startsWith('/strategy')) return byKey('cockpit');
   // 增长功能一级菜单
   if (path?.startsWith('/agentic-geo') || path?.startsWith('/geo-focus') || path?.startsWith('/growth/geo')) return byKey('geo');
   if (path?.startsWith('/insight')) return byKey('insight');

@@ -135,6 +135,11 @@ export class CdpService implements OnModuleInit {
         { id: dto.profileId, tenantId: actor.tenantId },
         { consentStatus: dto.granted ? 'granted' : 'revoked', updatedAt: new Date() },
       );
+      await writeAudit(em, {
+        tenantId: actor.tenantId, actorUserId: actor.userId, action: 'cdp.consent.record',
+        resourceType: 'cdp_end_user_profile', resourceId: dto.profileId!,
+        afterState: { purpose: dto.purpose, granted: !!dto.granted, channel: dto.channel ?? null },
+      });
       return { recorded: true };
     }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
   }

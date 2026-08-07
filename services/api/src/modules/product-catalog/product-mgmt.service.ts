@@ -2,6 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
+import { computeMargin } from './pricing-gate';
 import type { JwtPayload } from '../auth/auth.service';
 import { ProductEntity } from './product-catalog.entity';
 import { ProductLaunchEntity, ProductSellingPointEntity, PricingPolicyEntity } from './product-mgmt.entity';
@@ -73,18 +75,10 @@ export class ProductMgmtService {
     }, this.scope(actor));
   }
 
-  // 4.17 定价政策提报 → 毛利测算闸（基座3）
-  private computeMargin(proposedPrice: number, costPrice: number) {
-    const price = Number(proposedPrice) || 0;
-    const cost = Number(costPrice) || 0;
-    const marginAmt = price - cost;
-    const marginRate = price > 0 ? marginAmt / price : 0;
-    return { marginAmt, marginRate, floor: MARGIN_FLOOR, gatePassed: marginRate >= MARGIN_FLOOR };
-  }
-
+  // 4.17 定价政策提报 → 毛利测算闸（基座3，纯逻辑见 pricing-gate.ts）
   async submitPricingPolicy(actor: JwtPayload, dto: { productId?: string; sku?: string; policyType?: string; proposedPrice?: number; costPrice?: number }) {
     if (!['list', 'promo', 'rebate'].includes(String(dto.policyType))) throw new BadRequestException('invalid policy_type');
-    const marginCalc = this.computeMargin(Number(dto.proposedPrice) || 0, Number(dto.costPrice) || 0);
+    const marginCalc = computeMargin(Number(dto.proposedPrice) || 0, Number(dto.costPrice) || 0, MARGIN_FLOOR);
     return withRlsTransaction(this.ds, async (em) => {
       const repo = em.getRepository(PricingPolicyEntity);
       const row = await repo.save(repo.create({
@@ -106,6 +100,11 @@ export class ProductMgmtService {
         if (!gate) throw new ForbiddenException('毛利闸未通过，不得批准发布（基座3）');
       }
       await repo.update({ id }, { status: decision, approver: actor.userId, decisionNote: note ?? null, decidedAt: new Date(), updatedAt: new Date() });
+      await writeAudit(em, {
+        tenantId: actor.tenantId, actorUserId: actor.userId, action: `pricing.policy.${decision}`,
+        resourceType: 'pricing_policy', resourceId: id,
+        beforeState: { status: row.status }, afterState: { status: decision, marginCalc: row.marginCalc, note: note ?? null },
+      });
       return { id, status: decision };
     }, this.scope(actor));
   }

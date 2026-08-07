@@ -77,6 +77,16 @@ export class InMemoryRepository<T extends Row = Row> {
     return this.rows.find((r) => matchesOne(r, where)) ?? null;
   }
 
+  async update(where: WhereClause, patch: Partial<T>): Promise<{ affected: number }> {
+    const hits = this.rows.filter((r) => matches(r, where));
+    for (const r of hits) Object.assign(r as Row, patch, { updatedAt: new Date() });
+    return { affected: hits.length };
+  }
+
+  async count(opts: { where?: WhereClause } = {}): Promise<number> {
+    return this.rows.filter((r) => matches(r, opts.where)).length;
+  }
+
   async findOneByOrFail(where: Record<string, any>): Promise<T> {
     const row = this.rows.find((r) => matchesOne(r, where));
     if (!row) throw new Error('EntityNotFound: findOneByOrFail matched no rows');

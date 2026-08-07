@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
+import { writeAudit } from '../common/audit';
 import type { JwtPayload } from '../auth/auth.service';
 import { PositioningHouseEntity } from './positioning.entity';
 
@@ -55,6 +56,11 @@ export class PositioningService {
       if (!h) throw new NotFoundException('positioning house not found');
       if (status === 'approved' && (!h.promise || !(h.pillars || []).length)) throw new BadRequestException('定位屋缺核心承诺/支柱，不能批准');
       await repo.update({ id }, { status, approver: actor.userId, updatedAt: new Date() });
+      await writeAudit(em, {
+        tenantId: actor.tenantId, actorUserId: actor.userId, action: `positioning.${status}`,
+        resourceType: 'positioning_house', resourceId: id,
+        beforeState: { status: h.status }, afterState: { status, brandCode: h.brandCode, category: h.category },
+      });
       return { id, status };
     }, this.scope(actor));
   }
