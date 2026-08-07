@@ -137,6 +137,7 @@
     "start:api": "node scripts/start-api.js",
     "boot:db-proof": "node scripts/release/target-api-db-boot.js",
     "preflight": "node scripts/preflight.js",
+    "prod:provision": "node scripts/db/provision.js",
     "db:verify": "node scripts/db/verify-rls-grants.js",
     "db:migrate": "node scripts/db/apply-migrations.js",
     "db:migrate:status": "node scripts/db/apply-migrations.js --status",

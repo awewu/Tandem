@@ -21,8 +21,16 @@ openssl rand -hex 16   # PII_HASH_SALT
 - **验收**:`npm run preflight` → ✅ 通过(0 错误)。preflight 已集成进 `start:api`,缺项会直接拒启。
 
 ## 2. 生产库迁移（堵 🔴2）
+**一键就绪(推荐)** —— `prod:provision` 依次跑 preflight→migrate→verify(→可选 seed),失败即停:
 ```bash
-# 用【属主/migrator】角色（非 rhautt_app）跑：
+# 用【属主/migrator】角色(非 rhautt_app);运行时应用仍用 rhautt_app。
+POSTGRES_USER=rhautt POSTGRES_PASSWORD=*** POSTGRES_HOST=*** POSTGRES_DB=rhautt_nexus \
+POSTGRES_ADMIN_USER=rhautt POSTGRES_ADMIN_PASSWORD=*** \
+SEED_ADMIN=1 SEED_ADMIN_PHONE=13800000000 SEED_ADMIN_PASSWORD=*** \
+npm run prod:provision
+```
+或分步:
+```bash
 POSTGRES_USER=rhautt POSTGRES_PASSWORD=*** POSTGRES_HOST=*** npm run db:migrate
 npm run db:migrate:status   # 应 0 pending
 ```
@@ -44,10 +52,27 @@ npm run db:migrate:status   # 应 0 pending
 - [ ] `npm run test:production-readiness`
 - [ ] `npm run guard:frontend-api-contract` + `npm run guard:geo`（若改过对外站，先 `npm run geo:build`）
 
-## 5. 部署
-- [ ] 构建:API(`dist/services/api`)+ 工作台(`next build`,标准产物)。
-- [ ] 启动 API:`NODE_ENV=production npm run start:api`(preflight 自动前置校验)。
-- [ ] 工作台以生产模式部署(dev-guest 按钮 `NODE_ENV!==production` 自动隐藏)。
+## 5. 部署形态(两条路)
+
+> ⚠️ 现状诚实说明:仓内 `docker-compose.prod.yml` 是 **legacy 6systems**(MongoDB/老 API,无 PostgreSQL),**不能**部署本套 NestJS+PostgreSQL 架构;`Dockerfile.frontend` 也是 legacy(nginx 静态托管旧 dist,非 Next standalone);Dockerfile 用 `npm ci` 但仓是 **pnpm monorepo**。→ **一键容器部署尚不可用**,需先补 Path B 的产物。
+
+### Path A · 进程部署(今天可用,最快上线)
+DB 用 docker(见 §0/§2);API 与工作台以 Node 进程跑生产:
+```bash
+# 1) 生产库就绪(见 §2)
+SEED_ADMIN=1 ... npm run prod:provision
+# 2) 启动 API（preflight 自动前置校验；缺密钥拒启）
+NODE_ENV=production PORT=5500 npm run start:api
+# 3) 构建并启动工作台（Next standalone；API_URL 指向 API）
+npm --prefix apps/dealer-workbench run build
+API_URL=http://127.0.0.1:5500 node apps/dealer-workbench/.next/standalone/apps/dealer-workbench/server.js
+# 建议用 pm2/systemd 守护两个进程 + 反代(nginx/caddy)统一入口 + TLS。
+```
+
+### Path B · 容器部署(需先补产物,尚未就绪)
+待办(我可代做):① 重写 `Dockerfile.workbench`(Next standalone + pnpm)② 新建 `docker-compose.nexus-prod.yml`(postgres16 + redis + api〔Dockerfile.backend〕+ workbench + 一次性 migrate 服务)③ Dockerfile 由 `npm ci` 改 `pnpm i --frozen-lockfile`。完成后即 `docker compose -f docker-compose.nexus-prod.yml up -d`。
+
+- [ ] dev-guest 按钮 `NODE_ENV!==production` 自动隐藏(生产不渲染)—— 已内建。
 
 ## 6. 上线冒烟
 - [ ] `GET /api/v2/health` = 200。
