@@ -162,15 +162,17 @@ for i in $(seq 1 30); do
   [ "$i" -eq 30 ] && err "基础服务超时未 healthy. 看日志: $COMPOSE logs"
 done
 
-# ---------- 5. 启动 app ----------
+# ---------- 5. 跑 migration ----------
+# 使用镜像内的幂等 runner；standalone 镜像不包含 drizzle-kit/devDependencies。
+# 迁移失败必须终止部署，不能让未迁移的新版本开始接流量。
+log "执行数据库迁移"
+$COMPOSE run --rm -T --no-deps app node scripts/apply-migrations.mjs
+ok "迁移完成"
+
+# ---------- 6. 启动 app ----------
 log "启动 app"
 $COMPOSE up -d app
 sleep 5
-
-# ---------- 6. 跑 migration ----------
-log "执行数据库迁移"
-$COMPOSE exec -T app npm run db:migrate || warn "migration 跑失败, 手动检查: $COMPOSE exec app npm run db:migrate"
-ok "迁移完成"
 
 # ---------- 7. 健康检查 ----------
 log "健康检查 (waiting up to 60s)"

@@ -91,7 +91,7 @@ class InMemoryImMessageRepository
   ): Promise<ImMessage[]> {
     const all = await this.list({ channelId } as Partial<ImMessage>);
     let msgs = all
-      .filter((m) => !m.deletedAt)
+      .filter((m) => query.includeDeleted || !m.deletedAt)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     if (query.before) msgs = msgs.filter((m) => m.createdAt < query.before!);
     const limit = query.limit ?? 100;

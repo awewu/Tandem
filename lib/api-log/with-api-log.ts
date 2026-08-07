@@ -41,9 +41,14 @@ async function resolveActor(req: Request): Promise<ActorContext> {
   return { actorId: 'anonymous', tenantId: 'default', actorType: 'anonymous' };
 }
 
-function deferApiLog(input: ApiLogInput): void {
+function deferApiLog(input: ApiLogInput | Promise<ApiLogInput>): void {
   queueMicrotask(() => {
-    void import('./service').then(({ appendApiLog }) => appendApiLog(input)).catch(() => undefined);
+    void Promise.resolve(input)
+      .then(async (resolved) => {
+        const { deferApiLog: enqueueApiLog } = await import('./service');
+        enqueueApiLog(resolved);
+      })
+      .catch(() => undefined);
   });
 }
 
@@ -90,6 +95,10 @@ async function readRequestData(req: Request): Promise<Record<string, unknown> | 
   if (req.method === 'GET' || req.method === 'HEAD') return redactBusinessLogData(result);
   const contentType = req.headers.get('content-type')?.toLowerCase() ?? '';
   const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (req.body && contentLength <= 0) {
+    result.body = { omitted: 'unknown-size', contentType };
+    return redactBusinessLogData(result);
+  }
   if (contentLength > BODY_LIMIT) {
     result.body = { omitted: 'size', contentType, contentLength };
     return redactBusinessLogData(result);
@@ -150,7 +159,8 @@ export function withApiLog<TRequest extends Request, TArgs extends unknown[]>(
       try {
         const response = await handler(req, ...args);
         const outcome = outcomeForStatus(response.status);
-        deferApiLog({
+        const errorDetailsPromise = readErrorDetails(response);
+        deferApiLog(Promise.all([requestDataPromise, errorDetailsPromise]).then(([requestData, errorDetails]) => ({
           requestId,
           ...actor,
           source: 'api',
@@ -166,16 +176,16 @@ export function withApiLog<TRequest extends Request, TArgs extends unknown[]>(
           outcome,
           durationMs: performance.now() - startedAt,
           summary: `${operation} ${outcome} (${response.status})`,
-          requestData: { ...(await requestDataPromise), params },
+          requestData: { ...requestData, params },
           details: {
-            ...(await readErrorDetails(response)),
+            ...errorDetails,
             clientFingerprint: clientFingerprint(req),
             userAgent: req.headers.get('user-agent')?.slice(0, 256) ?? null,
           },
-        });
+        })));
         return response;
       } catch (error) {
-        deferApiLog({
+        deferApiLog(requestDataPromise.then((requestData) => ({
           requestId,
           ...actor,
           source: 'api',
@@ -191,13 +201,13 @@ export function withApiLog<TRequest extends Request, TArgs extends unknown[]>(
           outcome: 'error',
           durationMs: performance.now() - startedAt,
           summary: `${operation} error (unhandled)`,
-          requestData: { ...(await requestDataPromise), params },
+          requestData: { ...requestData, params },
           details: {
             errorName: error instanceof Error ? error.name : 'UnknownError',
             errorMessage: redactErrorMessage(error instanceof Error ? error.message : String(error)),
             clientFingerprint: clientFingerprint(req),
           },
-        });
+        })));
         throw error;
       }
     }));

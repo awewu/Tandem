@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChannel, getChannelMessages, listMyChannels, recallMessage, sendMessage } from '@/lib/im/service';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import { getStore, setStore } from '@/lib/storage/repository';
@@ -67,7 +67,7 @@ describe('IM recall', () => {
     expect(readerChannels[0].lastMessagePreview).not.toContain('这里选不了月');
   });
 
-  it('repairs stale unread and preview state for messages recalled before the fix', async () => {
+  it('keeps channel listing read-only and repairs stale recall state through the mutation path', async () => {
     const channel = await createChannel({
       type: 'group',
       name: '项目群',
@@ -86,7 +86,20 @@ describe('IM recall', () => {
       body: '',
     });
 
+    const channelUpdate = vi.spyOn(store.imChannels, 'update');
+    const membershipUpdate = vi.spyOn(store.imMemberships, 'update');
+    const messageList = vi.spyOn(store.imMessages, 'list');
     let readerChannels = await listMyChannels('reader-1', 'tenant-1');
+    expect(readerChannels[0].unread).toBe(1);
+    expect(readerChannels[0].membership.hasUnreadMention).toBe(true);
+    expect(readerChannels[0].lastMessagePreview).toContain('123');
+    expect(channelUpdate).not.toHaveBeenCalled();
+    expect(membershipUpdate).not.toHaveBeenCalled();
+    expect(messageList).not.toHaveBeenCalled();
+
+    // An explicit recall mutation is the repair boundary for legacy stale rows.
+    await recallMessage(message.id, 'sender-1');
+    readerChannels = await listMyChannels('reader-1', 'tenant-1');
     expect(readerChannels[0].unread).toBe(0);
     expect(readerChannels[0].membership.hasUnreadMention).toBe(false);
     expect(readerChannels[0].lastMessagePreview).toBe('一条消息已撤回');
@@ -97,8 +110,5 @@ describe('IM recall', () => {
     expect(repairedChannel?.lastMessagePreview).toBe('一条消息已撤回');
     expect(repairedMembership?.unreadCount).toBe(0);
     expect(repairedMembership?.hasUnreadMention).toBe(false);
-
-    readerChannels = await listMyChannels('reader-1', 'tenant-1');
-    expect(readerChannels[0].lastMessagePreview).toBe('一条消息已撤回');
   });
 });

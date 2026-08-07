@@ -6,6 +6,7 @@ import { db } from '@/lib/infra/drizzle-client';
 import { logger } from '@/lib/infra/logger';
 import { isDatabaseMode } from '@/lib/infra/storage-mode';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { boot, getBootReadiness, type BootReadinessState } from '@/lib/boot';
 
 /**
  * /api/health · liveness + readiness 探针
@@ -15,6 +16,7 @@ import { withApiLog } from '@/lib/api-log/with-api-log';
  *
  * 检查项:
  *   - process     · 进程存活, 启动时长
+ *   - bootstrap   · seed / AI 设置 / MCP / S3 / 组织云盘初始化完成
  *   - database    · PG 连通性 (SELECT 1)
  *   - redis       · 可选, 仅当 REDIS_URL 配置时检查
  *   - storage     · 可选, 仅当 S3_ENDPOINT 配置时检查 (HEAD bucket)
@@ -25,6 +27,41 @@ type CheckResult = {
   latencyMs?: number;
   error?: string;
 };
+
+type BootstrapCheckResult = CheckResult & {
+  state: BootReadinessState;
+  startedAt: number | null;
+  completedAt: number | null;
+  warnings: string[];
+};
+
+async function checkBootstrap(): Promise<BootstrapCheckResult> {
+  let bootError: string | undefined;
+  try {
+    // In production this starts the background initialization and returns
+    // immediately. In development/test it preserves boot()'s blocking behavior.
+    await boot();
+  } catch (err) {
+    bootError = err instanceof Error ? err.message : String(err);
+  }
+
+  const status = getBootReadiness();
+  const ok = !bootError && status.state === 'ready';
+  const pendingError = status.state === 'initializing'
+    ? 'initialization in progress'
+    : status.state === 'not_started'
+      ? 'initialization not started'
+      : undefined;
+  return {
+    ok,
+    state: bootError ? 'failed' : status.state,
+    startedAt: status.startedAt,
+    completedAt: status.completedAt,
+    warnings: status.warnings,
+    latencyMs: status.durationMs ?? undefined,
+    ...(!ok ? { error: bootError ?? status.error ?? pendingError ?? 'initialization failed' } : {}),
+  };
+}
 
 async function checkDb(): Promise<CheckResult> {
   if (!isDatabaseMode()) return { ok: true, error: 'not configured (in-memory mode)' };
@@ -86,6 +123,7 @@ async function checkLlm(): Promise<CheckResult> {
 const startedAt = Date.now();
 
 async function GETApiHandler() {
+  const bootstrap = await checkBootstrap();
   const [database, redis, storage, llm] = await Promise.all([
     checkDb(),
     checkRedis(),
@@ -93,7 +131,7 @@ async function GETApiHandler() {
     checkLlm(),
   ]);
   // llm degraded != 503 (LLM is non-critical for liveness; readiness still passes)
-  const allOk = database.ok && redis.ok && storage.ok;
+  const allOk = bootstrap.ok && database.ok && redis.ok && storage.ok;
 
   const { isObservabilityEnabled } = await import('@/lib/infra/observability');
 
@@ -101,7 +139,7 @@ async function GETApiHandler() {
     ok: allOk,
     version: process.env.APP_VERSION ?? 'dev',
     uptimeSec: Math.round((Date.now() - startedAt) / 1000),
-    checks: { database, redis, storage, llm },
+    checks: { bootstrap, database, redis, storage, llm },
     observability: isObservabilityEnabled(),
   };
 
@@ -111,13 +149,22 @@ async function GETApiHandler() {
     if (!database.ok) failedDeps.push('database');
     if (!redis.ok) failedDeps.push('redis');
     if (!storage.ok) failedDeps.push('storage');
-    const { fireAlert } = await import('@/lib/infra/alerts');
-    void fireAlert({
-      severity: 'critical',
-      title: 'Readiness check failed',
-      body: failedDeps.map((d) => `${d}: ${(body.checks as Record<string, CheckResult>)[d].error ?? 'unknown'}`).join('\n'),
-      tags: { module: 'health', failed: failedDeps.join(',') },
-    });
+    if (!bootstrap.ok) failedDeps.push('bootstrap');
+
+    // "initializing" is an expected readiness transition, not an incident.
+    // Dependency failures and a terminal bootstrap failure still alert.
+    const shouldAlert = !database.ok || !redis.ok || !storage.ok || bootstrap.state === 'failed';
+    if (shouldAlert) {
+      const { fireAlert } = await import('@/lib/infra/alerts');
+      void fireAlert({
+        severity: 'critical',
+        title: 'Readiness check failed',
+        body: failedDeps.map((d) => `${d}: ${(body.checks as Record<string, CheckResult>)[d].error ?? 'unknown'}`).join('\n'),
+        tags: { module: 'health', failed: failedDeps.join(',') },
+      }).catch((err) => {
+        logger.warn({ err }, '[health] failed to dispatch readiness alert');
+      });
+    }
   }
 
   return Response.json(body, { status: allOk ? 200 : 503 });

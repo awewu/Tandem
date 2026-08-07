@@ -48,7 +48,7 @@
     "postinstall": "node scripts/copy-pdf-worker.mjs",
     "pre-warm": "node scripts/pre-warm.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node scripts/apply-migrations.mjs",
     "db:push": "node -e \"console.error('db:push 已禁用: User 表残留 Prisma 遗留列, push 会误删真列。请用 scripts/apply-migration.mjs 幂等 DDL。'); process.exit(1)\"",
     "db:studio": "drizzle-kit studio",
     "db:seed:production": "node scripts/seed-production-kpis.mjs",

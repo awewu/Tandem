@@ -16,15 +16,37 @@ import { boot, bootHotPath } from '@/lib/boot';
 import { createChannel, listVisibleChannels } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { logger } from '@/lib/infra/logger';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { CalendarImReminderService } from '@/lib/services/calendar-im-reminder-service';
+
+const CALENDAR_GROUP_CLEANUP_INTERVAL_MS = 10 * 60_000;
+const cleanupNextRunAt = new Map<string, number>();
+const cleanupInFlight = new Set<string>();
+
+function scheduleCalendarGroupCleanup(tenantId: string): void {
+  const now = Date.now();
+  if (cleanupInFlight.has(tenantId) || (cleanupNextRunAt.get(tenantId) ?? 0) > now) return;
+
+  cleanupNextRunAt.set(tenantId, now + CALENDAR_GROUP_CLEANUP_INTERVAL_MS);
+  cleanupInFlight.add(tenantId);
+  void new CalendarImReminderService(createAppContext())
+    .cleanupExpiredOneTimeMeetingGroups(tenantId)
+    .catch((error: unknown) => {
+      logger.warn(
+        { tenantId, err: error instanceof Error ? error.message : String(error) },
+        '[im] calendar group cleanup failed',
+      );
+    })
+    .finally(() => cleanupInFlight.delete(tenantId));
+}
 
 async function GETApiHandler(req: NextRequest) {
   bootHotPath();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  await new CalendarImReminderService(createAppContext()).cleanupExpiredOneTimeMeetingGroups(auth.tenantId);
   const channels = await listVisibleChannels(auth.userId, auth.tenantId);
+  scheduleCalendarGroupCleanup(auth.tenantId);
   return NextResponse.json({ channels });
 }
 

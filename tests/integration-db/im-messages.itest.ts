@@ -82,6 +82,18 @@ describe.runIf(hasDb)('IM · listByChannel (真库 drizzle)', () => {
     expect(rows.map((r) => r.id)).toEqual(['m1', 'm3']);
   });
 
+  it('includeDeleted 返回软删消息并保持分页顺序', async () => {
+    await seed('m1', CHANNEL, '2026-01-01T00:00:00.000Z');
+    await seed('m2', CHANNEL, '2026-01-02T00:00:00.000Z', { deletedAt: '2026-01-02T01:00:00.000Z' });
+    await seed('m3', CHANNEL, '2026-01-03T00:00:00.000Z');
+
+    const rows = await store.imMessages.listByChannel(CHANNEL, {
+      includeDeleted: true,
+      limit: 2,
+    });
+    expect(rows.map((r) => r.id)).toEqual(['m2', 'm3']);
+  });
+
   it('limit 取最新 N 条 (仍升序返回)', async () => {
     for (let i = 1; i <= 5; i++) {
       await seed(`m${i}`, CHANNEL, `2026-01-0${i}T00:00:00.000Z`);

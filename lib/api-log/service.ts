@@ -5,8 +5,27 @@ import { redactBusinessLogData } from '@/lib/business-log/redact';
 import { isDatabaseMode } from '@/lib/infra/storage-mode';
 import type { ApiLogEntry, ApiLogInput, ApiLogQuery, ApiLogQueryResult } from './types';
 
-const MEMORY_LIMIT = Math.max(100, Number(process.env.API_LOG_MEMORY_MAX ?? 5_000));
-const globalState = globalThis as typeof globalThis & { __tandem_api_logs__?: ApiLogEntry[] };
+function boundedInt(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+}
+
+const MEMORY_LIMIT = boundedInt(process.env.API_LOG_MEMORY_MAX, 5_000, 100, 100_000);
+const DB_BATCH_SIZE = boundedInt(process.env.API_LOG_DB_BATCH_SIZE, 100, 1, 500);
+const DB_FLUSH_INTERVAL_MS = boundedInt(process.env.API_LOG_DB_FLUSH_INTERVAL_MS, 250, 25, 60_000);
+const DB_RETRY_INTERVAL_MS = boundedInt(process.env.API_LOG_DB_RETRY_INTERVAL_MS, 5_000, 250, 60_000);
+const DB_QUEUE_LIMIT = Math.max(
+  DB_BATCH_SIZE,
+  boundedInt(process.env.API_LOG_DB_QUEUE_MAX, 2_000, 1, 100_000),
+);
+type ApiLogGlobalState = typeof globalThis & {
+  __tandem_api_logs__?: ApiLogEntry[];
+  __tandem_api_log_db_queue__?: ApiLogEntry[];
+  __tandem_api_log_flush_timer__?: ReturnType<typeof setTimeout>;
+  __tandem_api_log_flush_promise__?: Promise<void>;
+};
+const globalState = globalThis as ApiLogGlobalState;
 
 function memoryLogs(): ApiLogEntry[] {
   if (!globalState.__tandem_api_logs__) globalState.__tandem_api_logs__ = [];
@@ -49,6 +68,64 @@ function remember(entry: ApiLogEntry): void {
   if (logs.length > MEMORY_LIMIT) logs.splice(0, logs.length - MEMORY_LIMIT);
 }
 
+function pendingDbLogs(): ApiLogEntry[] {
+  if (!globalState.__tandem_api_log_db_queue__) globalState.__tandem_api_log_db_queue__ = [];
+  return globalState.__tandem_api_log_db_queue__;
+}
+
+function enforceDbQueueLimit(queue: ApiLogEntry[]): number {
+  const dropped = Math.max(0, queue.length - DB_QUEUE_LIMIT);
+  if (dropped > 0) queue.splice(0, dropped);
+  return dropped;
+}
+
+function scheduleDbFlush(delayMs = DB_FLUSH_INTERVAL_MS): void {
+  if (globalState.__tandem_api_log_flush_timer__ || globalState.__tandem_api_log_flush_promise__) return;
+  const timer = setTimeout(() => {
+    globalState.__tandem_api_log_flush_timer__ = undefined;
+    void flushQueuedApiLogs();
+  }, delayMs);
+  timer.unref?.();
+  globalState.__tandem_api_log_flush_timer__ = timer;
+}
+
+async function flushQueuedApiLogs(): Promise<void> {
+  if (globalState.__tandem_api_log_flush_promise__) return globalState.__tandem_api_log_flush_promise__;
+  if (globalState.__tandem_api_log_flush_timer__) {
+    clearTimeout(globalState.__tandem_api_log_flush_timer__);
+    globalState.__tandem_api_log_flush_timer__ = undefined;
+  }
+  const batch = pendingDbLogs().splice(0, DB_BATCH_SIZE);
+  if (batch.length === 0) return;
+
+  let persistFailed = false;
+  const flush = (async () => {
+    try {
+      const { db, schema } = await import('@/lib/infra/drizzle-client');
+      await db
+        .insert(schema.apiLog)
+        .values(batch.map((entry) => ({ ...entry, createdAt: new Date(entry.createdAt) })))
+        .onConflictDoNothing();
+    } catch (error) {
+      persistFailed = true;
+      const queue = pendingDbLogs();
+      queue.unshift(...batch);
+      const dropped = enforceDbQueueLimit(queue);
+      logger.warn(
+        { count: batch.length, dropped, err: error instanceof Error ? error.message : String(error) },
+        '[api-log] batch persist failed; queued for retry',
+      );
+    }
+  })().finally(() => {
+    globalState.__tandem_api_log_flush_promise__ = undefined;
+    if (pendingDbLogs().length > 0) {
+      scheduleDbFlush(persistFailed ? DB_RETRY_INTERVAL_MS : DB_FLUSH_INTERVAL_MS);
+    }
+  });
+  globalState.__tandem_api_log_flush_promise__ = flush;
+  return flush;
+}
+
 export async function appendApiLog(input: ApiLogInput): Promise<ApiLogEntry> {
   const entry = normalize(input);
   remember(entry);
@@ -67,11 +144,18 @@ export async function appendApiLog(input: ApiLogInput): Promise<ApiLogEntry> {
 }
 
 export function deferApiLog(input: ApiLogInput): void {
-  queueMicrotask(() => {
-    void appendApiLog(input).catch((error) => {
-      logger.warn({ err: (error as Error).message }, '[api-log] deferred write failed');
-    });
-  });
+  const entry = normalize(input);
+  remember(entry);
+  if (!isDatabaseMode()) return;
+
+  const queue = pendingDbLogs();
+  queue.push(entry);
+  const dropped = enforceDbQueueLimit(queue);
+  if (dropped > 0) {
+    logger.warn({ queueLimit: DB_QUEUE_LIMIT, dropped }, '[api-log] DB queue full; dropped oldest pending entry');
+  }
+  if (queue.length >= DB_BATCH_SIZE) void flushQueuedApiLogs();
+  else scheduleDbFlush();
 }
 
 function dbRowToEntry(row: {
@@ -157,4 +241,9 @@ export async function queryApiLogs(query: ApiLogQuery): Promise<ApiLogQueryResul
 
 export function resetApiLogsForTests(): void {
   globalState.__tandem_api_logs__ = [];
+  globalState.__tandem_api_log_db_queue__ = [];
+  if (globalState.__tandem_api_log_flush_timer__) {
+    clearTimeout(globalState.__tandem_api_log_flush_timer__);
+    globalState.__tandem_api_log_flush_timer__ = undefined;
+  }
 }

@@ -34,10 +34,37 @@ function sanitizeDatabaseUrl(raw: string): string {
   }
 }
 
+function boundedInt(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+}
+
 function makeClient() {
   const raw = process.env.DATABASE_URL;
   if (!raw) throw new Error('DATABASE_URL not set');
-  return postgres(sanitizeDatabaseUrl(raw), { max: 10, prepare: false });
+  const maxConnections = boundedInt(process.env.PG_POOL_MAX, 10, 1, 100);
+  const connectTimeoutSec = boundedInt(process.env.PG_CONNECT_TIMEOUT_SEC, 8, 1, 60);
+  const idleTimeoutSec = boundedInt(process.env.PG_IDLE_TIMEOUT_SEC, 30, 0, 3_600);
+  const statementTimeoutMs = boundedInt(process.env.PG_STATEMENT_TIMEOUT_MS, 30_000, 1_000, 10 * 60_000);
+  const idleTransactionTimeoutMs = boundedInt(
+    process.env.PG_IDLE_TRANSACTION_TIMEOUT_MS,
+    30_000,
+    1_000,
+    10 * 60_000,
+  );
+
+  return postgres(sanitizeDatabaseUrl(raw), {
+    max: maxConnections,
+    prepare: false,
+    connect_timeout: connectTimeoutSec,
+    idle_timeout: idleTimeoutSec,
+    connection: {
+      application_name: process.env.PG_APPLICATION_NAME ?? 'tandem-app',
+      statement_timeout: statementTimeoutMs,
+      idle_in_transaction_session_timeout: idleTransactionTimeoutMs,
+    },
+  });
 }
 
 /**

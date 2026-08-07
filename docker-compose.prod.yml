@@ -3,7 +3,7 @@ version: '3.9'
 # 用法:
 #   1. cp .env.example .env.production && 填值
 #   2. docker compose -f docker-compose.prod.yml --env-file .env.production up -d
-#   3. docker compose -f docker-compose.prod.yml exec app npm run db:migrate
+#   3. docker compose -f docker-compose.prod.yml run --rm -T --no-deps app node scripts/apply-migrations.mjs
 
 services:
   postgres:

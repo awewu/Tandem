@@ -11,7 +11,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from 'pg';
+import postgres from 'postgres';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = join(ROOT, 'drizzle', 'migrations');
@@ -43,27 +43,29 @@ try {
   url = u.toString();
 } catch {}
 
-const client = new pg.Client({ connectionString: url });
-await client.connect();
+// postgres-js is part of the production application runtime. Using it here
+// keeps this runner executable in the minimal Next.js standalone image without
+// shipping drizzle-kit or a second PostgreSQL client solely for migrations.
+const database = postgres(url, { max: 1, prepare: false });
 // Force public schema for the rest of the session.
-await client.query('CREATE SCHEMA IF NOT EXISTS public');
-await client.query('SET search_path = public');
-console.log('search_path =', (await client.query('SHOW search_path')).rows[0].search_path);
+await database.unsafe('CREATE SCHEMA IF NOT EXISTS public');
+await database.unsafe('SET search_path = public');
+console.log('search_path =', (await database.unsafe('SHOW search_path'))[0].search_path);
 
-await client.query(`
-  CREATE SCHEMA IF NOT EXISTS drizzle;
+await database.unsafe('CREATE SCHEMA IF NOT EXISTS drizzle');
+await database.unsafe(`
   CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
     id serial PRIMARY KEY,
     hash text NOT NULL,
     created_at bigint
-  );
+  )
 `);
 
 // The ledger may store either the SHA-256 of the .sql content (drizzle-kit's
 // convention) or, for legacy rows in this DB, the bare filename. Match BOTH so
 // already-applied migrations recorded by hash (e.g. 0002/0003) are not re-run.
 const applied = new Set(
-  (await client.query('SELECT hash FROM drizzle.__drizzle_migrations')).rows.map((r) => r.hash),
+  (await database.unsafe('SELECT hash FROM drizzle.__drizzle_migrations')).map((r) => r.hash),
 );
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
@@ -82,43 +84,42 @@ const isTolerable = (msg) =>
 const files = readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();
 let count = 0;
 for (const f of files) {
-  const sql = readFileSync(join(DIR, f), 'utf8');
-  const fileHash = sha256(sql);
+  const migrationSql = readFileSync(join(DIR, f), 'utf8');
+  const fileHash = sha256(migrationSql);
   if (applied.has(f) || applied.has(fileHash)) {
     console.log(`= ${f} (already applied)`);
     continue;
   }
   // Drizzle uses --> statement-breakpoint to separate statements
-  const stmts = sql.split(/--\s*>\s*statement-breakpoint/i).map((s) => s.trim()).filter(Boolean);
+  const stmts = migrationSql.split(/--\s*>\s*statement-breakpoint/i).map((s) => s.trim()).filter(Boolean);
   console.log(`+ ${f}  (${stmts.length} stmt)`);
   try {
-    await client.query('BEGIN');
-    // Per-statement SAVEPOINT: a tolerable no-op (e.g. idempotent DROP on a
-    // Chinese-locale server) rolls back ONLY that statement so the rest of the
-    // file still commits. A genuine error propagates → whole-file ROLLBACK + exit.
-    // This avoids the previous footgun where one tolerated error rolled back the
-    // entire file yet marked it "applied" (silent gap of all good statements).
-    for (const s of stmts) {
-      await client.query('SAVEPOINT stmt_sp');
-      try {
-        await client.query(s);
-        await client.query('RELEASE SAVEPOINT stmt_sp');
-      } catch (se) {
-        if (!isTolerable(se.message)) throw se;
-        await client.query('ROLLBACK TO SAVEPOINT stmt_sp');
-        console.warn(`    ~ tolerated no-op: ${se.message}`);
+    await database.begin(async (tx) => {
+      // Per-statement SAVEPOINT: a tolerable no-op (e.g. idempotent DROP on a
+      // Chinese-locale server) rolls back ONLY that statement so the rest of the
+      // file still commits. A genuine error propagates and rolls back the file.
+      for (const statement of stmts) {
+        try {
+          await tx.savepoint('stmt_sp', async (savepoint) => {
+            await savepoint.unsafe(statement);
+          });
+        } catch (se) {
+          if (!isTolerable(se.message)) throw se;
+          console.warn(`    ~ tolerated no-op: ${se.message}`);
+        }
       }
-    }
-    await client.query('INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)', [fileHash, Date.now()]);
-    await client.query('COMMIT');
+      await tx.unsafe(
+        'INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)',
+        [fileHash, Date.now()],
+      );
+    });
     count++;
   } catch (e) {
-    await client.query('ROLLBACK');
     console.error(`  ✗ ${f}:`, e.message);
-    await client.end();
+    await database.end();
     process.exit(1);
   }
 }
 
 console.log(`\n✓ ${count} new migration(s) applied, ${files.length - count} skipped.`);
-await client.end();
+await database.end();

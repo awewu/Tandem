@@ -90,6 +90,8 @@ export interface ChannelMessageQuery {
   limit?: number;
   /** createdAt 游标 (排他): 只返回早于此时间的消息 (向上翻页). */
   before?: string;
+  /** 是否包含软删消息 (时间线用它保留撤回占位; 默认 false). */
+  includeDeleted?: boolean;
 }
 
 /** IM 消息词面搜索查询 (§Sprint1 全文搜索). */
@@ -107,7 +109,7 @@ export interface MessageSearchQuery {
  *
  * 热表性能收口 (2026-08): 旧 getChannelMessages 用 imMessages.list({channelId})
  * 把整个频道历史全量读入内存再 JS 排序/切片 (每频道 O(N)). listByChannel 下推
- * "频道 + 排除软删 + createdAt 游标 + 按 createdAt 倒序取 N 条" 到存储层,
+ * "频道 + 软删策略 + createdAt 游标 + 按 createdAt 倒序取 N 条" 到存储层,
  * 只读回需要的 N 条 (drizzle 侧配 KvStore 部分函数索引). 返回按 createdAt 升序.
  */
 export interface ImMessageRepository extends Repository<ImMessage> {

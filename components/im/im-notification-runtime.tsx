@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { notifyDesktop } from '@/lib/desktop/client';
 import { displayImChannelName } from '@/lib/im/channel-name';
 import { extractPreview, type ImChannel } from '@/lib/types/im';
+import { useImChannels } from '@/components/im/use-im-unread-count';
 
 type StreamMessage = {
   channelId?: string;
@@ -20,29 +21,13 @@ type StreamMessage = {
 export function ImNotificationRuntime() {
   const { user } = useCurrentUser();
   const meId = user?.id ?? '';
+  const { channels, subscribeToMessages } = useImChannels(meId);
   const channelsRef = useRef<Map<string, ImChannel>>(new Map());
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
-  const refreshChannels = useCallback(async () => {
-    if (!meId) {
-      channelsRef.current = new Map();
-      return;
-    }
-    try {
-      const res = await fetch('/api/im/channels', { credentials: 'include', cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json().catch(() => ({}));
-      const next = new Map<string, ImChannel>();
-      for (const channel of Array.isArray(data.channels) ? data.channels : []) {
-        if (channel && typeof channel.id === 'string') {
-          next.set(channel.id, channel as ImChannel);
-        }
-      }
-      channelsRef.current = next;
-    } catch {
-      /* fail-soft */
-    }
-  }, [meId]);
+  useEffect(() => {
+    channelsRef.current = new Map(channels.map((channel) => [channel.id, channel]));
+  }, [channels]);
 
   const handleMessage = useCallback(async (event: MessageEvent) => {
     if (!meId) return;
@@ -104,37 +89,10 @@ export function ImNotificationRuntime() {
       channelsRef.current = new Map();
       return;
     }
-
-    let cancelled = false;
-    const refresh = () => {
-      if (cancelled) return;
-      void refreshChannels();
-    };
-
-    void refreshChannels();
-
-    window.addEventListener('tandem:im-channels-refresh', refresh);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
-
-    const es = new EventSource('/api/im/stream');
-    es.addEventListener('channel', refresh);
-    es.addEventListener('message', (event) => {
-      refresh();
-      void handleMessage(event as MessageEvent);
+    return subscribeToMessages((event) => {
+      void handleMessage(event);
     });
-    es.onerror = () => {
-      es.close();
-    };
-
-    return () => {
-      cancelled = true;
-      es.close();
-      window.removeEventListener('tandem:im-channels-refresh', refresh);
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [handleMessage, meId, refreshChannels]);
+  }, [handleMessage, meId, subscribeToMessages]);
 
   return null;
 }

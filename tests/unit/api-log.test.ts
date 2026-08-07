@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'crypto';
 import { queryBusinessLogs, resetBusinessLogsForTests } from '@/lib/business-log/service';
 import { queryApiLogs, resetApiLogsForTests } from '@/lib/api-log/service';
@@ -45,6 +45,34 @@ describe('api log', () => {
 
     const businessResult = await queryBusinessLogs({ tenantId: 'tenant_api_1' });
     expect(businessResult.entries).toHaveLength(0);
+  });
+
+  it('does not delay the response while audit request data is still being read', async () => {
+    let releaseBody: ((value: unknown) => void) | undefined;
+    const delayedBody = new Promise((resolve) => { releaseBody = resolve; });
+    const request = new Request('http://localhost/api/widgets/w_2', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': '2',
+        'x-tandem-user-id': 'user_2',
+        'x-tandem-tenant-id': 'tenant_api_2',
+      },
+      body: '{}',
+    });
+    vi.spyOn(request, 'clone').mockReturnValue({ json: () => delayedBody } as unknown as Request);
+    const handler = withApiLog(async () => Response.json({ ok: true }), { route: '/api/widgets/[id]' });
+
+    const result = await Promise.race([
+      handler(request),
+      new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 25)),
+    ]);
+    expect(result).not.toBe('timeout');
+
+    releaseBody?.({ ok: true });
+    await flushDeferredWrites();
+    const logs = await queryApiLogs({ tenantId: 'tenant_api_2' });
+    expect(logs.entries).toHaveLength(1);
   });
 
   it('accepts only signed middleware and Edge ingestion', async () => {

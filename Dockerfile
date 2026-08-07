@@ -20,7 +20,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT=standalone
 # postinstall (copy-pdf-worker) 在 deps 阶段被 ignore-scripts 跳过，这里手动跑
 RUN node scripts/copy-pdf-worker.mjs || true
-RUN npm run build
+# Next 在构建期会加载部分服务端路由；使用非运行期占位值通过静态收集。
+# 最终 runner 不继承这些值，compose 仍强制要求真实 SESSION/NEXTAUTH secret。
+RUN SESSION_SECRET=build-only-not-valid-at-runtime-20260807 \
+    NEXTAUTH_SECRET=build-only-not-valid-at-runtime-20260807 \
+    npm run build
 
 # ---------- 阶段 3: runner ----------
 FROM node:22-alpine AS runner
@@ -39,9 +43,11 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-# Drizzle 迁移文件（生产期启动可执行 db:migrate）
+# 幂等 SQL migration runner。Next 会把 postgres-js 打进应用 chunk，但独立
+# runner 仍需可解析原始包；只复制这一项生产依赖，不携带 drizzle-kit/devDependencies。
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/apply-migrations.mjs ./scripts/apply-migrations.mjs
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/postgres ./node_modules/postgres
 
 USER nextjs
 

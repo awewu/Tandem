@@ -7,7 +7,7 @@
  * 会话选择通过 router.push('/im?ch=<id>') 驱动, 与消息流解耦.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { type ImChannel, type ImMembership } from '@/lib/types/im';
 import { displayImChannelName, displayImChannelPreview, displayImChannelSubtitle, getDmPeerId } from '@/lib/im/channel-name';
 import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
+import { useImChannels } from '@/components/im/use-im-unread-count';
 
 type Channel = ImChannel & { unread?: number; membership?: ImMembership };
 
@@ -120,7 +121,10 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const nameOf = usePersonNameResolver();
   const canManageOrgGroups = user?.permissions?.includes('organization.manage') ?? false;
 
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const {
+    channels,
+    refreshChannels: loadChannels,
+  } = useImChannels(ME);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterGroup>('all');
   const [showCreate, setShowCreate] = useState(false);
@@ -129,8 +133,6 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const [showMsgSearch, setShowMsgSearch] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
-  const channelsLoadInFlightRef = useRef<Promise<void> | null>(null);
-  const showMsgSearchRef = useRef(false);
 
   const activeId = searchParams?.get('ch') ?? null;
   const isImRoute = pathname?.startsWith('/im') ?? false;
@@ -140,90 +142,21 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     setShowCreate(true);
   });
 
-  useEffect(() => {
-    showMsgSearchRef.current = showMsgSearch;
-  }, [showMsgSearch]);
-
   const channelDisplayName = useCallback((channel: Channel, fallback = '私聊') => {
     if (channel.type !== 'dm') return displayImChannelName(channel);
     const peerId = getDmPeerId(channel, ME);
     return peerId ? nameOf(peerId) : fallback;
   }, [ME, nameOf]);
 
-  const loadChannels = useCallback(async (options: { force?: boolean } = {}) => {
-    if (!ME) {
-      setChannels([]);
-      return;
-    }
-    if (showMsgSearchRef.current && !options.force) return;
-    if (channelsLoadInFlightRef.current) return channelsLoadInFlightRef.current;
-
-    const request = (async () => {
-    try {
-      const res = await fetch(`/api/im/channels?userId=${ME}`, { cache: 'no-store' });
-      const data = await res.json();
-      const list: Channel[] = data.channels ?? [];
-      setChannels(list);
-      // 首次加载自动选第一个 — 仅桌面端 (md+).
-      // 移动端 SubSidebar 隐藏, /im 入口应停留在会话选择页, 不能自动跳进对话框.
-      if (isImRoute && !activeId && list.length > 0) {
-        const isDesktop =
-          typeof window !== 'undefined' &&
-          window.matchMedia('(min-width: 768px)').matches;
-        if (isDesktop) router.replace(`/im?ch=${list[0].id}`);
-      }
-    } catch { /* ignore */ }
-    })().finally(() => {
-      channelsLoadInFlightRef.current = null;
-    });
-    channelsLoadInFlightRef.current = request;
-    return request;
-  }, [ME, activeId, isImRoute, router]);
-
-  useEffect(() => { void loadChannels({ force: true }); }, [loadChannels]);
-
-  // 兜底刷新会话列表。当前聊天区标已读/发消息后会派发事件立即刷新。
+  // 首次拿到共享会话列表后自动选第一个 — 仅桌面端 (md+).
+  // 移动端 SubSidebar 隐藏, /im 入口应停留在会话选择页, 不能自动跳进对话框.
   useEffect(() => {
-    const refresh = () => void loadChannels();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    window.addEventListener('tandem:im-channels-refresh', refresh);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    const id = setInterval(() => {
-      if (document.visibilityState === 'hidden') return;
-      void loadChannels();
-    }, 30_000);
-    return () => {
-      window.removeEventListener('tandem:im-channels-refresh', refresh);
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      clearInterval(id);
-    };
-  }, [loadChannels]);
-
-  useEffect(() => {
-    if (!ME) return;
-    const es = new EventSource('/api/im/stream');
-    const refresh = () => void loadChannels();
-    let sseHealthy = true;
-    es.addEventListener('unread', refresh);
-    es.addEventListener('channel', refresh);
-    es.addEventListener('message', refresh);
-    es.onopen = () => { sseHealthy = true; };
-    es.onerror = () => {
-      sseHealthy = false;
-    };
-    const fallback = setInterval(() => {
-      if (document.visibilityState === 'hidden' || sseHealthy) return;
-      void loadChannels();
-    }, 10_000);
-    return () => {
-      clearInterval(fallback);
-      es.close();
-    };
-  }, [ME, loadChannels]);
+    if (!isImRoute || activeId || channels.length === 0) return;
+    const isDesktop =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(min-width: 768px)').matches;
+    if (isDesktop) router.replace(`/im?ch=${channels[0].id}`);
+  }, [activeId, channels, isImRoute, router]);
 
   const filteredChannels = useMemo(() => {
     let list = channels;

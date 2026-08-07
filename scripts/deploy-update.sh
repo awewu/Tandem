@@ -11,8 +11,9 @@
 # 做的事:
 #   1. git pull origin main
 #   2. docker compose build app (重建镜像)
-#   3. docker compose up -d app (重启容器, 不动 PG/Redis/MinIO)
-#   4. 健康检查
+#   3. 用新镜像执行幂等数据库迁移
+#   4. docker compose up -d app (重启容器, 不动 PG/Redis/MinIO)
+#   5. 健康检查
 # ============================================================================
 set -euo pipefail
 
@@ -52,12 +53,18 @@ log "重建 app 镜像 (首次较慢, 后续有缓存约 1-3 分钟)"
 $COMPOSE build app
 ok "镜像构建完成"
 
-# ---------- 3. 重启 app 容器 ----------
+# ---------- 3. 执行数据库迁移 ----------
+# 先迁移再切换应用；失败时保留正在运行的旧容器并终止部署。
+log "执行数据库迁移"
+$COMPOSE run --rm -T --no-deps app node scripts/apply-migrations.mjs
+ok "迁移完成"
+
+# ---------- 4. 重启 app 容器 ----------
 log "重启 app 容器 (PG/Redis/MinIO 不受影响)"
 $COMPOSE up -d app
 ok "容器已重启"
 
-# ---------- 4. 健康检查 ----------
+# ---------- 5. 健康检查 ----------
 log "健康检查 (最多 60s)"
 APP_PORT=$($COMPOSE run --rm -T app sh -c 'echo $APP_PORT' 2>/dev/null || echo "3000")
 APP_PORT=${APP_PORT:-3000}

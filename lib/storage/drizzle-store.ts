@@ -175,7 +175,7 @@ class DrizzleTenantLockedKvRepository<T extends { id: string }>
 
 /**
  * IM 消息仓储 (drizzle): 频道热路径下推到 SQL, 只读回需要的 N 条.
- *   WHERE collection='im_messages' AND data->>'channelId'=? AND data->>'deletedAt' IS NULL
+ *   WHERE collection='im_messages' AND data->>'channelId'=? [AND data->>'deletedAt' IS NULL]
  *     [AND tenantId=<scope>] [AND data->>'createdAt' < <before>]
  *   ORDER BY data->>'createdAt' DESC LIMIT N   (ISO 串字典序 = 时序)
  * 结果反转为升序返回 (与 memory / 旧 getChannelMessages 一致).
@@ -197,8 +197,8 @@ class DrizzleImMessageRepository
     const conds = [
       eq(kv.collection, 'im_messages'),
       sql`${kv.data}->>'channelId' = ${channelId}`,
-      sql`${kv.data}->>'deletedAt' IS NULL`,
     ] as Array<ReturnType<typeof eq> | ReturnType<typeof sql>>;
+    if (!query.includeDeleted) conds.push(sql`${kv.data}->>'deletedAt' IS NULL`);
     // 租户作用域: 走 KvStore.tenantId 列 (im_messages 列恒为 'default').
     const scope = getActiveTenantScope();
     if (scope !== undefined) conds.push(eq(kv.tenantId, scope));

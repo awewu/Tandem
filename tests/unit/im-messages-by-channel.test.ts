@@ -9,10 +9,11 @@
  *   - before 游标 (排他, 向上翻页)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setStore, getStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import type { ImMessage } from '@/lib/types/im';
+import { getChannelMessages } from '@/lib/im/service';
 
 beforeEach(() => {
   setStore(createInMemoryStore());
@@ -45,6 +46,34 @@ describe('imMessages.listByChannel', () => {
 
     const rows = await getStore().imMessages.listByChannel('c1');
     expect(rows.map((r) => r.id)).toEqual(['m1', 'm3']);
+  });
+
+  it('includeDeleted 保留软删消息作为时间线占位', async () => {
+    await seed({ id: 'm1', channelId: 'c1', createdAt: '2026-01-01T00:00:00.000Z' });
+    await seed({ id: 'm2', channelId: 'c1', createdAt: '2026-01-02T00:00:00.000Z', deletedAt: '2026-01-02T01:00:00.000Z' });
+    await seed({ id: 'm3', channelId: 'c1', createdAt: '2026-01-03T00:00:00.000Z' });
+
+    const rows = await getStore().imMessages.listByChannel('c1', {
+      includeDeleted: true,
+      limit: 2,
+    });
+    expect(rows.map((r) => r.id)).toEqual(['m2', 'm3']);
+  });
+
+  it('getChannelMessages delegates limit/before to listByChannel and includes recalled rows', async () => {
+    const store = getStore();
+    const listByChannel = vi.spyOn(store.imMessages, 'listByChannel');
+
+    await getChannelMessages('c1', {
+      before: '2026-01-03T00:00:00.000Z',
+      limit: 20,
+    });
+
+    expect(listByChannel).toHaveBeenCalledWith('c1', {
+      before: '2026-01-03T00:00:00.000Z',
+      limit: 20,
+      includeDeleted: true,
+    });
   });
 
   it('limit 取最新 N 条 (仍升序返回)', async () => {

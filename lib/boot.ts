@@ -26,6 +26,7 @@ import { createYonyouKpiErpAdapterIfConfigured } from './kpi/erp-adapters/yonyou
 type BootGlobals = {
   __tandem_booted__?: boolean;
   __tandem_seed_promise__?: Promise<void> | null;
+  __tandem_boot_readiness__?: BootReadinessInternal;
   __tandem_router__?: TandemRouter | null;
   __tandem_orchestrator__?: ConvergenceOrchestrator | null;
   __tandem_tick_interval__?: ReturnType<typeof setInterval> | null;
@@ -35,6 +36,25 @@ type BootGlobals = {
   __tandem_daily_focus_push_date__?: string | null;
 };
 const _g = globalThis as typeof globalThis & BootGlobals;
+
+export type BootReadinessState = 'not_started' | 'initializing' | 'ready' | 'failed';
+
+export type BootReadiness = {
+  state: BootReadinessState;
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+  warnings: string[];
+  error?: string;
+};
+
+type BootReadinessInternal = {
+  state: BootReadinessState;
+  startedAt: number | null;
+  completedAt: number | null;
+  warnings: string[];
+  error?: string;
+};
 
 /**
  * 同步初始化 store / router / orchestrator (无 IO).
@@ -57,7 +77,35 @@ function bootSync(): void {
     (typeof existingStore === 'object' && !('reportSummaries' in existingStore)) ||
     actualKind !== expectedKind;
 
-  if (_g.__tandem_booted__ && !storeNeedsReset) return;
+  if (_g.__tandem_booted__ && !storeNeedsReset) {
+    // Dev HMR can retain the old boot globals while replacing this module.
+    // Bridge an in-flight legacy promise into the explicit readiness state.
+    if (!_g.__tandem_boot_readiness__) {
+      const pending = _g.__tandem_seed_promise__;
+      if (pending) {
+        const startedAt = Date.now();
+        _g.__tandem_boot_readiness__ = {
+          state: 'initializing',
+          startedAt,
+          completedAt: null,
+          warnings: [],
+        };
+        _g.__tandem_seed_promise__ = pending.then(
+          () => markBootCompleted('ready'),
+          (err: unknown) => markBootCompleted('failed', err),
+        );
+      } else {
+        const now = Date.now();
+        _g.__tandem_boot_readiness__ = {
+          state: 'ready',
+          startedAt: now,
+          completedAt: now,
+          warnings: [],
+        };
+      }
+    }
+    return;
+  }
 
   // P4-13: 生产启动硬化 — 检查关键 env, 弱配置直接抛错阻止启动
   enforceProductionGuard();
@@ -123,7 +171,10 @@ function bootSync(): void {
     // eslint-disable-next-line no-console
     console.info('[boot] KPI ERP adapter registered: yonyou-yonsuite');
   }
-  void initObservability();
+  void initObservability().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] observability init failed:', err);
+  });
   // 自研身份系统: 首次启动建 owner (幂等)
   bootstrapOwnerIfMissing().catch((err) => {
     // eslint-disable-next-line no-console
@@ -137,43 +188,34 @@ function bootSync(): void {
   //   用于导入正式数据集 (如瑞合瑞德) 后, 防 boot 重新注入演示数据污染。
   const demoSeedEnabled =
     process.env.NODE_ENV !== 'production' && process.env.DISABLE_DEMO_SEED !== '1';
+  _g.__tandem_boot_readiness__ = {
+    state: 'initializing',
+    startedAt: Date.now(),
+    completedAt: null,
+    warnings: [],
+  };
   const baseSeed = demoSeedEnabled
-    ? seedDevData().catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] seed failed:', err);
-      })
+    ? seedDevData().catch((err) => recordBootWarning('seed', err))
     : Promise.resolve();
 
   // Chain idempotent module seeds — run regardless of KvStore guard
   // so existing dev DBs pick up new tables added after first seed.
   // Important: included in __tandem_seed_promise__ so `await boot()` waits.
-  _g.__tandem_seed_promise__ = baseSeed
+  const initialization = baseSeed
     .then(() =>
-      seedLaunchpadIfEmpty().catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] launchpad seed failed:', err);
-      })
+      seedLaunchpadIfEmpty().catch((err) => recordBootWarning('launchpad seed', err))
     )
     .then(() =>
-      seedExtraModulesIfEmpty().catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] extra modules seed failed:', err);
-      })
+      seedExtraModulesIfEmpty().catch((err) => recordBootWarning('extra modules seed', err))
     )
     .then(() =>
       demoSeedEnabled
-        ? seedKpiDemoIfEmpty().catch((err) => {
-            // eslint-disable-next-line no-console
-            console.warn('[boot] KPI bsc seed failed:', err);
-          })
+        ? seedKpiDemoIfEmpty().catch((err) => recordBootWarning('KPI bsc seed', err))
         : undefined
     )
     .then(() =>
       demoSeedEnabled
-        ? seedShowcaseIfEmpty().catch((err) => {
-            // eslint-disable-next-line no-console
-            console.warn('[boot] showcase seed failed:', err);
-          })
+        ? seedShowcaseIfEmpty().catch((err) => recordBootWarning('showcase seed', err))
         : undefined
     )
     // §CA-1 (CENTRAL-AI-ARCHITECTURE) CompanyBrain Persona 单例 seed (幂等)
@@ -186,8 +228,7 @@ function bootSync(): void {
           console.info('[boot] CompanyBrain seeded (中央 AI 实体)');
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] CompanyBrain seed failed:', err);
+        recordBootWarning('CompanyBrain seed', err);
       }
     })
     // AI 配置热重载: 从 DB AiSettings 覆盖路由器 provider (优先于 env)
@@ -200,8 +241,7 @@ function bootSync(): void {
         const { syncMcpServersToRegistry } = await import('./settings/mcp-servers');
         await syncMcpServersToRegistry();
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] MCP servers sync failed:', err);
+        recordBootWarning('MCP servers sync', err);
       }
     })
     // 组织云盘: 幂等 provision 部门树 + 确保对象存储 bucket 存在 (fail-soft)
@@ -210,8 +250,7 @@ function bootSync(): void {
         const { ensureBucket, BUCKET_DRIVE, getS3 } = await import('./infra/s3-client');
         if (getS3()) await ensureBucket(BUCKET_DRIVE);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] ensure drive bucket failed:', err);
+        recordBootWarning('drive bucket', err);
       }
       try {
         const { provisionOrgDrive } = await import('./drive/provision');
@@ -239,10 +278,17 @@ function bootSync(): void {
           console.info(`[boot] org drive provisioned: ${r.created.length} 目录 (company_share + dept_root + personal_home)`);
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] org drive provision failed:', err);
+        recordBootWarning('org drive provision', err);
       }
     });
+
+  // The production request path deliberately does not await this work. Always
+  // terminate the chain here so an unexpected initializer failure is reflected
+  // by readiness without becoming an unhandled rejection.
+  _g.__tandem_seed_promise__ = initialization.then(
+    () => markBootCompleted('ready'),
+    (err: unknown) => markBootCompleted('failed', err),
+  );
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
   // (生产环境用 cron / job queue, V1 用 setInterval 简化)
@@ -251,18 +297,88 @@ function bootSync(): void {
 
   // 注册跨域事件订阅者 (lib/events/subscribers.ts · 幂等)
   // 任何 service A 影响 service B 必须经此, 不允许 service A 直接 await service B
-  void import('./events/subscribers').then(({ registerCrossDomainSubscribers }) => {
-    registerCrossDomainSubscribers();
-  });
+  void import('./events/subscribers')
+    .then(({ registerCrossDomainSubscribers }) => {
+      registerCrossDomainSubscribers();
+    })
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[boot] cross-domain subscriber registration failed:', err);
+    });
 }
 
 /**
- * 异步启动: 同步建好 store/router, 然后 await 完整 seed.
- * API 路由应统一 `await boot()`, 避免首屏 race 读到空 store.
+ * 异步启动: 同步建好 store/router，并启动完整初始化链。
+ *
+ * 生产请求不等待 seed / AI 设置 / MCP / S3 / 组织云盘等慢任务；这些任务
+ * 仍会在后台完整执行，并由 readiness 探针把流量挡在初始化完成之前。
+ * 开发和测试继续等待完整链，保留现有 seed 可见性和测试语义。
  */
 export async function boot(): Promise<void> {
   bootSync();
+  if (process.env.NODE_ENV !== 'production') await waitForBootReady();
+}
+
+/** 返回当前启动就绪状态，不触发初始化。 */
+export function getBootReadiness(): BootReadiness {
+  const status = _g.__tandem_boot_readiness__ ?? {
+    state: 'not_started' as const,
+    startedAt: null,
+    completedAt: null,
+    warnings: [],
+  };
+  const end = status.completedAt ?? (status.startedAt === null ? null : Date.now());
+  return {
+    state: status.state,
+    startedAt: status.startedAt,
+    completedAt: status.completedAt,
+    durationMs: status.startedAt === null || end === null ? null : end - status.startedAt,
+    warnings: [...(status.warnings ?? [])],
+    ...(status.error ? { error: status.error } : {}),
+  };
+}
+
+/**
+ * 显式等待完整初始化。readiness、运维脚本或确实依赖 seed 的调用方使用；
+ * 普通生产 API 不应调用。
+ */
+export async function waitForBootReady(): Promise<void> {
+  bootSync();
   if (_g.__tandem_seed_promise__) await _g.__tandem_seed_promise__;
+  const status = getBootReadiness();
+  if (status.state === 'failed') {
+    throw new Error(`[boot] initialization failed: ${status.error ?? 'unknown error'}`);
+  }
+}
+
+function markBootCompleted(state: 'ready' | 'failed', err?: unknown): void {
+  const previous = _g.__tandem_boot_readiness__;
+  const completedAt = Date.now();
+  _g.__tandem_boot_readiness__ = {
+    state,
+    startedAt: previous?.startedAt ?? completedAt,
+    completedAt,
+    warnings: previous?.warnings ?? [],
+    ...(state === 'failed'
+      ? { error: err instanceof Error ? err.message : String(err ?? 'unknown error') }
+      : {}),
+  };
+  if (state === 'failed') {
+    // eslint-disable-next-line no-console
+    console.error('[boot] initialization failed:', err);
+  }
+}
+
+function recordBootWarning(component: string, err: unknown): void {
+  const detail = err instanceof Error ? err.message : String(err);
+  const warning = `${component}: ${detail}`;
+  const readiness = _g.__tandem_boot_readiness__;
+  if (readiness) {
+    readiness.warnings ??= [];
+    if (!readiness.warnings.includes(warning)) readiness.warnings.push(warning);
+  }
+  // eslint-disable-next-line no-console
+  console.warn(`[boot] ${component} failed:`, err);
 }
 
 /**

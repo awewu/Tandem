@@ -26,6 +26,7 @@ import { ApiHydrator } from '@/components/api-hydrator';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { PullToRefreshProvider } from '@/components/pull-to-refresh';
 import { ScrollRestoration } from '@/components/scroll-restoration';
+import { ImChannelsProvider } from '@/components/im/use-im-unread-count';
 
 /** 这些前缀及其子路由不套内部 chrome, 作为独立 app 全屏呈现 */
 const STANDALONE_PREFIXES = ['/shouchao', '/hub'];
@@ -74,44 +75,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // 内部协作驾驶舱: 完整 chrome
   return (
-    <PullToRefreshProvider>
-      <ApiHydrator />
-      <ScrollRestoration />
-      {/*
-        Responsive shell:
-        - md+ : 桌面三栏 (AppRail + SubSidebar + main)
-        - <md : 顶栏 + 全屏 main + 底部 tab bar (Kimi/GPT 移动端风格)
-               AppRail / SubSidebar 在 mobile 视口下隐藏.
-      */}
-      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-[rgb(var(--surface-2))] md:flex-row">
-        {/* Desktop only */}
-        <div className="hidden md:contents">
-          <AppRail />
-          <SubSidebar />
-        </div>
-
-        {/* Mobile only top bar */}
-        <MobileTopBar />
-
-        <main
-          id="tandem-shell-main"
-          className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto bg-[rgb(var(--surface-1))] pb-[calc(56px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))] md:overflow-hidden md:pb-0"
-        >
-          <HubTabs />
-          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden md:overflow-y-auto">
-            <ErrorBoundary>{children}</ErrorBoundary>
+    <ImChannelsProvider>
+      <PullToRefreshProvider>
+        <ApiHydrator />
+        <ScrollRestoration />
+        {/*
+          Responsive shell:
+          - md+ : 桌面三栏 (AppRail + SubSidebar + main)
+          - <md : 顶栏 + 全屏 main + 底部 tab bar (Kimi/GPT 移动端风格)
+                 AppRail / SubSidebar 在 mobile 视口下隐藏.
+        */}
+        <div className="flex h-dvh w-screen flex-col overflow-hidden bg-[rgb(var(--surface-2))] md:flex-row">
+          {/* Desktop only */}
+          <div className="hidden md:contents">
+            <AppRail />
+            <SubSidebar />
           </div>
-        </main>
 
-        {/* Mobile only bottom tab bar */}
-        <MobileTabBar />
-      </div>
-      <CommandPalette />
-      <KeyboardShortcuts />
-      <ReminderRuntime />
-      <ImNotificationRuntime />
-      {/* §灵魂入口 · Tandem AI = 老板的搭子 · 全应用浮动问老板 · ⌘J */}
-      <BossAiMount />
-    </PullToRefreshProvider>
+          {/* Mobile only top bar */}
+          <MobileTopBar />
+
+          <main
+            id="tandem-shell-main"
+            className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto bg-[rgb(var(--surface-1))] pb-[calc(56px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))] md:overflow-hidden md:pb-0"
+          >
+            <HubTabs />
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden md:overflow-y-auto">
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </div>
+          </main>
+
+          {/* Mobile only bottom tab bar */}
+          <MobileTabBar />
+        </div>
+        <CommandPalette />
+        <KeyboardShortcuts />
+        <ReminderRuntime />
+        <ImNotificationRuntime />
+        {/* §灵魂入口 · Tandem AI = 老板的搭子 · 全应用浮动问老板 · ⌘J */}
+        <BossAiMount />
+      </PullToRefreshProvider>
+    </ImChannelsProvider>
   );
 }

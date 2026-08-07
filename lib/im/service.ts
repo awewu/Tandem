@@ -51,6 +51,39 @@ function broadcast(e: ImBusEvent): void {
   _bus.emit('event', e);
 }
 
+function boundedInt(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+}
+
+const IM_DB_FANOUT_CONCURRENCY = boundedInt(
+  process.env.IM_DB_FANOUT_CONCURRENCY,
+  8,
+  1,
+  16,
+);
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  task: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        results[index] = await task(items[index], index);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 /**
  * §Sprint2 广播"正在输入" (transient, 不落库, 不校验成员资格由调用方 API 做)。
  * 前端 debounce 触发; 订阅端排除自己 + 短超时自动清。
@@ -151,16 +184,19 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
   const store = getStore();
   // §23: userId 等值过滤下推到存储层 (热路径: 每次进 IM 都查本人频道)
   const memberships = await store.imMemberships.list({ userId });
-  const result: Array<ImChannel & { unread: number; membership: ImMembership }> = [];
-  for (const m of memberships) {
-    const ch = await store.imChannels.get(m.channelId);
-    if (!ch) continue;
-    if (ch.archivedAt) continue;
+  // Channel state is maintained by mutations (send/read/recall). Keep this GET path
+  // read-only and fetch independent channel rows concurrently so remote DB RTT does
+  // not accumulate once per membership.
+  const rows = await mapWithConcurrency(memberships, IM_DB_FANOUT_CONCURRENCY, async (membership) => {
+    const channel = await store.imChannels.get(membership.channelId);
+    if (!channel || channel.archivedAt) return null;
     // Tenant isolation: drop channels from other tenants.
-    if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
-    const reconciled = await reconcileChannelListState(ch, m);
-    result.push({ ...reconciled.channel, unread: reconciled.membership.unreadCount, membership: reconciled.membership });
-  }
+    if (tenantId && (channel.tenantId ?? 'default') !== tenantId) return null;
+    return { ...channel, unread: membership.unreadCount, membership };
+  });
+  const result = rows.filter(
+    (row): row is ImChannel & { unread: number; membership: ImMembership } => row !== null,
+  );
   // pinnedChat 置顶, 其次按最后消息时间倒序
   result.sort((a, b) => {
     const pa = a.membership.pinnedChat ? 1 : 0;
@@ -185,10 +221,12 @@ export async function getChannelMessages(
   options: { limit?: number; before?: string } = {}
 ): Promise<ImMessage[]> {
   const store = getStore();
-  const all = await store.imMessages.list({ channelId });
-  let messages = all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  if (options.before) messages = messages.filter((message) => message.createdAt < options.before!);
-  return messages.slice(-(options.limit ?? 100));
+  return store.imMessages.listByChannel(channelId, {
+    limit: options.limit,
+    before: options.before,
+    // Recalled messages stay in the timeline as placeholders.
+    includeDeleted: true,
+  });
 }
 
 /**
@@ -274,21 +312,23 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
       .filter((mn) => mn.kind !== 'persona')
       .map((mn) => mn.userId)
   );
-  for (const uid of channel.memberIds) {
-    if (uid === input.senderId && senderKind === 'user') continue;
-    const m = await store.imMemberships.get(membershipKey(channel.id, uid));
-    if (!m) continue;
-    const unread = m.unreadCount + 1;
-    const patch: Partial<typeof m> = { unreadCount: unread };
+  const channelMemberIds = new Set(channel.memberIds);
+  const memberships = await store.imMemberships.list({ channelId: channel.id });
+  await mapWithConcurrency(memberships, IM_DB_FANOUT_CONCURRENCY, async (membership) => {
+    const uid = membership.userId;
+    if (!channelMemberIds.has(uid)) return;
+    if (uid === input.senderId && senderKind === 'user') return;
+    const unread = membership.unreadCount + 1;
+    const patch: Partial<ImMembership> = { unreadCount: unread };
     if (mentionedUserIds.has(uid)) patch.hasUnreadMention = true;
-    await store.imMemberships.update(m.id, patch);
+    await store.imMemberships.update(membership.id, patch);
     broadcast({
       type: 'unread_changed',
       channelId: channel.id,
       userId: uid,
       unread,
     });
-  }
+  });
 
   broadcast({ type: 'message', channelId: channel.id, message });
 
@@ -464,13 +504,23 @@ export async function markChannelRead(
   const store = getStore();
   const m = await store.imMemberships.get(membershipKey(channelId, userId));
   if (!m) return;
+  const unreadChanged = m.unreadCount !== 0 || Boolean(m.hasUnreadMention);
+  // The first visit still establishes a read receipt. With no unread state,
+  // only advance it when the channel has a newer message (for example one sent
+  // by this user, which intentionally did not increment their unread count).
+  if (!unreadChanged && m.lastReadAt) {
+    const channel = await store.imChannels.get(channelId);
+    if (!channel?.lastMessageAt || m.lastReadAt >= channel.lastMessageAt) return;
+  }
   const lastReadAt = new Date().toISOString();
   await store.imMemberships.update(m.id, {
     unreadCount: 0,
     lastReadAt,
     hasUnreadMention: false,
   });
-  broadcast({ type: 'unread_changed', channelId, userId, unread: 0 });
+  if (unreadChanged) {
+    broadcast({ type: 'unread_changed', channelId, userId, unread: 0 });
+  }
   broadcast({ type: 'read_receipt_changed', channelId, userId, lastReadAt });
 }
 
@@ -479,67 +529,6 @@ export async function markChannelRead(
 // ---------------------------------------------------------------------------
 
 const RECALL_WINDOW_MS = 2 * 60 * 1000; // 2 分钟内可撤回
-
-async function reconcileChannelListState(
-  channel: ImChannel,
-  membership: ImMembership,
-): Promise<{ channel: ImChannel; membership: ImMembership }> {
-  const store = getStore();
-  const messages = await store.imMessages.list({ channelId: channel.id });
-  const orderedMessages = messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const visibleMessages = orderedMessages.filter((message) => !message.deletedAt);
-  const latestMessage = orderedMessages.at(-1);
-  const latestVisibleMessage = visibleMessages.at(-1);
-  const readAfter = membership.lastReadAt ?? membership.joinedAt;
-  const unreadMessages = visibleMessages.filter((message) => {
-    if (membership.lastReadAt ? message.createdAt <= readAfter : message.createdAt < readAfter) return false;
-    if (message.senderKind === 'user' && message.senderId === membership.userId) return false;
-    return true;
-  });
-  const unreadCount = unreadMessages.length;
-  const hasUnreadMention = unreadMessages.some((message) =>
-    message.mentions.some((mention) => mention.userId === membership.userId),
-  );
-
-  let nextMembership = membership;
-  if (
-    membership.unreadCount !== unreadCount ||
-    Boolean(membership.hasUnreadMention) !== hasUnreadMention
-  ) {
-    nextMembership = await store.imMemberships.update(membership.id, {
-      unreadCount,
-      hasUnreadMention,
-    });
-    broadcast({ type: 'unread_changed', channelId: channel.id, userId: membership.userId, unread: unreadCount });
-  }
-
-  let nextChannel = channel;
-  if (latestMessage) {
-    const expectedPreview = latestMessage.deletedAt
-      ? '一条消息已撤回'
-      : extractPreview(latestMessage.body);
-    const expectedLastMessageAt = latestMessage.createdAt;
-    if (
-      channel.lastMessagePreview !== expectedPreview ||
-      channel.lastMessageAt !== expectedLastMessageAt
-    ) {
-      nextChannel = await store.imChannels.update(channel.id, {
-        lastMessagePreview: expectedPreview,
-        lastMessageAt: expectedLastMessageAt,
-        updatedAt: new Date().toISOString(),
-      });
-      broadcast({ type: 'channel_updated', channelId: channel.id, channel: nextChannel });
-    }
-  } else if (!latestVisibleMessage && channel.lastMessagePreview) {
-    nextChannel = await store.imChannels.update(channel.id, {
-      lastMessagePreview: undefined,
-      updatedAt: new Date().toISOString(),
-    });
-    broadcast({ type: 'channel_updated', channelId: channel.id, channel: nextChannel });
-  }
-
-  return { channel: nextChannel, membership: nextMembership };
-}
 
 async function recomputeChannelUnreadState(channel: ImChannel): Promise<void> {
   const store = getStore();
@@ -728,9 +717,11 @@ export async function removeChannelMember(
 
 async function pickNextOwner(channelId: string, memberIds: string[]): Promise<ImMembership | null> {
   const store = getStore();
-  const memberships = (await Promise.all(
-    memberIds.map((userId) => store.imMemberships.get(membershipKey(channelId, userId))),
-  )).filter((m): m is ImMembership => Boolean(m));
+  const memberships = (
+    await mapWithConcurrency(memberIds, IM_DB_FANOUT_CONCURRENCY, (userId) =>
+      store.imMemberships.get(membershipKey(channelId, userId)),
+    )
+  ).filter((membership): membership is ImMembership => Boolean(membership));
   return memberships.find((m) => m.role === 'admin') ?? memberships[0] ?? null;
 }
 

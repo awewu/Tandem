@@ -113,6 +113,55 @@
       "when": 1784820316621,
       "tag": "0015_parallel_maddog",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784820316622,
+      "tag": "0013_role_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784820316623,
+      "tag": "0014_mark_builtin_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784820316624,
+      "tag": "0015_remove_unwired_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785200000000,
+      "tag": "0017_drive_node_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785600000000,
+      "tag": "0018_kpi_coowner_and_amendments",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785985200000,
+      "tag": "0019_im_message_body_trgm",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786075200000,
+      "tag": "0020_im_message_channel_created_index",
+      "breakpoints": true
     }
   ]
 }
