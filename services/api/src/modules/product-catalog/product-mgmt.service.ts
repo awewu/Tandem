@@ -36,6 +36,7 @@ export class ProductMgmtService {
         tenantId: actor.tenantId, name: dto.name!, productId: dto.productId ?? null, sku: dto.sku ?? null,
         plan: dto.plan ?? {}, checklist: dto.checklist ?? [], targetDate: dto.targetDate ?? null, status: 'planned',
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'product.launch.create', resourceType: 'product_launch', resourceId: row.id, afterState: { name: dto.name, sku: dto.sku ?? null, targetDate: dto.targetDate ?? null } });
       return { launch: row };
     }, this.scope(actor));
   }
@@ -86,6 +87,7 @@ export class ProductMgmtService {
         policyType: dto.policyType!, proposedPrice: Number(dto.proposedPrice) || 0, costPrice: Number(dto.costPrice) || 0,
         marginCalc: marginCalc as any, status: 'submitted', submittedBy: actor.userId, submittedAt: new Date(),
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'pricing.policy.submit', resourceType: 'pricing_policy', resourceId: row.id, afterState: { sku: dto.sku ?? null, policyType: dto.policyType, proposedPrice: Number(dto.proposedPrice) || 0, gatePassed: marginCalc.gatePassed } });
       return { policy: row, gatePassed: marginCalc.gatePassed, warning: marginCalc.gatePassed ? null : `毛利率 ${(marginCalc.marginRate * 100).toFixed(1)}% 低于阈值 ${(MARGIN_FLOOR * 100).toFixed(0)}%，审批将被阻断（基座3）` };
     }, this.scope(actor));
   }

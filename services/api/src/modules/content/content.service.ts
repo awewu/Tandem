@@ -20,6 +20,7 @@ export class ContentService {
         category: dto.category ?? null, body: dto.body ?? null, channel: dto.channel ?? null,
         factRefs: (dto.factRefs ?? []) as any, status: 'draft', author: actor.userId,
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'content.create', resourceType: 'content_asset', resourceId: row.id, afterState: { title: dto.title, kind: dto.kind ?? 'article', channel: dto.channel ?? null } });
       return { content: row };
     }, this.scope(actor));
   }

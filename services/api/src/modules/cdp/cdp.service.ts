@@ -85,9 +85,11 @@ export class CdpService implements OnModuleInit {
       };
       if (profile) {
         await repo.update({ id: profile.id }, patch);
+        await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'cdp.profile.update', resourceType: 'cdp_end_user_profile', resourceId: profile.id, afterState: { source: patch.source, hasPhone: !!phoneHash } });
         return { id: profile.id, updated: true };
       }
       const saved = await repo.save(repo.create(patch as Partial<CdpProfileEntity>) as CdpProfileEntity);
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'cdp.profile.create', resourceType: 'cdp_end_user_profile', resourceId: saved.id, afterState: { source: patch.source, hasPhone: !!phoneHash } });
       return { id: saved.id, created: true };
     }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
   }

@@ -24,6 +24,7 @@ export class ChannelService {
         tenantId: actor.tenantId, code: dto.code!, name: dto.name!, region: dto.region ?? null,
         categories: dto.categories ?? [], contact: dto.contact ?? {}, tier: 'prospect', status: 'recruiting',
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'channel.partner.recruit', resourceType: 'channel_partner', resourceId: row.id, afterState: { code: dto.code, name: dto.name, region: dto.region ?? null } });
       return { partner: row };
     }, this.scope(actor));
   }
@@ -62,6 +63,7 @@ export class ChannelService {
         tenantId: actor.tenantId, partnerId: dto.partnerId ?? null, period: dto.period!, basis: dto.basis!,
         amount: Number(dto.amount) || 0, marginCalc: marginCalc as any, status: 'submitted',
       }));
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'channel.rebate.submit', resourceType: 'channel_rebate', resourceId: row.id, afterState: { partnerId: dto.partnerId ?? null, period: dto.period, amount: Number(dto.amount) || 0, gatePassed: marginCalc.gatePassed } });
       return { rebate: row, gatePassed: marginCalc.gatePassed, warning: marginCalc.gatePassed ? null : `返利后毛利 ${(marginCalc.netMarginRate * 100).toFixed(1)}% 低于阈值 ${(REBATE_MARGIN_FLOOR * 100).toFixed(0)}%，审批将被阻断（基座3）` };
     }, this.scope(actor));
   }

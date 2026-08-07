@@ -26,9 +26,14 @@ export class PositioningService {
         differentiation: dto.differentiation ?? existing?.differentiation ?? [],
         status: 'draft', updatedAt: new Date(),
       };
-      if (existing) { await repo.update({ id: existing.id }, patch); return { id: existing.id, updated: true }; }
+      if (existing) {
+        await repo.update({ id: existing.id }, patch);
+        await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'positioning.update', resourceType: 'positioning_house', resourceId: existing.id, afterState: { brandCode: dto.brandCode, category: dto.category } });
+        return { id: existing.id, updated: true };
+      }
       const saved = await repo.save(repo.create(patch as Partial<PositioningHouseEntity>) as PositioningHouseEntity);
       const evidenceMissing = (patch.proofPoints || []).filter((p: any) => !p?.evidence).length;
+      await writeAudit(em, { tenantId: actor.tenantId, actorUserId: actor.userId, action: 'positioning.create', resourceType: 'positioning_house', resourceId: saved.id, afterState: { brandCode: dto.brandCode, category: dto.category } });
       return { id: saved.id, created: true, evidenceMissing };
     }, this.scope(actor));
   }
