@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "description": "Rhautt Nexus / 瑞合数智枢纽 brand marketing DAM platform for the Rhautt Comfort flagship instance",
   "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "react": "^19.0.0",
+      "react-dom": "^19.0.0",
+      "@types/react": "^19.0.0",
+      "@types/react-dom": "^19.0.0"
+    }
+  },
   "main": "server-production.js",
   "scripts": {
     "dev": "npm run dev:all",
