@@ -617,9 +617,10 @@ button { cursor:pointer; }
   box-shadow:var(--sh-xs);
 }
 
-/* Legacy .card → maps to card-elevated */
-.card      { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-lg); padding:var(--s5); box-shadow:var(--sh-card); transition:box-shadow 200ms; }
-.card:hover { box-shadow:var(--sh-hover); }
+/* Legacy .card → 同 card-elevated 去豆腐块：透明无框扁平,相邻区块发丝分隔线 */
+.card      { background:transparent; border:none; border-radius:0; padding:var(--s5); box-shadow:none; transition:box-shadow 200ms; }
+.card:hover { box-shadow:none; }
+.card + .card { border-top:1px solid var(--border); padding-top:var(--s6); margin-top:var(--s2); }
 .card-flat  { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-lg); padding:var(--s5); }
 .inset { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:var(--s3) var(--s4); }
 

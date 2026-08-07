@@ -194,11 +194,11 @@ export default function CockpitPage() {
 
 function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint: string }) {
   return (
-    <div className="card" style={{ padding: 20 }}>
+    <div className="inset" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--t-secondary, #6B7280)', fontSize: 13 }}>
         {icon}<span>{label}</span>
       </div>
-      <div className="t-num" style={{ fontSize: 30, fontWeight: 800, marginTop: 8, lineHeight: 1.1 }}>{value}</div>
+      <div className="t-num" style={{ fontSize: 28, fontWeight: 800, marginTop: 8, lineHeight: 1.1 }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--t-secondary, #6B7280)', marginTop: 4 }}>{hint}</div>
     </div>
   );
