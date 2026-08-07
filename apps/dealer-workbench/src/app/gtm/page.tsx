@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { Coins, Target } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { gtmplan } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 function statusOf(isLoading: boolean, error: unknown, empty: boolean): AsyncStatus {
   if (isLoading) return 'loading'; if (error) return 'error'; if (empty) return 'empty'; return 'ok';
@@ -26,6 +28,11 @@ export default function GtmPage() {
   const m = mroi.data;
   const cRows: any[] = campaigns.data?.campaigns || [];
   const oRows: any[] = okrs.data?.okrs || [];
+  const cv = useListView(cRows, {
+    pageSize: 15,
+    searchFields: ['name', 'period'],
+    filters: [{ key: 'status', label: '状态', options: [['planned', '计划'], ['running', '进行'], ['ended', '结束']].map(([value, label]) => ({ value, label })) }],
+  });
   const sum = okrSum.data?.byLevel || [];
 
   return (
@@ -52,8 +59,12 @@ export default function GtmPage() {
           <button className="btn btn-brand" onClick={addCampaign}>新建</button>
         </div>
         <AsyncBoundary status={statusOf(campaigns.isLoading, campaigns.error, cRows.length === 0)} errorMessage="战役加载失败（需 API + 数据库）" onRetry={() => campaigns.mutate()} emptyTitle="暂无战役" emptyDescription="创建战役后可记录花费与归因收入，自动汇总 MROI。">
+          <ListToolbar q={cv.q} onSearch={cv.onSearch} searchPlaceholder="搜战役/周期" filters={[
+            { key: 'status', label: '状态', options: [['planned', '计划'], ['running', '进行'], ['ended', '结束']].map(([value, label]) => ({ value, label })) },
+          ]} filterVals={cv.filterVals} onFilter={cv.setFilter} total={cv.total} page={cv.page} pageCount={cv.pageCount} onPage={cv.setPage}
+            onExport={() => exportCsv(cv.filtered, [{ key: 'name', label: '战役' }, { key: 'period', label: '周期' }, { key: 'budget', label: '预算' }, { key: 'spend', label: '花费' }, { key: 'attributedRevenue', label: '归因收入' }, { key: 'status', label: '状态' }], 'gtm-campaigns')} />
           <div style={{ display: 'grid', gap: 4 }}>
-            {cRows.map((c) => <div key={c.id} className="t-sm" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border)' }}><span>{c.name} · {c.period || '-'}</span><span className="t-xs" style={{ color: 'var(--t-tertiary)' }}>预算{yuan(c.budget)} · 花{yuan(c.spend)} · 收入{yuan(c.attributedRevenue)}</span></div>)}
+            {cv.pageRows.map((c) => <div key={c.id} className="t-sm" style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid var(--border)' }}><span>{c.name} · {c.period || '-'}</span><span className="t-xs" style={{ color: 'var(--t-tertiary)' }}>预算{yuan(c.budget)} · 花{yuan(c.spend)} · 收入{yuan(c.attributedRevenue)}</span></div>)}
           </div>
         </AsyncBoundary>
       </div>

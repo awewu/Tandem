@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { Landmark } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { positioning } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 function statusOf(isLoading: boolean, error: unknown, empty: boolean): AsyncStatus {
   if (isLoading) return 'loading'; if (error) return 'error'; if (empty) return 'empty'; return 'ok';
@@ -28,6 +30,11 @@ export default function PositioningPage() {
   async function approve(id: string) { try { await positioning.setStatus(id, 'approved'); toast('已批准', 'success'); houses.mutate(); } catch (e) { toast((e as Error).message, 'error'); } }
 
   const rows: any[] = houses.data?.houses || [];
+  const hv = useListView(rows, {
+    pageSize: 12,
+    searchFields: ['brandCode', 'category', 'promise'],
+    filters: [{ key: 'status', label: '状态', options: [['draft', '草稿'], ['approved', '已批准'], ['archived', '已归档']].map(([value, label]) => ({ value, label })) }],
+  });
 
   return (
     <div className="page-container">
@@ -46,8 +53,12 @@ export default function PositioningPage() {
       </div>
 
       <AsyncBoundary status={statusOf(houses.isLoading, houses.error, rows.length === 0)} errorMessage="定位屋加载失败（需 API + 数据库）" onRetry={() => houses.mutate()} emptyTitle="暂无定位屋" emptyDescription="为品牌×品类建立定位屋后，AgenticGEO 与内容工厂将据此生成话术。">
+        <ListToolbar q={hv.q} onSearch={hv.onSearch} searchPlaceholder="搜品牌/品类/承诺" filters={[
+          { key: 'status', label: '状态', options: [['draft', '草稿'], ['approved', '已批准'], ['archived', '已归档']].map(([value, label]) => ({ value, label })) },
+        ]} filterVals={hv.filterVals} onFilter={hv.setFilter} total={hv.total} page={hv.page} pageCount={hv.pageCount} onPage={hv.setPage}
+          onExport={() => exportCsv(hv.filtered, [{ key: 'brandCode', label: '品牌' }, { key: 'category', label: '品类' }, { key: 'promise', label: '核心承诺' }, { key: 'status', label: '状态' }], 'positioning-houses')} />
         <div style={{ display: 'grid', gap: 16 }}>
-          {rows.map((hh) => (
+          {hv.pageRows.map((hh) => (
             <div key={hh.id} className="card" style={{ padding: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="t-sm" style={{ fontWeight: 700, color: 'var(--t-strong)' }}>{hh.brandCode} · {hh.category}</span>

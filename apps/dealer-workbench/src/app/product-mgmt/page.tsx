@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { Rocket, BadgeDollarSign } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { productMgmt } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 function statusOf(isLoading: boolean, error: unknown, empty: boolean): AsyncStatus {
   if (isLoading) return 'loading'; if (error) return 'error'; if (empty) return 'empty'; return 'ok';
@@ -28,6 +30,14 @@ export default function ProductMgmtPage() {
 
   const lRows: any[] = launches.data?.launches || [];
   const pRows: any[] = pricing.data?.policies || [];
+  const pv = useListView(pRows, {
+    pageSize: 15,
+    searchFields: ['sku', 'policyType'],
+    filters: [
+      { key: 'status', label: '状态', options: [['submitted', '待审'], ['approved', '已批'], ['rejected', '已驳']].map(([value, label]) => ({ value, label })) },
+      { key: 'policyType', label: '类型', options: [['list', '目录价'], ['promo', '促销价'], ['rebate', '返利']].map(([value, label]) => ({ value, label })) },
+    ],
+  });
 
   return (
     <div className="page-container">
@@ -56,8 +66,13 @@ export default function ProductMgmtPage() {
           <button className="btn btn-brand" onClick={submitPricing}>提报</button>
         </div>
         <AsyncBoundary status={statusOf(pricing.isLoading, pricing.error, pRows.length === 0)} errorMessage="定价政策加载失败（需 API + 数据库）" onRetry={() => pricing.mutate()} emptyTitle="暂无定价政策" emptyDescription="提报定价将自动过毛利闸（低于阈值阻断批准）。">
+          <ListToolbar q={pv.q} onSearch={pv.onSearch} searchPlaceholder="搜 SKU/类型" filters={[
+            { key: 'status', label: '状态', options: [['submitted', '待审'], ['approved', '已批'], ['rejected', '已驳']].map(([value, label]) => ({ value, label })) },
+            { key: 'policyType', label: '类型', options: [['list', '目录价'], ['promo', '促销价'], ['rebate', '返利']].map(([value, label]) => ({ value, label })) },
+          ]} filterVals={pv.filterVals} onFilter={pv.setFilter} total={pv.total} page={pv.page} pageCount={pv.pageCount} onPage={pv.setPage}
+            onExport={() => exportCsv(pv.filtered, [{ key: 'sku', label: 'SKU' }, { key: 'policyType', label: '类型' }, { key: 'proposedPrice', label: '拟定价' }, { key: 'status', label: '状态' }], 'pricing-policies')} />
           <div style={{ display: 'grid', gap: 4 }}>
-            {pRows.map((p) => {
+            {pv.pageRows.map((p) => {
               const gate = (p.marginCalc || {}).gatePassed;
               return (
                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)' }}>

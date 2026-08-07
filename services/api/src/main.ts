@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './modules/app.module';
+import { ObservabilityInterceptor } from './modules/common/observability.interceptor';
 
 export const apiBootstrapTarget = {
   platform: 'Rhautt Nexus / 瑞合数智枢纽',
@@ -26,6 +27,8 @@ export async function createApiApplication() {
   );
 
   app.setGlobalPrefix('api/v2');
+  // 可观测性基础层:请求 trace-id 透传 + 结构化时序/错误日志（APM/Sentry 铺底）。
+  app.useGlobalInterceptors(new ObservabilityInterceptor());
   // 内部工作台（增长中枢/后台）跨源调用：反射请求源 + 允许 Authorization。
   // 端点仍由 AuthGuard（JWT 租户范围）保护，CORS 不放宽鉴权。
   app.enableCors({ origin: true, credentials: true });
