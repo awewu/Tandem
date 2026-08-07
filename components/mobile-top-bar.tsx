@@ -8,7 +8,7 @@
  * 紧凑 44px 高度 (Apple HIG mobile nav 标准).
  */
 
-import { useState, useMemo } from 'react';
+import { Suspense, useState, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,14 @@ import { haptic } from '@/lib/haptics';
  *   - 不用渐变 / blur (避免性能毛刺), 不用 brand 强色
  */
 export function MobileTopBar() {
+  return (
+    <Suspense fallback={null}>
+      <MobileTopBarInner />
+    </Suspense>
+  );
+}
+
+function MobileTopBarInner() {
   const pathname = usePathname() ?? '/';
   const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
