@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { Store, Gift, Network } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { channel } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 const TIERS = ['prospect', 'bronze', 'silver', 'gold', 'platinum'];
 const NEXT: Record<string, string> = { draft: 'running', running: 'paused', paused: 'running' };
@@ -39,6 +41,18 @@ export default function ChannelPage() {
   const rRows: any[] = rebates.data?.rebates || [];
   const hh = health.data;
 
+  const pv = useListView(pRows, {
+    searchFields: ['name', 'code', 'region'],
+    filters: [
+      { key: 'status', label: '状态', options: [['recruiting', '招募中'], ['active', '活跃'], ['suspended', '停用']].map(([value, label]) => ({ value, label })) },
+      { key: 'tier', label: '层级', options: TIERS.map((t) => ({ value: t, label: t })) },
+    ],
+  });
+  const rv = useListView(rRows, {
+    searchFields: ['period', 'basis'],
+    filters: [{ key: 'status', label: '状态', options: [['submitted', '待审'], ['approved', '已批'], ['rejected', '已驳'], ['paid', '已付']].map(([value, label]) => ({ value, label })) }],
+  });
+
   return (
     <div className="page-container">
       <PageHeader title="渠道与伙伴营销" subtitle="招募 · 分层认证 · 返利(毛利闸·基座3) · 绩效 —— 经销商网络扩张驱动销售倍增" />
@@ -63,8 +77,13 @@ export default function ChannelPage() {
           <button className="btn btn-brand" onClick={recruit}>招募</button>
         </div>
         <AsyncBoundary status={statusOf(partners.isLoading, partners.error, pRows.length === 0)} errorMessage="经销商加载失败（需 API + 数据库）" onRetry={() => partners.mutate()} emptyTitle="暂无经销商" emptyDescription="招募经销商后可分层认证并发放返利。">
+          <ListToolbar q={pv.q} onSearch={pv.onSearch} searchPlaceholder="搜名称/编码/区域" filters={[
+            { key: 'status', label: '状态', options: [['recruiting', '招募中'], ['active', '活跃'], ['suspended', '停用']].map(([value, label]) => ({ value, label })) },
+            { key: 'tier', label: '层级', options: TIERS.map((t) => ({ value: t, label: t })) },
+          ]} filterVals={pv.filterVals} onFilter={pv.setFilter} total={pv.total} page={pv.page} pageCount={pv.pageCount} onPage={pv.setPage}
+            onExport={() => exportCsv(pv.filtered, [{ key: 'code', label: '编码' }, { key: 'name', label: '名称' }, { key: 'region', label: '区域' }, { key: 'tier', label: '层级' }, { key: 'status', label: '状态' }, { key: 'certified', label: '认证' }], 'channel-partners')} />
           <div style={{ display: 'grid', gap: 6 }}>
-            {pRows.map((p) => (
+            {pv.pageRows.map((p) => (
               <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)' }}>
                 <span className="t-sm">{p.name} <span className="t-xs" style={{ color: 'var(--t-tertiary)' }}>· {p.region || '-'} · {p.status}</span></span>
                 <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -89,8 +108,12 @@ export default function ChannelPage() {
           <button className="btn btn-brand" onClick={submitRebate}>提报</button>
         </div>
         <AsyncBoundary status={statusOf(rebates.isLoading, rebates.error, rRows.length === 0)} errorMessage="返利加载失败（需 API + 数据库）" onRetry={() => rebates.mutate()} emptyTitle="暂无返利政策" emptyDescription="提报返利将自动过毛利闸（净毛利低于阈值阻断批准）。">
+          <ListToolbar q={rv.q} onSearch={rv.onSearch} searchPlaceholder="搜周期/依据" filters={[
+            { key: 'status', label: '状态', options: [['submitted', '待审'], ['approved', '已批'], ['rejected', '已驳'], ['paid', '已付']].map(([value, label]) => ({ value, label })) },
+          ]} filterVals={rv.filterVals} onFilter={rv.setFilter} total={rv.total} page={rv.page} pageCount={rv.pageCount} onPage={rv.setPage}
+            onExport={() => exportCsv(rv.filtered, [{ key: 'period', label: '周期' }, { key: 'basis', label: '依据' }, { key: 'amount', label: '返利额' }, { key: 'status', label: '状态' }], 'channel-rebates')} />
           <div style={{ display: 'grid', gap: 6 }}>
-            {rRows.map((r) => {
+            {rv.pageRows.map((r) => {
               const gate = (r.marginCalc || {}).gatePassed;
               return (
                 <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--border)' }}>

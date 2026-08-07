@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { Zap } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { activation } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 const TYPES: Array<[string, string]> = [['coupon', '优惠券'], ['groupon', '拼团'], ['flashsale', '秒杀'], ['fission', '裂变'], ['referral', '转介绍']];
 const NEXT: Record<string, string> = { draft: 'running', running: 'paused', paused: 'running' };
@@ -21,6 +23,13 @@ export default function ActivationPage() {
   async function toggle(id: string, status: string) { try { await activation.setStatus(id, NEXT[status] || 'ended'); list.mutate(); } catch (e) { toast((e as Error).message, 'error'); } }
 
   const rows: any[] = list.data?.activities || [];
+  const av = useListView(rows, {
+    searchFields: ['name', 'type'],
+    filters: [
+      { key: 'type', label: '类型', options: TYPES.map(([value, label]) => ({ value, label })) },
+      { key: 'status', label: '状态', options: [['draft', '草稿'], ['running', '进行中'], ['paused', '暂停'], ['ended', '结束']].map(([value, label]) => ({ value, label })) },
+    ],
+  });
 
   return (
     <div className="page-container">
@@ -37,8 +46,13 @@ export default function ActivationPage() {
       </div>
 
       <AsyncBoundary status={statusOf(list.isLoading, list.error, rows.length === 0)} errorMessage="活动加载失败（需 API + 数据库）" onRetry={() => list.mutate()} emptyTitle="暂无活动" emptyDescription="创建促销/裂变活动后可启停，并统计转介绍带来的线索。">
+        <ListToolbar q={av.q} onSearch={av.onSearch} searchPlaceholder="搜活动名/类型" filters={[
+          { key: 'type', label: '类型', options: TYPES.map(([value, label]) => ({ value, label })) },
+          { key: 'status', label: '状态', options: [['draft', '草稿'], ['running', '进行中'], ['paused', '暂停'], ['ended', '结束']].map(([value, label]) => ({ value, label })) },
+        ]} filterVals={av.filterVals} onFilter={av.setFilter} total={av.total} page={av.page} pageCount={av.pageCount} onPage={av.setPage}
+          onExport={() => exportCsv(av.filtered, [{ key: 'name', label: '名称' }, { key: 'type', label: '类型' }, { key: 'budget', label: '预算' }, { key: 'status', label: '状态' }], 'activation')} />
         <div style={{ display: 'grid', gap: 10 }}>
-          {rows.map((a) => (
+          {av.pageRows.map((a) => (
             <div key={a.id} className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="t-sm"><span style={{ fontWeight: 600, color: 'var(--t-strong)' }}>{a.name}</span> <span className="t-xs" style={{ color: 'var(--t-tertiary)' }}>· {(TYPES.find((t) => t[0] === a.type) || [])[1] || a.type} · 预算¥{a.budget} · 转介线索 {a.metrics?.referredLeads ?? 0}</span></span>
               <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

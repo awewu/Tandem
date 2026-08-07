@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { PenTool } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { content } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 const STATUS_LABEL: Record<string, string> = { draft: '草稿', in_review: '审核中', approved: '已核准', published: '已发布', rejected: '已驳回' };
 function statusOf(isLoading: boolean, error: unknown, empty: boolean): AsyncStatus {
@@ -27,6 +29,13 @@ export default function ContentPage() {
   async function act(fn: () => Promise<any>, label: string) { try { await fn(); toast(label, 'success'); list.mutate(); } catch (e) { toast((e as Error).message, 'error'); } }
 
   const rows: any[] = list.data?.contents || [];
+  const cv = useListView(rows, {
+    searchFields: ['title', 'kind', 'channel'],
+    filters: [
+      { key: 'status', label: '状态', options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })) },
+      { key: 'kind', label: '类型', options: [['article', '文章'], ['faq', 'FAQ'], ['comparison', '对比'], ['topic', '主题'], ['social', '社媒'], ['landing', '落地页']].map(([value, label]) => ({ value, label })) },
+    ],
+  });
 
   return (
     <div className="page-container">
@@ -47,8 +56,13 @@ export default function ContentPage() {
       </div>
 
       <AsyncBoundary status={statusOf(list.isLoading, list.error, rows.length === 0)} errorMessage="内容加载失败（需 API + 数据库）" onRetry={() => list.mutate()} emptyTitle="暂无内容" emptyDescription="新建草稿后走 送审→核准→发布 流水线；发布前须挂事实源。">
+        <ListToolbar q={cv.q} onSearch={cv.onSearch} searchPlaceholder="搜标题/类型/渠道" filters={[
+          { key: 'status', label: '状态', options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })) },
+          { key: 'kind', label: '类型', options: [['article', '文章'], ['faq', 'FAQ'], ['comparison', '对比'], ['topic', '主题'], ['social', '社媒'], ['landing', '落地页']].map(([value, label]) => ({ value, label })) },
+        ]} filterVals={cv.filterVals} onFilter={cv.setFilter} total={cv.total} page={cv.page} pageCount={cv.pageCount} onPage={cv.setPage}
+          onExport={() => exportCsv(cv.filtered, [{ key: 'title', label: '标题' }, { key: 'kind', label: '类型' }, { key: 'channel', label: '渠道' }, { key: 'status', label: '状态' }], 'content')} />
         <div style={{ display: 'grid', gap: 10 }}>
-          {rows.map((c) => (
+          {cv.pageRows.map((c) => (
             <div key={c.id} className="card" style={{ padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="t-sm"><span style={{ fontWeight: 600, color: 'var(--t-strong)' }}>{c.title}</span> <span className="t-xs" style={{ color: 'var(--t-tertiary)' }}>· {c.kind}/{c.channel} · 事实源 {(c.factRefs || []).length}</span></span>
               <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

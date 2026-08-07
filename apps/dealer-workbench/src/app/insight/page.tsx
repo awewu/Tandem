@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { Radio, BarChart3, Newspaper } from 'lucide-react';
 import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/ui';
 import { insight } from '../../lib/api';
+import { useListView, exportCsv } from '../../lib/useListView';
+import ListToolbar from '../../components/ListToolbar';
 
 const CATEGORIES = [
   { code: 'central-hot-water', name: '中央热水' },
@@ -35,6 +37,11 @@ export default function InsightPage() {
   const sovRows: any[] = sov.data?.shareOfVoice || [];
   const recRows: any[] = records.data?.records || [];
   const sigRows: any[] = signals.data?.signals || [];
+  const iv = useListView(recRows, {
+    pageSize: 14,
+    searchFields: ['competitor', 'metric', 'valueText'],
+    filters: [{ key: 'dimension', label: '维度', options: [['ai_sov', 'AI声量'], ['product', '产品'], ['price', '价格'], ['channel', '渠道'], ['marketing', '营销']].map(([value, label]) => ({ value, label })) }],
+  });
 
   return (
     <div className="page-container">
@@ -72,8 +79,12 @@ export default function InsightPage() {
           <button className="btn btn-brand" onClick={record}>录入</button>
         </div>
         <AsyncBoundary status={statusOf(records.isLoading, records.error, recRows.length === 0)} errorMessage="情报加载失败（需 API + 数据库）" onRetry={() => records.mutate()} emptyTitle="暂无竞品情报" emptyDescription="录入竞品的产品/价格/渠道/营销/AI声量维度指标。">
+          <ListToolbar q={iv.q} onSearch={iv.onSearch} searchPlaceholder="搜竞品/指标" filters={[
+            { key: 'dimension', label: '维度', options: [['ai_sov', 'AI声量'], ['product', '产品'], ['price', '价格'], ['channel', '渠道'], ['marketing', '营销']].map(([value, label]) => ({ value, label })) },
+          ]} filterVals={iv.filterVals} onFilter={iv.setFilter} total={iv.total} page={iv.page} pageCount={iv.pageCount} onPage={iv.setPage}
+            onExport={() => exportCsv(iv.filtered, [{ key: 'competitor', label: '竞品' }, { key: 'dimension', label: '维度' }, { key: 'metric', label: '指标' }, { key: 'value', label: '值' }, { key: 'valueText', label: '文本值' }], `insight-${category}`)} />
           <div style={{ display: 'grid', gap: 4 }}>
-            {recRows.slice(0, 14).map((r) => (
+            {iv.pageRows.map((r) => (
               <div key={r.id} className="t-xs" style={{ color: 'var(--t-secondary)', padding: '4px 0', borderTop: '1px solid var(--border)' }}>{r.competitor} · {r.dimension} · {r.metric} = {r.value ?? r.valueText ?? '-'}</div>
             ))}
           </div>
