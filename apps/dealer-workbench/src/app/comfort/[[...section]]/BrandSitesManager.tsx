@@ -652,13 +652,13 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           gap: var(--s4);
         }
         .site-stat {
-          min-height: 92px;
-          padding: 16px 18px;
-          background: var(--surface-1);
+          min-height: 0;
+          padding: 10px 14px;
+          background: var(--surface-2);
           border: 1px solid var(--border);
           border-radius: var(--r-lg);
-          box-shadow: var(--sh-card);
-          border-top: 3px solid var(--brand);
+          box-shadow: none;
+          border-top: 2px solid var(--brand);
         }
         .site-stat.success {
           border-top-color: var(--success);
@@ -676,10 +676,10 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
         }
         .site-stat strong {
           display: block;
-          margin-top: 8px;
-          font-size: 30px;
-          line-height: 1;
-          font-weight: 700;
+          margin-top: 4px;
+          font-size: 22px;
+          line-height: 1.1;
+          font-weight: 800;
           color: var(--t-strong);
           font-variant-numeric: tabular-nums;
         }

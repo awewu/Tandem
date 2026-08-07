@@ -1,7 +1,7 @@
 /* ── AI GTM Nexus · 内部工具控制台 Design System ──────────
    内部工具 UI token = 对齐 Tandem 设计体系（宪章基座1；源 packages/tokens/console.css，
    镜像 Tandem app/globals.css：Apple HIG + MS Fluent + Vercel Geist）。
-   ⚠️ 这是【内部工具】识别色 #C8202C，≠ 对外品牌站 Rheem 官方红 #C8202C。
+   ⚠️ 这是【内部工具】识别色 #C8202C，≠ 对外品牌站 Rheem 官方红 #E4002B。
       对外站各守 packages/tokens/<brand>.css，禁用本色。
    ────────────────────────────────────────────────────────────── */
 :root {
