@@ -300,11 +300,11 @@ export default function DealerNav() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 3,
-                    width: 56,
-                    minHeight: 52,
+                    gap: 2,
+                    width: 54,
+                    minHeight: 44,
                     borderRadius: 8,
-                    margin: '2px auto',
+                    margin: '1px auto',
                     color: active ? '#fff' : 'rgba(255,255,255,0.52)',
                     background: active ? 'rgba(228,0,43,0.22)' : 'transparent',
                     transition: 'all 0.12s',
@@ -313,9 +313,9 @@ export default function DealerNav() {
                     position: 'relative',
                   }}
                 >
-                  {active && <span style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 3, height: 20, borderRadius: 2, background: 'var(--brand)' }} />}
-                  <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
-                  <span style={{ maxWidth: 48, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, lineHeight: 1.1, fontWeight: active ? 700 : 500 }}>
+                  {active && <span style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 3, height: 18, borderRadius: 2, background: 'var(--brand)' }} />}
+                  <Icon size={16} strokeWidth={active ? 2.2 : 1.8} />
+                  <span style={{ maxWidth: 52, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 9, lineHeight: 1.1, fontWeight: active ? 700 : 500 }}>
                     {item.shortLabel}
                   </span>
                 </Link>

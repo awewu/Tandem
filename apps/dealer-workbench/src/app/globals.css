@@ -134,7 +134,13 @@ button { cursor:pointer; }
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+/* 隐藏侧栏及其导航的竖向滚动条（保留可滚动，只是不显示那根竖条） */
+.sidebar::-webkit-scrollbar,
+.sidebar nav::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.sidebar nav { scrollbar-width: none; -ms-overflow-style: none; }
 .topbar {
   grid-area: topbar;
   height: 48px;
