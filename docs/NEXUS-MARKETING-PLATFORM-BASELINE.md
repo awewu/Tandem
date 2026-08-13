@@ -24,6 +24,13 @@
 - **基座4 · GEO 反"AI 套路"红线**：GEO 的市场推广与监控必须**基于真实事实 + 研究支撑 + 可验证 lift**，严禁退化为"套模板 / 刷内容 / 空泛 AI 生成"的浅层套路。硬要求：① 内容事实源自产品事实基座（产品页 JSON-LD 源自 D2，禁手写事实）；② 策略须研究支撑（`geo-strategies` 论文来源）；③ 动作须过治理闸（`geo-actions`）；④ 效果须 lift 验证（实验第7层），无 lift 不得宣称有效。
 - **基座5 · 品牌涡轮地基（飞轮=架构底座，非仅指标）**：整个平台建在一台复利飞轮上——`产品事实基座 → GEO内容 → AI可见度 → 高意向线索 → 成交 → 成效数据 → 反哺事实/内容/策略 → 更强GEO…`。两支柱(事实基座🛡️ + AI-GEO🗡️) + 度量归因 + AI 是涡轮核心部件；北极星(GEO高意向线索)是其转速表。**红线(有据)**：飞轮每一环必须靠**真实归因/lift**证明在转，不得靠叙事宣称"飞轮在飞"(守基座4)。
 
+- **基座6 · 国际竞品持续学习监控（防闭门造车 · 有牙）**：竞争格局判断**必须基于实证检索，禁凭印象断言**。固定监控四条赛道：
+  - **GEO 监测型**：Profound（企业标杆·来源级引用·SOC2）· Peec AI（中端 SoV）· Otterly（入门）· AthenaHQ（来源情报）。
+  - **多门店/多品牌闭环执行型（最贴近我方形态）**：**Yext**（Knowledge Graph 实体图谱「一次更新流向所有渠道」+ Scout 受治理动作）· **SOCi**（品牌训练 AI Agent + 批量动作/审批流/分级权限，1→10万+门店）· **Uberall GEO Studio**（导入→自动基线→门店级建议→一键应用→复测，**完整执行闭环**）。
+  - **Agentic 营销平台**：Salesforce Agentforce/Marketing Cloud Next · HubSpot Agent Hub + AEO · Typeface。
+  - **架构范式**：**Palantir Foundry Ontology**（数据+逻辑+动作+安全四重整合；objects/links 名词 × actions/functions 动词）。
+  **硬要求**：① **每条结论标注检索日期与出处**，无实证不得写入战略文档（与基座4同源精神）；② **季度复核**，重大事件（收购/新品类/定价重构）即时更新——例：Scrunch 于 2026-06 被 Sitecore 收购；③ **发现既往结论有误必须显式更正并留痕**（已发生：初版"执行侧无人区"判断被 Yext/SOCi/Uberall 证伪，见 `COMPETITIVE-ANALYSIS.md` §2.1b）；④ **"我方领先"的主张必须可证伪**（绑定 lift/事实深度等证据），否则不得对外宣称；⑤ **借鉴机制、不照搬架构**——严禁引入超出我方规模的过度工程（如 Foundry 数据集成层/微服务群、图数据库）。落档固定：`docs/strategy/COMPETITIVE-ANALYSIS.md`（结论）+ `docs/strategy/PROFOUND-PARITY-BACKLOG.md`（补齐项）。
+
 ## 战略层与品牌涡轮（顶层 × 底座）
 ```
 ┌── 品牌 GTM 战略呈现层(顶层·战略)：定位 / 目标客群 / 价值主张 / 4P play / 战役主题 / 品牌 OKR ──┐
@@ -87,6 +94,9 @@ Agent 化（借鉴 Tandem 分身×搭子）：
 - 指标体系：`docs/NEXUS-MARKETING-METRICS-SYSTEM.md`（北极星+品牌资产/AI可见度/需求漏斗）。
 - 代码明细：`docs/NEXUS-CODE-INVENTORY.md`（模块/状态/归属·实查）。
 - 本基线：`docs/NEXUS-MARKETING-PLATFORM-BASELINE.md`（定位/范围/十模块/下一步）。
+- **竞争与战略（基座6 落档）**：`docs/strategy/COMPETITIVE-ANALYSIS.md`（国际对标结论·含更正留痕）· `docs/strategy/PROFOUND-PARITY-BACKLOG.md`（逐功能补齐 P0/P1/P2）。
+- **上游方法论**：`docs/strategy/GTM-STRATEGY-ANALYSIS-LAYER.md`（场景库→prompt簇→选题优先级 / PEST / AI视角SWOT / 五力+第六力）· `docs/strategy/COMPETITIVE-INTELLIGENCE-DESIGN.md`（8维10法竞品情报）。
+- **架构演进**：`docs/architecture/FACT-GRAPH-DESIGN.md`（事实图谱·对标 Yext 知识图谱）· `docs/architecture/NEXUS-CAPABILITY-EVOLUTION.md`（能力进化四阶）。
 - 背景（不再作为决策依据，仅参考）：旧 `NEXUS-CHARTER-PRD.md` 及历史蓝图群。
 
 ## 北极星与关键指标

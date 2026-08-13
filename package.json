@@ -115,6 +115,7 @@
     "guard:data-ownership": "node scripts/agent-guards/data-ownership-check.js",
     "guard:nexus-naming": "node scripts/agent-guards/nexus-naming-check.js",
     "guard:charter-maturity": "node scripts/agent-guards/charter-capability-maturity-check.js",
+    "guard:competitive-monitoring": "node scripts/agent-guards/competitive-monitoring-check.js",
     "guard:permission-domain": "node scripts/agent-guards/permission-domain-check.js",
     "guard:product-fact-base": "node scripts/agent-guards/product-fact-base-check.js",
     "guard:product-authoring": "node scripts/agent-guards/product-authoring-check.js",
