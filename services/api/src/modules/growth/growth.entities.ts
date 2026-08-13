@@ -99,6 +99,31 @@ export class GrowthGeoQuestionEntity {
   @Column({ type: 'text' }) question: string;
   @Column({ type: 'int', default: 100 }) priority: number;
   @Column({ type: 'boolean', default: true }) enabled: boolean;
+  /** 选题可追溯：由哪个场景派生（NULL = 人工录入的历史问题）。 */
+  @Column({ name: 'source_scenario_id', type: 'uuid', nullable: true }) sourceScenarioId: string | null;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
+/**
+ * 场景库（GTM 战略分析层 · GEO 选题上游）。
+ * 场景 = 品类 × 角色 × 痛点 × 房型 × 气候区；骨架品类级可复用 →
+ * 新品牌/品类换填充词即得初始 prompt 簇（自循环冷启动）。
+ */
+@Entity('growth_scenario')
+@Index(['tenantId', 'category', 'audience', 'enabled'])
+export class GrowthScenarioEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ type: 'varchar' }) category: string;
+  @Column({ type: 'varchar', default: 'owner' }) audience: 'owner' | 'decorator' | 'designer' | 'installer';
+  @Column({ name: 'pain_point', type: 'varchar' }) painPoint: string;
+  @Column({ name: 'house_type', type: 'varchar', nullable: true }) houseType: string | null;
+  @Column({ name: 'climate_zone', type: 'varchar', nullable: true }) climateZone: string | null;
+  @Column({ type: 'varchar', default: 'compare' }) intent: 'info' | 'compare' | 'decide';
+  @Column({ name: 'brand_slug', type: 'varchar', nullable: true }) brandSlug: string | null;
+  @Column({ type: 'text', nullable: true }) notes: string | null;
+  @Column({ type: 'boolean', default: true }) enabled: boolean;
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
 }
@@ -347,6 +372,7 @@ import { GeoTargetEntity, GeoCognitionAssetEntity } from './geo-focus.entity';
 export const GROWTH_ENTITIES = [
   GeoTargetEntity,
   GeoCognitionAssetEntity,
+  GrowthScenarioEntity,
   GrowthOpinionMentionEntity,
   GrowthOpinionAlertEntity,
   GrowthCopyAssetEntity,

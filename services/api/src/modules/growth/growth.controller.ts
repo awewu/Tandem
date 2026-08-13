@@ -158,6 +158,19 @@ export class GrowthController {
   @UseGuards(AuthGuard) @Get('geo/swot')
   getAiSwot(@Req() req: AuthRequest, @Query() query: any) { return this.geo.getAiSwot(req.user, query); }
 
+  // ── 战略分析层 · 场景库 → prompt 簇 → 选题优先级 ──
+  @UseGuards(AuthGuard) @Post('geo/scenarios')
+  createScenario(@Req() req: AuthRequest, @Body() body: any) { return this.geo.createScenario(req.user, body); }
+
+  @UseGuards(AuthGuard) @Get('geo/scenarios')
+  listScenarios(@Req() req: AuthRequest, @Query() query: any) { return this.geo.listScenarios(req.user, query); }
+
+  /** 由场景派生 prompt 簇并落入问题库（dryRun=true 仅预览）。 */
+  @UseGuards(AuthGuard) @Post('geo/scenarios/:id/derive')
+  deriveScenarioTopics(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) {
+    return this.geo.deriveScenarioTopics(req.user, id, body || {});
+  }
+
   // 受治理动作引擎（Foundry Ontology 动词的轻量本地实现）：人与 AI Agent 走同一套治理闸
   @UseGuards(AuthGuard) @Get('geo/actions')
   listGeoActions() { return this.geo.listGeoActions(); }

@@ -42,7 +42,9 @@ import {
   GrowthMarketingMaterialEntity,
   GrowthOpinionAlertEntity,
   GrowthOpinionMentionEntity,
+  GrowthScenarioEntity,
 } from './growth.entities';
+import { deriveTopics } from './geo-scenarios';
 
 const rls = (user: JwtPayload): TenantScope => ({
   tenantId: user.tenantId,
@@ -1251,6 +1253,120 @@ export class GrowthGeoService {
         setTimeout(() => this.ensureProbeBatchProcessing(user, id), 0);
       }
       return { success: true, data: { batch: freshBatch || batch, jobs, board: this.buildGeoBoard(jobs) } };
+    }, rls(user));
+  }
+
+  // ── GTM 战略分析层 · 场景库 → prompt 簇 → 选题优先级 ──────────────────────
+  // 解决"GEO 选题无可追溯来源"：问题由场景派生并回填 sourceScenarioId。
+
+  async createScenario(user: JwtPayload, dto: {
+    category?: string; audience?: string; painPoint?: string;
+    houseType?: string; climateZone?: string; intent?: string; brandSlug?: string; notes?: string;
+  }) {
+    const category = cleanText(dto?.category);
+    const painPoint = cleanText(dto?.painPoint);
+    if (!category || !painPoint) throw new BadRequestException('category and painPoint required');
+    const audience = ['owner', 'decorator', 'designer', 'installer'].includes(String(dto?.audience))
+      ? String(dto!.audience) : 'owner';
+    const intent = ['info', 'compare', 'decide'].includes(String(dto?.intent))
+      ? String(dto!.intent) : 'compare';
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(GrowthScenarioEntity);
+      const row = await repo.save(repo.create({
+        tenantId: user.tenantId,
+        category, painPoint,
+        audience: audience as any,
+        intent: intent as any,
+        houseType: cleanNullable(dto?.houseType),
+        climateZone: cleanNullable(dto?.climateZone),
+        brandSlug: cleanGeoBrand(dto?.brandSlug) ?? null,
+        notes: cleanNullable(dto?.notes),
+        enabled: true,
+      }));
+      return { success: true, data: { scenario: row } };
+    }, rls(user));
+  }
+
+  async listScenarios(user: JwtPayload, query: { category?: string; audience?: string } = {}) {
+    return withRlsTransaction(this.ds, async (em) => {
+      const where: any = { tenantId: user.tenantId };
+      const category = cleanNullable(query.category);
+      if (category) where.category = category;
+      if (query.audience) where.audience = query.audience;
+      const rows = await em.getRepository(GrowthScenarioEntity).find({
+        where, order: { createdAt: 'DESC' }, take: 200,
+      });
+      return { success: true, data: { scenarios: rows } };
+    }, rls(user));
+  }
+
+  /**
+   * 由场景派生 prompt 簇并落入 GEO 问题库（选题上游打通闭环入口）。
+   * 我方胜算(winnability)来自该品类真实被引率（无探测数据 → 中性 10，不臆造）。
+   * dryRun=true 只预览不落库。
+   */
+  async deriveScenarioTopics(user: JwtPayload, scenarioId: string, dto: { brandSlug?: string; dryRun?: boolean } = {}) {
+    const id = cleanText(scenarioId);
+    if (!id) throw new BadRequestException('scenario id required');
+    return withRlsTransaction(this.ds, async (em) => {
+      const scenario = await em.getRepository(GrowthScenarioEntity).findOne({
+        where: { tenantId: user.tenantId, id } as any,
+      });
+      if (!scenario) throw new BadRequestException('scenario not found');
+      const brandSlug = cleanGeoBrand(dto?.brandSlug) ?? scenario.brandSlug;
+      if (!brandSlug) throw new BadRequestException('brandSlug required (scenario has no bound brand)');
+
+      // 我方胜算：该品类近期真实探测被引率 → 0-20；无数据取中性 10
+      const probes = await em.getRepository(GrowthGeoProbeEntity).find({
+        where: { tenantId: user.tenantId, category: scenario.category } as any,
+        order: { probedAt: 'DESC' }, take: 200,
+      });
+      const real = probes.filter((p) => p.engine !== 'mock');
+      const winnability = real.length
+        ? Math.round((real.filter((p) => p.weCited).length / real.length) * 20)
+        : 10;
+
+      const topics = deriveTopics({
+        category: scenario.category,
+        audience: scenario.audience,
+        painPoint: scenario.painPoint,
+        houseType: scenario.houseType,
+        climateZone: scenario.climateZone,
+        intent: scenario.intent,
+      }, { winnability });
+
+      if (dto?.dryRun) {
+        return { success: true, data: { scenario, brandSlug, winnability, dryRun: true, topics, saved: 0 } };
+      }
+
+      // 去重：同品牌+品类下已存在同一问题则跳过
+      const qRepo = em.getRepository(GrowthGeoQuestionEntity);
+      const existing = await qRepo.find({
+        where: { tenantId: user.tenantId, brandSlug, category: scenario.category } as any,
+        take: 500,
+      });
+      const seen = new Set(existing.map((q) => q.question.trim()));
+      const toSave = topics.filter((t) => !seen.has(t.question));
+      for (const t of toSave) {
+        await qRepo.save(qRepo.create({
+          tenantId: user.tenantId,
+          brandSlug,
+          category: scenario.category,
+          stage: t.stage,
+          question: t.question,
+          priority: t.priority,
+          enabled: true,
+          sourceScenarioId: scenario.id,
+        }));
+      }
+      return {
+        success: true,
+        data: {
+          scenario, brandSlug, winnability,
+          topics, saved: toSave.length, skippedExisting: topics.length - toSave.length,
+          note: '问题已落 GEO 问题库并回填 sourceScenarioId（选题来源可追溯）；priority 越小越优先。',
+        },
+      };
     }, rls(user));
   }
 
