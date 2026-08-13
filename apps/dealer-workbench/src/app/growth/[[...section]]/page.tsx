@@ -23,6 +23,8 @@ import { PageHeader } from '@rhautt/ui';
 import { GrowthGeoWorkspace } from '../../../components/GrowthGeoWorkspace';
 import { GeoExperimentPanel } from '../../../components/GeoExperimentPanel';
 import { GeoIntelligencePanel } from '../../../components/GeoIntelligencePanel';
+import { AiSwotPanel } from '../../../components/AiSwotPanel';
+import { ScenarioLibraryPanel } from '../../../components/ScenarioLibraryPanel';
 import { MarketingTaskCenter } from '../../../components/MarketingTaskCenter';
 import { AiCostPanel } from '../../../components/AiCostPanel';
 import { SentimentRadarPanel } from '../../../components/SentimentRadarPanel';
@@ -218,6 +220,10 @@ function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
         <MarketingTaskCenter brandSlug="rheem" />
         <GrowthGeoWorkspace />
         <AiCostPanel />
+        {/* 选题上游：场景库 → prompt 簇（新品类冷启动入口） */}
+        <ScenarioLibraryPanel brandSlug="rheem" />
+        {/* 可测的 SWOT：由探测数据派生，非主观自评 */}
+        <AiSwotPanel brandSlug="rheem" />
         <GeoIntelligencePanel brandSlug="rheem" />
         <GeoExperimentPanel brandSlug="rheem" />
       </div>

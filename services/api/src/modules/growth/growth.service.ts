@@ -35,6 +35,7 @@ import {
   type GeoActionContext,
   type GeoActionType,
 } from './geo-actions';
+import { getObjectType, listObjectTypes as listOntologyObjectTypes } from '../common/ontology';
 import {
   GrowthGeoProbeEntity,
   GrowthGeoProbeJobEntity,
@@ -569,7 +570,8 @@ export class GrowthGeoService {
     const actions: GeoActionType[] = [
       {
         id: 'geo.generate-content',
-        objectType: 'CopyAsset',
+        // 统一取事实图谱名 ContentAsset（曾用 CopyAsset，属命名分叉，已由本体注册表收敛）
+        objectType: 'ContentAsset',
         label: '生成 GEO 优化内容',
         zone: 'yellow', // 产出对外内容 → AI 代行需人工核准（对齐宪章 §12 draft→approved）
         validate: (input: any) => (input?.question ? { ok: true, errors: [] } : { ok: false, errors: ['question required'], code: 'invalid' }),
@@ -650,8 +652,37 @@ export class GrowthGeoService {
     return {
       success: true,
       data: {
-        actions: geoActionRegistry.list().map((a) => ({ id: a.id, label: a.label, objectType: a.objectType, zone: a.zone })),
-        note: '受治理 GEO 动作：green 可自动，yellow AI 代行需核准，red 永不自动。人与 AI Agent 走同一套闸。',
+        actions: geoActionRegistry.list().map((a) => ({
+          id: a.id, label: a.label, zone: a.zone,
+          objectType: a.objectType,
+          // 动作锚定的名词来自本体注册表（与事实图谱节点同一套词汇）
+          object: (() => {
+            const o = getObjectType(a.objectType);
+            return o ? { id: o.id, label: o.label, module: o.module, factGraphNode: o.factGraphNode } : null;
+          })(),
+        })),
+        note: '受治理 GEO 动作：green 可自动，yellow AI 代行需核准，red 永不自动。人与 AI Agent 走同一套闸。objectType 取自本体注册表，与事实图谱节点类型同源。',
+      },
+    };
+  }
+
+  /**
+   * 本体对象类型清单（平台名词的单一真相源）。
+   * 供前端/AI Agent 发现「有哪些对象、谁归属、是否事实图谱节点、落地到什么程度」。
+   */
+  listObjectTypes() {
+    const types = listOntologyObjectTypes();
+    return {
+      success: true,
+      data: {
+        objectTypes: types,
+        summary: {
+          total: types.length,
+          factGraphNodes: types.filter((o) => o.factGraphNode).length,
+          persisted: types.filter((o) => o.persistence === 'entity').length,
+          notYetPersisted: types.filter((o) => o.persistence !== 'entity').length,
+        },
+        note: '受治理动作的 objectType 由此约束（编译期），事实图谱节点类型同源，杜绝名词分叉。persistence 如实标注落地程度，未持久化者不假装已入图。',
       },
     };
   }

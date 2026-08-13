@@ -182,6 +182,9 @@ export class GrowthController {
   // 受治理动作引擎（Foundry Ontology 动词的轻量本地实现）：人与 AI Agent 走同一套治理闸
   @UseGuards(AuthGuard) @Get('geo/actions')
   listGeoActions() { return this.geo.listGeoActions(); }
+  /** 本体对象类型清单（动作 objectType 与事实图谱节点的单一真相源）。 */
+  @UseGuards(AuthGuard) @Get('ontology/object-types')
+  listObjectTypes() { return this.geo.listObjectTypes(); }
   @UseGuards(AuthGuard) @Post('geo/actions/:actionId')
   invokeGeoAction(@Req() req: AuthRequest, @Param('actionId') actionId: string, @Body() body: any) {
     return this.geo.invokeGeoAction(req.user, actionId, body?.input ?? body, { isProxy: body?.isProxy, approved: body?.approved });

@@ -7,6 +7,7 @@ import { PageHeader, AsyncBoundary, useToast, type AsyncStatus } from '@rhautt/u
 import { insight } from '../../lib/api';
 import { useListView, exportCsv } from '../../lib/useListView';
 import ListToolbar from '../../components/ListToolbar';
+import { CompetitiveLandscapePanel } from '../../components/CompetitiveLandscapePanel';
 
 const CATEGORIES = [
   { code: 'central-hot-water', name: '中央热水' },
@@ -49,6 +50,11 @@ export default function InsightPage() {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {CATEGORIES.map((c) => <button key={c.code} className={category === c.code ? 'btn btn-brand btn-sm' : 'btn btn-outline btn-sm'} onClick={() => setCategory(c.code)}>{c.name}</button>)}
+      </div>
+
+      {/* 竞争格局：集中度 + 动量 + 头部差距 + 威胁排序（GEO 探测时序派生） */}
+      <div style={{ marginBottom: 20 }}>
+        <CompetitiveLandscapePanel category={category} />
       </div>
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>

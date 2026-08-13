@@ -14,6 +14,8 @@
  * 边界：只治理"会改变对外可见内容/发布状态"的写动作；纯读/探测不入此引擎。
  */
 
+import type { ObjectTypeId } from '../common/ontology';
+
 export type GeoActionZone = 'green' | 'yellow' | 'red';
 
 export interface GeoActionContext {
@@ -34,7 +36,11 @@ export interface GeoActionValidation {
 
 export interface GeoActionType<TInput = unknown, TResult = unknown> {
   id: string;                       // 如 'geo.generate-content'
-  objectType: string;              // 锚到概念对象：CopyAsset / GeoExperiment
+  /**
+   * 锚定的本体对象类型。**必须取自 common/ontology 的已登记类型**（编译期约束）：
+   * 动作的名词与事实图谱的节点名从此不可能分叉，拼错即编译失败。
+   */
+  objectType: ObjectTypeId;
   label: string;
   /** 动作固有风险区：green=可自动 / yellow=代行需核准 / red=永不自动 */
   zone: GeoActionZone;

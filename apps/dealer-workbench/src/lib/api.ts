@@ -639,6 +639,32 @@ export const growthGeo = {
   // 自进化策略权重（由实验 lift 反哺）
   strategyWeights: (brandSlug?: string) =>
     apiFetch(`/api/v2/growth/geo/strategy-weights${brandSlug ? `?brandSlug=${encodeURIComponent(brandSlug)}` : ''}`),
+  // AI 视角 SWOT（由探测数据派生，可测而非自评）
+  swot: (q: { brandSlug?: string; category?: string; windowDays?: number } = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(q).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]),
+    ).toString();
+    return apiFetch(`/api/v2/growth/geo/swot${qs ? `?${qs}` : ''}`);
+  },
+  // 场景库 → prompt 簇（选题上游）
+  scenarios: (q: { category?: string; brandSlug?: string } = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(q).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]),
+    ).toString();
+    return apiFetch(`/api/v2/growth/geo/scenarios${qs ? `?${qs}` : ''}`);
+  },
+  seedScenarios: (data: {
+    brandSlug: string; category: string;
+    painPoints?: string[]; audiences?: string[]; maxScenarios?: number; dryRun?: boolean;
+  }) => apiFetch('/api/v2/growth/geo/scenarios/seed', { method: 'POST', body: JSON.stringify(data) }),
+  deriveScenario: (id: string, data: { brandSlug?: string; dryRun?: boolean } = {}) =>
+    apiFetch(`/api/v2/growth/geo/scenarios/${encodeURIComponent(id)}/derive`, { method: 'POST', body: JSON.stringify(data) }),
+  // 新品牌/品类启动序列（播种→派生选题→基线探测）
+  bootstrap: (data: {
+    brandSlug: string; category: string;
+    painPoints?: string[]; audiences?: string[]; maxScenarios?: number;
+    runBaseline?: boolean; dryRun?: boolean;
+  }) => apiFetch('/api/v2/growth/geo/bootstrap', { method: 'POST', body: JSON.stringify(data) }),
   // 受治理动作引擎（Foundry 式）
   actions: () => apiFetch('/api/v2/growth/geo/actions'),
 };
@@ -838,6 +864,10 @@ export const insight = {
   listByCategory: (category: string, dimension?: string) =>
     apiFetch('/api/v2/insight/competitor?category=' + encodeURIComponent(category) + (dimension ? '&dimension=' + dimension : '')),
   sov: (category: string) => apiFetch('/api/v2/insight/sov?category=' + encodeURIComponent(category)),
+  // 竞争格局：HHI 集中度 + 动量 + 头部差距 + 威胁评分（需 GEO 探测时序数据）
+  landscape: (category: string, windowDays?: number) =>
+    apiFetch('/api/v2/insight/landscape?category=' + encodeURIComponent(category)
+      + (windowDays ? '&windowDays=' + windowDays : '')),
   recordCompetitor: (data: Record<string, unknown>) =>
     apiFetch('/api/v2/insight/competitor', { method: 'POST', body: JSON.stringify(data) }),
   listSignals: (q: Record<string, string> = {}) =>
