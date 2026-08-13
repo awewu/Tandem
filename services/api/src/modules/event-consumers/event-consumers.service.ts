@@ -43,8 +43,8 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * GEO 探测命中竞品 → 竞品情报自动入账 ai_sov 时序点。
-   * 幂等性：至少一次投递下会重复计数，故以 source=geo-probe:<probeId> 标注来源，
-   * SoV 聚合按窗口 SUM，重复投递只影响量级不影响相对份额；后续可加唯一约束收紧。
+   * 幂等性：以 source=geo-probe:<probeId> 唯一标识一次探测，
+   * 由迁移 090 的唯一索引 + ON CONFLICT DO NOTHING 兜底，重投递不再虚增量级。
    */
   private async onGeoCompetitorCited(event: OutboxEventEntity): Promise<void> {
     const payload: any = event?.payload || {};

@@ -40,21 +40,29 @@ export class InsightService {
   /**
    * 系统态入账：GEO 探测命中竞品 → 自动落 ai_sov 时序数据点（每命中一次记 1）。
    * 由 event-consumers 消费 `geo.competitor.cited` 调用，取代手工台账。
+   * 幂等：事件总线 at-least-once，重投递会虚增量级 → 以 (tenant,category,competitor,source)
+   * 唯一索引（迁移 090，仅约束 source='geo-probe:*' 的系统态行）+ ON CONFLICT DO NOTHING 去重。
+   * source 必须带 probeId 才能唯一标识一次探测；缺失时退化为 'geo-probe'，此时同品类同竞品只记一次。
    */
   async ingestAiSovHit(tenantId: string, dto: { category?: string | null; competitors: string[]; source?: string }) {
     const category = String(dto.category || '').trim() || 'uncategorized';
     const competitors = [...new Set((dto.competitors || []).map((c) => String(c || '').trim()).filter(Boolean))];
-    if (!competitors.length) return { recorded: 0 };
+    if (!competitors.length) return { recorded: 0, deduped: 0 };
+    const source = dto.source ?? 'geo-probe';
     return withRlsTransaction(this.ds, async (em) => {
-      const repo = em.getRepository(InsightCompetitorEntity);
+      let recorded = 0;
       for (const competitor of competitors) {
-        await repo.save(repo.create({
-          tenantId, category, competitor,
-          dimension: 'ai_sov', metric: 'ai_cited', value: 1,
-          valueText: null, source: dto.source ?? 'geo-probe',
-        }));
+        const res = await em.query(
+          `INSERT INTO rhautt_nexus.insight_competitor
+             (tenant_id, category, competitor, dimension, metric, value, value_text, source)
+           VALUES ($1, $2, $3, 'ai_sov', 'ai_cited', 1, NULL, $4)
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [tenantId, category, competitor, source],
+        );
+        if (Array.isArray(res) && res.length) recorded += 1;
       }
-      return { recorded: competitors.length };
+      return { recorded, deduped: competitors.length - recorded };
     }, { tenantId, actorId: 'system:event-bus', role: 'system' });
   }
 
