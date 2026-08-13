@@ -165,6 +165,14 @@ export class GrowthController {
   @UseGuards(AuthGuard) @Get('geo/scenarios')
   listScenarios(@Req() req: AuthRequest, @Query() query: any) { return this.geo.listScenarios(req.user, query); }
 
+  /** 播种器：品类词表 × 场景模板 → 批量建场景并派生选题（新品牌/品类冷启动）。 */
+  @UseGuards(AuthGuard) @Post('geo/scenarios/seed')
+  seedScenarios(@Req() req: AuthRequest, @Body() body: any) { return this.geo.seedScenarios(req.user, body); }
+
+  /** 新品牌/品类启动序列：播种→派生选题→基线探测（自循环起转)。 */
+  @UseGuards(AuthGuard) @Post('geo/bootstrap')
+  bootstrapBrandCategory(@Req() req: AuthRequest, @Body() body: any) { return this.geo.bootstrapBrandCategory(req.user, body); }
+
   /** 由场景派生 prompt 簇并落入问题库（dryRun=true 仅预览）。 */
   @UseGuards(AuthGuard) @Post('geo/scenarios/:id/derive')
   deriveScenarioTopics(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) {

@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveTopics, scoreTopic, SCENARIO_TEMPLATES } from './geo-scenarios';
+import {
+  deriveTopics, scoreTopic, SCENARIO_TEMPLATES,
+  resolveVocabulary, planSeedScenarios, DEFAULT_VOCABULARY,
+} from './geo-scenarios';
 
 const base = {
   category: '空调',
@@ -51,6 +54,51 @@ test('角色专属模板只对相应角色生效', () => {
   const installer = deriveTopics({ ...base, audience: 'installer' });
   assert.ok(!owner.some((t) => t.templateId === installerOnly!.id), '业主不应看到安装工专属问题');
   assert.ok(installer.some((t) => t.templateId === installerOnly!.id), '安装工应看到其专属问题');
+});
+
+// ── 播种器 ──
+test('未知品类且未提供痛点 → 拒绝播种（不编造痛点）', () => {
+  assert.equal(resolveVocabulary('量子空调'), null, '未知品类应返回 null');
+  assert.equal(resolveVocabulary(''), null);
+  const withOverride = resolveVocabulary('量子空调', { painPoints: ['纠缠失效'] });
+  assert.ok(withOverride, '调用方提供痛点后应可播种');
+  assert.deepEqual(withOverride!.painPoints, ['纠缠失效']);
+});
+
+test('内置品类词表可用，且调用方覆盖优先', () => {
+  const builtin = resolveVocabulary('空调');
+  assert.ok(builtin && builtin.painPoints.length > 0, '内置品类应有痛点词表');
+  assert.deepEqual(builtin!.painPoints, DEFAULT_VOCABULARY['空调'].painPoints);
+  const overridden = resolveVocabulary('空调', { painPoints: ['自定义痛点'] });
+  assert.deepEqual(overridden!.painPoints, ['自定义痛点'], '覆盖应优先于内置');
+});
+
+test('播种采用轮转配对而非笛卡尔积，受 cap 约束且结果去重', () => {
+  const vocabulary = resolveVocabulary('空调')!;
+  const seeds = planSeedScenarios({ category: '空调', vocabulary, maxScenarios: 6 });
+  assert.ok(seeds.length <= 6, '不得超过 cap');
+  assert.ok(seeds.length > 0, '应产出场景');
+  const keys = seeds.map((s) => [s.painPoint, s.houseType, s.climateZone, s.audience].join('|'));
+  assert.equal(new Set(keys).size, keys.length, '场景不得重复');
+  // 全笛卡尔积会是 5痛点×6房型×5气候区=150，轮转应远小于此
+  const uncapped = planSeedScenarios({ category: '空调', vocabulary, maxScenarios: 50 });
+  assert.ok(uncapped.length <= 10, `轮转配对应避免组合爆炸，实际 ${uncapped.length}`);
+});
+
+test('播种覆盖多个痛点并轮转意向层级（覆盖全漏斗）', () => {
+  const vocabulary = resolveVocabulary('空调')!;
+  const seeds = planSeedScenarios({ category: '空调', vocabulary, maxScenarios: 6 });
+  assert.ok(new Set(seeds.map((s) => s.painPoint)).size > 1, '应覆盖多个痛点');
+  assert.ok(new Set(seeds.map((s) => s.intent)).size > 1, '意向层级应轮转');
+});
+
+test('多角色播种时各角色均被覆盖', () => {
+  const vocabulary = resolveVocabulary('空调')!;
+  const seeds = planSeedScenarios({
+    category: '空调', vocabulary, audiences: ['owner', 'installer'], maxScenarios: 8,
+  });
+  const roles = new Set(seeds.map((s) => s.audience));
+  assert.ok(roles.has('owner') && roles.has('installer'), '两个角色都应出现');
 });
 
 test('派生结果按商业价值排序（priority 升序）', () => {

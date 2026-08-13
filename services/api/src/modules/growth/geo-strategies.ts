@@ -130,6 +130,58 @@ export function selectStrategies(
   return selected;
 }
 
+/**
+ * 自进化权重的三层收缩估计（经验贝叶斯）——纯函数，便于测试与复用。
+ *   L0 研究基线（本函数中增量基准 = 0，即 GEO_STRATEGIES 内置权重）
+ *   L1 品类层：同品类跨品牌平均 lift，先向 L0 收缩
+ *   L2 品牌层：该品牌自身实验，再向品类先验收缩
+ * 效果：n_brand=0 → 完全继承品类先验（新品牌开局不从零）；
+ *       n_brand 小 → 先验主导（避免 n=1 的噪声冒充经验）；
+ *       n_brand 大 → 收敛到品牌自身经验。
+ */
+export interface HierarchicalDeltaOptions {
+  kBrand?: number;      // 品牌层平滑常数
+  kCategory?: number;   // 品类层向 L0 收缩的平滑常数
+  scale?: number;       // lift(百分点) → 权重量级
+  cap?: number;         // 增量上下限
+}
+
+export interface HierarchicalDeltaResult {
+  delta: number;
+  prior: number;
+  brandAvg: number;
+  categoryAvg: number;
+  source: 'brand' | 'category' | 'none';
+}
+
+export function blendHierarchicalDelta(
+  input: { brandN: number; brandSum: number; categoryN: number; categorySum: number },
+  opts: HierarchicalDeltaOptions = {},
+): HierarchicalDeltaResult {
+  const kBrand = opts.kBrand ?? 5;
+  const kCategory = opts.kCategory ?? 3;
+  const scale = opts.scale ?? 0.2;
+  const cap = opts.cap ?? 5;
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+
+  const brandN = Math.max(0, Number(input.brandN) || 0);
+  const categoryN = Math.max(0, Number(input.categoryN) || 0);
+  const brandAvg = brandN ? input.brandSum / brandN : 0;
+  const categoryAvg = categoryN ? input.categorySum / categoryN : 0;
+
+  const prior = categoryN ? (categoryN * categoryAvg) / (categoryN + kCategory) : 0;
+  const blended = (brandN * brandAvg + kBrand * prior) / (brandN + kBrand);
+  const delta = Math.max(-cap, Math.min(cap, round1(blended * scale)));
+
+  return {
+    delta,
+    prior: round1(prior),
+    brandAvg: round1(brandAvg),
+    categoryAvg: round1(categoryAvg),
+    source: brandN ? 'brand' : (categoryN ? 'category' : 'none'),
+  };
+}
+
 /** 把选中的策略渲染成 prompt 指令块（含策略名，便于产出可追溯）。 */
 export function renderStrategyBlock(strategies: GeoStrategy[]): string {
   if (!strategies.length) return '';

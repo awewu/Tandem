@@ -78,6 +78,85 @@ export const SCENARIO_TEMPLATES: Template[] = [
     render: (s) => `${s.category}后期维护麻烦吗？${s.painPoint}会复发吗？` },
 ];
 
+// ── 品类词表 × 场景模板 · 播种器 ──────────────────────────────────────────
+// 新品牌/品类接入时自动生成初始场景与选题，让闭环不缺输入（自循环冷启动）。
+// ⚠️ 诚实红线：**未知品类不编造痛点**——没有内置词表时必须由调用方提供，否则拒绝播种。
+
+/** GB 建筑气候区划（真实国标分区，非杜撰）。 */
+export const CLIMATE_ZONES = ['严寒', '寒冷', '夏热冬冷', '夏热冬暖', '温和'];
+export const HOUSE_TYPES = ['老房', '新房', '小户型', '大平层', '别墅', '复式'];
+
+export interface CategoryVocabulary {
+  painPoints: string[];
+  houseTypes?: string[];
+  climateZones?: string[];
+}
+
+/** 内置品类词表（暖通常见品类的真实用户痛点表述）。未收录品类返回 null。 */
+export const DEFAULT_VOCABULARY: Record<string, CategoryVocabulary> = {
+  空调: { painPoints: ['电费高', '噪音大', '直吹不舒服', '制热效果差', '清洗麻烦'] },
+  中央空调: { painPoints: ['层高不够', '电费高', '噪音大', '后期维护难', '房间温度不均'] },
+  热泵: { painPoints: ['没有地暖', '制热慢', '低温衰减', '噪音大', '电费高'] },
+  采暖: { painPoints: ['没有地暖', '房间不热', '费用高', '改造麻烦'] },
+  新风: { painPoints: ['甲醛超标', '雾霾', '室内闷', '噪音大', '滤网更换成本'] },
+  热水器: { painPoints: ['忽冷忽热', '水量不够', '等待时间长', '安全隐患'] },
+  除湿机: { painPoints: ['回南天潮', '衣物发霉', '地板起拱'] },
+};
+
+/** 解析品类词表：调用方覆盖优先；未知品类且无覆盖 → null（拒绝编造）。 */
+export function resolveVocabulary(
+  category: string,
+  override?: Partial<CategoryVocabulary>,
+): CategoryVocabulary | null {
+  const builtin = DEFAULT_VOCABULARY[String(category || '').trim()];
+  const painPoints = (override?.painPoints?.length ? override.painPoints : builtin?.painPoints) || [];
+  const cleaned = [...new Set(painPoints.map((p) => String(p || '').trim()).filter(Boolean))];
+  if (!cleaned.length) return null;
+  return {
+    painPoints: cleaned,
+    houseTypes: override?.houseTypes?.length ? override.houseTypes : (builtin?.houseTypes ?? HOUSE_TYPES),
+    climateZones: override?.climateZones?.length ? override.climateZones : (builtin?.climateZones ?? CLIMATE_ZONES),
+  };
+}
+
+/**
+ * 规划播种场景：**轮转配对**而非全笛卡尔积（防组合爆炸），并按 info/compare/decide 轮转以覆盖全漏斗。
+ * 结果去重（同一 痛点×房型×气候区×角色 只留一条）。
+ */
+export function planSeedScenarios(input: {
+  category: string;
+  vocabulary: CategoryVocabulary;
+  audiences?: ScenarioAudience[];
+  maxScenarios?: number;
+}): ScenarioSeed[] {
+  const audiences = input.audiences?.length ? input.audiences : (['owner'] as ScenarioAudience[]);
+  const cap = Math.min(Math.max(Number(input.maxScenarios) || 12, 1), 50);
+  const pains = input.vocabulary.painPoints;
+  const houses = input.vocabulary.houseTypes ?? [];
+  const zones = input.vocabulary.climateZones ?? [];
+  const intents: ScenarioIntent[] = ['compare', 'decide', 'info'];
+
+  const seen = new Set<string>();
+  const out: ScenarioSeed[] = [];
+  // 轮转上限：覆盖所有痛点×角色，再由 cap 截断
+  const rounds = Math.min(cap, Math.max(pains.length * audiences.length, 1));
+  for (let i = 0; i < rounds && out.length < cap; i += 1) {
+    const seed: ScenarioSeed = {
+      category: input.category,
+      audience: audiences[i % audiences.length],
+      painPoint: pains[i % pains.length],
+      houseType: houses.length ? houses[i % houses.length] : null,
+      climateZone: zones.length ? zones[i % zones.length] : null,
+      intent: intents[i % intents.length],
+    };
+    const key = [seed.painPoint, seed.houseType, seed.climateZone, seed.audience].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(seed);
+  }
+  return out;
+}
+
 const INTENT_SCORE: Record<ScenarioIntent, number> = { info: 20, compare: 50, decide: 80 };
 
 export interface TopicScore {

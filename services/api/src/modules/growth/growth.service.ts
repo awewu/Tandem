@@ -27,7 +27,7 @@ import {
   GrowthGeoProbeBatchEntity,
   GrowthGeoExperimentEntity,
 } from './growth.entities';
-import { selectStrategies, renderStrategyBlock, GEO_STRATEGIES, ALWAYS_ON } from './geo-strategies';
+import { selectStrategies, renderStrategyBlock, GEO_STRATEGIES, ALWAYS_ON, blendHierarchicalDelta } from './geo-strategies';
 import { AuditLogEntity } from '../governance/governance.entity';
 import {
   geoActionRegistry,
@@ -44,7 +44,7 @@ import {
   GrowthOpinionMentionEntity,
   GrowthScenarioEntity,
 } from './growth.entities';
-import { deriveTopics } from './geo-scenarios';
+import { deriveTopics, planSeedScenarios, resolveVocabulary, type ScenarioAudience } from './geo-scenarios';
 
 const rls = (user: JwtPayload): TenantScope => ({
   tenantId: user.tenantId,
@@ -584,6 +584,17 @@ export class GrowthGeoService {
         execute: (input: any, ctx: GeoActionContext) => self.startGeoExperiment(self.actorToJwt(ctx), input),
       },
       {
+        id: 'geo.bootstrap-brand-category',
+        objectType: 'GeoBootstrap',
+        label: '新品牌/品类启动序列（播种→派生选题→基线探测）',
+        // 只建选题 + 只读探测，不产出对外内容 → 可自动；内容生成仍走 yellow。
+        zone: 'green',
+        validate: (input: any) => (input?.brandSlug && input?.category
+          ? { ok: true, errors: [] }
+          : { ok: false, errors: ['brandSlug and category required'], code: 'invalid' }),
+        execute: (input: any, ctx: GeoActionContext) => self.bootstrapBrandCategory(self.actorToJwt(ctx), input),
+      },
+      {
         id: 'geo.verify-lift',
         objectType: 'GeoExperiment',
         label: '复投验证 lift',
@@ -990,8 +1001,8 @@ export class GrowthGeoService {
     const sourcesLimit = kind === 'topic' ? 520 : 900;
     const brandSlug = cleanGeoBrand(dto.brandSlug);
     const brandName = geoBrandDisplayName(brandSlug);
-    // 自进化：用历史实验 lift 学到的权重指导本次策略选择
-    const strategyOverrides = await this.computeStrategyWeights(user, brandSlug).catch(() => ({}));
+    // 自进化：三层收缩（品牌→品类→研究基线）学到的权重指导本次策略选择
+    const strategyOverrides = await this.computeStrategyWeights(user, brandSlug, cleanNullable(dto.category) ?? undefined).catch(() => ({}));
     const { prompt, strategyKeys } = buildGeoOptimizationPrompt({
       kind,
       question,
@@ -1063,6 +1074,8 @@ export class GrowthGeoService {
       const sourcesLimit = kind === 'topic' ? 520 : 900;
       const brandSlug = cleanGeoBrand(dto.brandSlug);
       const brandName = geoBrandDisplayName(brandSlug);
+      // 修正：流式路径此前未接自进化权重，导致与非流式生成行为不一致。
+      const strategyOverrides = await this.computeStrategyWeights(user, brandSlug, cleanNullable(dto.category) ?? undefined).catch(() => ({}));
       const { prompt, strategyKeys } = buildGeoOptimizationPrompt({
         kind,
         question,
@@ -1071,6 +1084,7 @@ export class GrowthGeoService {
         competitors,
         gaps,
         sources,
+        strategyOverrides,
         answerLimit,
         gapsLimit,
         sourcesLimit,
@@ -1317,14 +1331,7 @@ export class GrowthGeoService {
       if (!brandSlug) throw new BadRequestException('brandSlug required (scenario has no bound brand)');
 
       // 我方胜算：该品类近期真实探测被引率 → 0-20；无数据取中性 10
-      const probes = await em.getRepository(GrowthGeoProbeEntity).find({
-        where: { tenantId: user.tenantId, category: scenario.category } as any,
-        order: { probedAt: 'DESC' }, take: 200,
-      });
-      const real = probes.filter((p) => p.engine !== 'mock');
-      const winnability = real.length
-        ? Math.round((real.filter((p) => p.weCited).length / real.length) * 20)
-        : 10;
+      const winnability = await this.categoryWinnability(em, user.tenantId, scenario.category);
 
       const topics = deriveTopics({
         category: scenario.category,
@@ -1365,6 +1372,186 @@ export class GrowthGeoService {
           scenario, brandSlug, winnability,
           topics, saved: toSave.length, skippedExisting: topics.length - toSave.length,
           note: '问题已落 GEO 问题库并回填 sourceScenarioId（选题来源可追溯）；priority 越小越优先。',
+        },
+      };
+    }, rls(user));
+  }
+
+  /**
+   * 新品牌/品类**启动序列编排**（自循环起转的第一推）。
+   * ① 播种场景 + 派生选题（闭环有输入）→ ② 基线探测（只读，green 可自动）
+   * → ③ 返回后续待办：缺口→生成内容属 yellow（需人核准），不在此自动执行。
+   * 任一步失败不阻断整体，逐步返回状态，便于排障与重试（幂等：重复项自动跳过）。
+   */
+  async bootstrapBrandCategory(user: JwtPayload, dto: {
+    brandSlug?: string; category?: string;
+    painPoints?: string[]; houseTypes?: string[]; climateZones?: string[];
+    audiences?: string[]; maxScenarios?: number;
+    runBaseline?: boolean; competitors?: string[]; dryRun?: boolean;
+  }) {
+    const brandSlug = cleanGeoBrand(dto?.brandSlug);
+    const category = cleanText(dto?.category);
+    if (!brandSlug || !category) throw new BadRequestException('brandSlug and category required');
+
+    const steps: Array<{ step: string; status: 'ok' | 'failed' | 'skipped'; detail?: unknown; error?: string }> = [];
+
+    // ① 播种 + 派生选题
+    let seeded: any = null;
+    try {
+      seeded = await this.seedScenarios(user, { ...dto, brandSlug, category });
+      steps.push({ step: 'seed-scenarios', status: 'ok', detail: seeded?.data });
+    } catch (err: unknown) {
+      steps.push({ step: 'seed-scenarios', status: 'failed', error: err instanceof Error ? err.message : String(err) });
+      // 播种失败（如未知品类未提供痛点）→ 后续步骤无意义，直接返回让调用方补词表
+      return { success: false, data: { brandSlug, category, steps, note: '播种失败，启动序列中止。' } };
+    }
+
+    if (dto?.dryRun) {
+      steps.push({ step: 'baseline-probe', status: 'skipped', detail: 'dryRun' });
+      return { success: true, data: { brandSlug, category, dryRun: true, steps } };
+    }
+
+    // ② 基线探测（只读外部引擎；网关不可用时如实记失败，不伪造数据）
+    if (dto?.runBaseline === false) {
+      steps.push({ step: 'baseline-probe', status: 'skipped', detail: 'runBaseline=false' });
+    } else {
+      try {
+        const batch = await this.runProbeBatch(user, {
+          brandSlug, category, competitors: dto?.competitors,
+        });
+        steps.push({ step: 'baseline-probe', status: 'ok', detail: (batch as any)?.data ?? batch });
+      } catch (err: unknown) {
+        steps.push({
+          step: 'baseline-probe', status: 'failed',
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        brandSlug, category, steps,
+        nextActions: [
+          { actionId: 'geo.generate-content', zone: 'yellow', note: '缺口→生成内容：AI 代行需人工核准（宪章 §12）' },
+          { actionId: 'geo.run-experiment', zone: 'green', note: '对高价值选题开闭环实验，产出 lift' },
+          { actionId: 'geo.verify-lift', zone: 'green', note: '内容发布后复投验证，lift 反哺三层权重（自进化）' },
+        ],
+        note: '自循环已起转：选题已就位、基线已探测；内容生成属 yellow 需人工核准，其余环节可自动。',
+      },
+    };
+  }
+
+  /** 该品类真实被引率 → 我方胜算 0-20；无探测数据取中性 10（不臆造）。 */
+  private async categoryWinnability(em: any, tenantId: string, category: string): Promise<number> {
+    const probes = await em.getRepository(GrowthGeoProbeEntity).find({
+      where: { tenantId, category } as any, order: { probedAt: 'DESC' }, take: 200,
+    });
+    const real = probes.filter((p: any) => p.engine !== 'mock');
+    return real.length ? Math.round((real.filter((p: any) => p.weCited).length / real.length) * 20) : 10;
+  }
+
+  /**
+   * 播种器：品类词表 × 场景模板 → 批量建场景并派生选题。
+   * 新品牌/品类接入即获得初始选题，闭环不空转（自循环冷启动）。
+   * ⚠️ 未知品类不编造痛点：无内置词表且调用方未提供 painPoints → 明确拒绝。
+   */
+  async seedScenarios(user: JwtPayload, dto: {
+    category?: string; brandSlug?: string;
+    painPoints?: string[]; houseTypes?: string[]; climateZones?: string[];
+    audiences?: string[]; maxScenarios?: number; dryRun?: boolean;
+  }) {
+    const category = cleanText(dto?.category);
+    const brandSlug = cleanGeoBrand(dto?.brandSlug);
+    if (!category) throw new BadRequestException('category required');
+    if (!brandSlug) throw new BadRequestException('brandSlug required');
+
+    const vocabulary = resolveVocabulary(category, {
+      painPoints: Array.isArray(dto?.painPoints) ? dto!.painPoints! : undefined,
+      houseTypes: Array.isArray(dto?.houseTypes) ? dto!.houseTypes! : undefined,
+      climateZones: Array.isArray(dto?.climateZones) ? dto!.climateZones! : undefined,
+    });
+    if (!vocabulary) {
+      throw new BadRequestException(
+        `品类「${category}」无内置词表，请在 painPoints 中提供该品类的真实用户痛点后重试（系统不编造痛点）。`,
+      );
+    }
+    const validAudiences = ['owner', 'decorator', 'designer', 'installer'];
+    const audiences = (Array.isArray(dto?.audiences) ? dto!.audiences! : [])
+      .map((a) => String(a || '').trim())
+      .filter((a) => validAudiences.includes(a)) as ScenarioAudience[];
+
+    const seeds = planSeedScenarios({
+      category, vocabulary,
+      audiences: audiences.length ? audiences : undefined,
+      maxScenarios: dto?.maxScenarios,
+    });
+
+    return withRlsTransaction(this.ds, async (em) => {
+      const winnability = await this.categoryWinnability(em, user.tenantId, category);
+      const preview = seeds.map((s) => ({
+        scenario: s,
+        topics: deriveTopics(s, { winnability }),
+      }));
+      if (dto?.dryRun) {
+        return {
+          success: true,
+          data: {
+            category, brandSlug, winnability, dryRun: true,
+            scenariosPlanned: seeds.length,
+            topicsPlanned: preview.reduce((n, p) => n + p.topics.length, 0),
+            preview,
+          },
+        };
+      }
+
+      const scenarioRepo = em.getRepository(GrowthScenarioEntity);
+      const qRepo = em.getRepository(GrowthGeoQuestionEntity);
+      const existingScenarios = await scenarioRepo.find({
+        where: { tenantId: user.tenantId, category } as any, take: 500,
+      });
+      const scenarioKey = (s: any) => [s.painPoint, s.houseType ?? '', s.climateZone ?? '', s.audience].join('|');
+      const seenScenario = new Set(existingScenarios.map(scenarioKey));
+      const existingQuestions = await qRepo.find({
+        where: { tenantId: user.tenantId, brandSlug, category } as any, take: 1000,
+      });
+      const seenQuestion = new Set(existingQuestions.map((q: any) => q.question.trim()));
+
+      let scenariosCreated = 0;
+      let questionsSaved = 0;
+      for (const seed of seeds) {
+        if (seenScenario.has(scenarioKey(seed))) continue;
+        seenScenario.add(scenarioKey(seed));
+        const scenario = await scenarioRepo.save(scenarioRepo.create({
+          tenantId: user.tenantId,
+          category, brandSlug,
+          audience: seed.audience,
+          painPoint: seed.painPoint,
+          houseType: seed.houseType ?? null,
+          climateZone: seed.climateZone ?? null,
+          intent: seed.intent,
+          notes: '播种器自动生成',
+          enabled: true,
+        }));
+        scenariosCreated += 1;
+        for (const t of deriveTopics(seed, { winnability })) {
+          if (seenQuestion.has(t.question)) continue;
+          seenQuestion.add(t.question);
+          await qRepo.save(qRepo.create({
+            tenantId: user.tenantId, brandSlug, category,
+            stage: t.stage, question: t.question, priority: t.priority,
+            enabled: true, sourceScenarioId: scenario.id,
+          }));
+          questionsSaved += 1;
+        }
+      }
+      return {
+        success: true,
+        data: {
+          category, brandSlug, winnability,
+          scenariosPlanned: seeds.length, scenariosCreated,
+          questionsSaved,
+          note: '场景与选题已落库（问题回填 sourceScenarioId，来源可追溯）；重复项已跳过。',
         },
       };
     }, rls(user));
@@ -1619,46 +1806,103 @@ export class GrowthGeoService {
    * 汇总为 { 策略key: 平均lift }，作为 selectStrategies 的 weightOverrides。
    * 效果：过去哪个策略真的提升了出现率，下次生成就优先用它。
    */
-  /** 聚合已验证实验的 lift → 每策略 { 权重增量, 贡献实验数 }（自进化数据基础）。 */
-  private async aggregateStrategyLift(user: JwtPayload, brandSlug?: string): Promise<{ weights: Record<string, number>; counts: Record<string, number>; scored: number }> {
+  /**
+   * 自进化权重的三层收缩估计（经验贝叶斯）。
+   *   L0 研究基线 = GEO_STRATEGIES 内置权重（此处增量基准 = 0）
+   *   L1 品类层   = 同品类跨品牌学到的平均 lift（先向 L0 收缩）
+   *   L2 品牌层   = 该品牌自身实验（再向品类先验收缩）
+   * 解决两个硬伤：
+   *   ① 新品牌从零学 → n_brand=0 时权重 = 品类先验（**开局即继承品类经验**）
+   *   ② n=1 就学     → 平滑常数使小样本被先验主导，噪声不再冒充经验
+   * 注：品类先验按经验贝叶斯惯例包含该品牌自身数据（不做留一），量级影响可忽略。
+   */
+  private static readonly LIFT_SCALE = 0.2;   // lift(百分点) → 与基础权重同量级
+  private static readonly K_BRAND = 5;        // 品牌层平滑：n<5 时品类先验主导
+  private static readonly K_CATEGORY = 3;     // 品类层向 L0 收缩的平滑常数
+  private static readonly DELTA_CAP = 5;      // 权重增量上下限，防单点主导
+
+  private async aggregateStrategyLift(
+    user: JwtPayload,
+    opts: { brandSlug?: string; category?: string } = {},
+  ): Promise<{
+    weights: Record<string, number>;
+    counts: Record<string, number>;
+    layers: Record<string, { brandN: number; brandAvgLift: number; categoryN: number; categoryAvgLift: number; prior: number; source: 'brand' | 'category' | 'none' }>;
+    scored: number;
+  }> {
+    const targetBrand = cleanGeoBrand(opts.brandSlug);
+    const targetCategory = cleanNullable(opts.category);
     return withRlsTransaction(this.ds, async (em) => {
-      const expWhere: any = { tenantId: user.tenantId };
-      if (brandSlug !== undefined) expWhere.brandSlug = cleanGeoBrand(brandSlug);
-      const experiments = await em.getRepository(GrowthGeoExperimentEntity).find({ where: expWhere, take: 200 });
+      // 取全租户已评分实验：品牌层与品类层都从同一批数据分桶（跨品牌经验得以复用）
+      const experiments = await em.getRepository(GrowthGeoExperimentEntity).find({
+        where: { tenantId: user.tenantId } as any, take: 500,
+      });
       const scored = experiments.filter((e) => e.lift !== null && e.lift !== undefined && e.copyAssetId);
-      const acc: Record<string, { sum: number; n: number }> = {};
-      if (scored.length) {
-        const assetRepo = em.getRepository(GrowthCopyAssetEntity);
-        for (const exp of scored) {
-          const asset = await assetRepo.findOne({ where: { tenantId: user.tenantId, id: exp.copyAssetId! } as any });
-          const keys: string[] = (asset?.strategyKeys as string[]) || [];
-          for (const k of keys) {
-            acc[k] = acc[k] || { sum: 0, n: 0 };
-            acc[k].sum += exp.lift as number;
-            acc[k].n += 1;
-          }
+      const assetRepo = em.getRepository(GrowthCopyAssetEntity);
+      type Acc = Record<string, { sum: number; n: number }>;
+      const brandAcc: Acc = {};
+      const catAcc: Acc = {};
+      const add = (acc: Acc, k: string, lift: number) => {
+        acc[k] = acc[k] || { sum: 0, n: 0 };
+        acc[k].sum += lift; acc[k].n += 1;
+      };
+
+      for (const exp of scored) {
+        const asset = await assetRepo.findOne({ where: { tenantId: user.tenantId, id: exp.copyAssetId! } as any });
+        const keys: string[] = (asset?.strategyKeys as string[]) || [];
+        if (!keys.length) continue;
+        const lift = Number(exp.lift);
+        const inBrand = !!targetBrand && exp.brandSlug === targetBrand;
+        // 品类层：指定品类则按资产品类匹配；未指定则用全租户（跨品牌）作更宽先验
+        const inCategory = targetCategory ? (asset?.category === targetCategory) : true;
+        for (const k of keys) {
+          if (inBrand) add(brandAcc, k, lift);
+          if (inCategory) add(catAcc, k, lift);
         }
       }
-      // 平均 lift 作为权重增量（正=提权、负=降权）。缩放到与基础权重同量级。
+
       const weights: Record<string, number> = {};
       const counts: Record<string, number> = {};
-      for (const [k, v] of Object.entries(acc)) {
-        weights[k] = Math.round((v.sum / v.n) * 0.2 * 10) / 10; // lift(百分点)×0.2，避免单次实验主导
-        counts[k] = v.n;
+      const layers: Record<string, any> = {};
+      const round1 = (n: number) => Math.round(n * 10) / 10;
+      const K_B = GrowthGeoService.K_BRAND;
+      const K_C = GrowthGeoService.K_CATEGORY;
+
+      for (const k of new Set([...Object.keys(brandAcc), ...Object.keys(catAcc)])) {
+        const b = brandAcc[k] || { sum: 0, n: 0 };
+        const c = catAcc[k] || { sum: 0, n: 0 };
+        const blend = blendHierarchicalDelta(
+          { brandN: b.n, brandSum: b.sum, categoryN: c.n, categorySum: c.sum },
+          { kBrand: K_B, kCategory: K_C, scale: GrowthGeoService.LIFT_SCALE, cap: GrowthGeoService.DELTA_CAP },
+        );
+        if (blend.delta !== 0) weights[k] = blend.delta;
+        counts[k] = b.n;
+        layers[k] = {
+          brandN: b.n, brandAvgLift: blend.brandAvg,
+          categoryN: c.n, categoryAvgLift: blend.categoryAvg,
+          prior: blend.prior,
+          source: blend.source,
+        };
       }
-      return { weights, counts, scored: scored.length };
+      return { weights, counts, layers, scored: scored.length };
     }, rls(user));
   }
 
-  async computeStrategyWeights(user: JwtPayload, brandSlug?: string): Promise<Record<string, number>> {
-    return (await this.aggregateStrategyLift(user, brandSlug)).weights;
+  async computeStrategyWeights(user: JwtPayload, brandSlug?: string, category?: string): Promise<Record<string, number>> {
+    return (await this.aggregateStrategyLift(user, { brandSlug, category })).weights;
   }
 
-  /** 暴露给前端：自进化策略权重完整画像（基础/学到Δ/有效/贡献实验数），让"在学什么"可观测。 */
-  async getStrategyWeights(user: JwtPayload, query: { brandSlug?: string } = {}) {
-    const { weights, counts, scored } = await this.aggregateStrategyLift(user, query.brandSlug);
+  /**
+   * 暴露给前端：自进化策略权重完整画像（基础/学到Δ/有效 + **三层来源**），让"在学什么、学自哪一层"可观测。
+   * source=category 表示该权重继承自品类经验（新品牌开局即受益，非从零学）。
+   */
+  async getStrategyWeights(user: JwtPayload, query: { brandSlug?: string; category?: string } = {}) {
+    const { weights, counts, layers, scored } = await this.aggregateStrategyLift(user, {
+      brandSlug: query.brandSlug, category: query.category,
+    });
     const strategies = GEO_STRATEGIES.map((s) => {
       const learnedDelta = weights[s.key] ?? 0;
+      const layer = layers[s.key] || { brandN: 0, brandAvgLift: 0, categoryN: 0, categoryAvgLift: 0, prior: 0, source: 'none' };
       return {
         key: s.key,
         label: s.label,
@@ -1669,16 +1913,34 @@ export class GrowthGeoService {
         learnedDelta,
         effective: Math.round((s.weight + learnedDelta) * 10) / 10,
         experiments: counts[s.key] ?? 0,
+        // 三层收缩来源（透明可解释）
+        source: layer.source,
+        brandExperiments: layer.brandN,
+        categoryExperiments: layer.categoryN,
+        brandAvgLift: layer.brandAvgLift,
+        categoryAvgLift: layer.categoryAvgLift,
       };
     }).sort((a, b) => b.effective - a.effective);
+    const inherited = strategies.filter((s) => s.source === 'category').length;
     return {
       success: true,
       data: {
         strategies,
-        summary: { scoredExperiments: scored, learnedStrategies: Object.keys(weights).length },
+        summary: {
+          scoredExperiments: scored,
+          learnedStrategies: Object.keys(weights).length,
+          inheritedFromCategory: inherited,
+        },
+        model: {
+          kind: 'hierarchical-shrinkage',
+          layers: 'L0 研究基线 → L1 品类 → L2 品牌',
+          kBrand: GrowthGeoService.K_BRAND,
+          kCategory: GrowthGeoService.K_CATEGORY,
+          deltaCap: GrowthGeoService.DELTA_CAP,
+        },
         // 兼容旧字段
         weights,
-        note: '有效权重=基础+实验lift学到的增减；scoredExperiments=0 时尚未学习（需跑通闭环实验：基线→生成→关联→复投→lift）',
+        note: '有效权重=基础+三层收缩学到的增减；新品牌 n=0 时继承品类先验（source=category），小样本被先验主导以防噪声冒充经验。',
       },
     };
   }

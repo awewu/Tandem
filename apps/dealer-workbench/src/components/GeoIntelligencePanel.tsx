@@ -16,8 +16,17 @@ import { growthGeo } from '../lib/api';
 interface StrategyRow {
   key: string; label: string; evidence: string; kinds: string[];
   alwaysOn: boolean; base: number; learnedDelta: number; effective: number; experiments: number;
+  /** 三层收缩来源：brand=学自本品牌 / category=继承品类经验 / none=尚无数据 */
+  source?: 'brand' | 'category' | 'none';
+  brandExperiments?: number; categoryExperiments?: number;
 }
-interface EvoSummary { scoredExperiments: number; learnedStrategies: number }
+interface EvoSummary { scoredExperiments: number; learnedStrategies: number; inheritedFromCategory?: number }
+
+const SOURCE_META: Record<string, { label: string; tone: string }> = {
+  brand: { label: '学自本品牌', tone: 'var(--success)' },
+  category: { label: '继承品类经验', tone: 'var(--brand)' },
+  none: { label: '研究基线', tone: 'var(--t-tertiary)' },
+};
 
 const ZONE_META: Record<string, { label: string; tone: string }> = {
   green: { label: '可自动', tone: 'var(--success)' },
@@ -69,7 +78,9 @@ export function GeoIntelligencePanel({ brandSlug = 'rheem' }: { brandSlug?: stri
           <Layers size={16} style={{ color: 'var(--brand)' }} />
           <strong style={{ fontSize: 14, color: 'var(--t-strong)' }}>研究支撑策略库 · 自进化权重</strong>
           <span className="badge" style={{ marginLeft: 'auto', fontSize: 10, color: summary.scoredExperiments ? 'var(--success)' : 'var(--t-tertiary)', borderColor: summary.scoredExperiments ? 'var(--success)' : 'var(--border)' }}>
-            {summary.scoredExperiments ? `已从 ${summary.scoredExperiments} 个已验证实验学习 · ${summary.learnedStrategies} 策略被调权` : '尚未学习（无已验证 lift 实验）'}
+            {summary.scoredExperiments
+              ? `已从 ${summary.scoredExperiments} 个已验证实验学习 · ${summary.learnedStrategies} 策略被调权${summary.inheritedFromCategory ? ` · ${summary.inheritedFromCategory} 项继承品类经验` : ''}`
+              : '尚未学习（无已验证 lift 实验）'}
           </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 8 }}>
@@ -90,7 +101,13 @@ export function GeoIntelligencePanel({ brandSlug = 'rheem' }: { brandSlug?: stri
                   <span style={{ fontSize: 11, color: 'var(--t-tertiary)' }}>权重</span>
                   <span style={{ fontSize: 12, color: 'var(--t-tertiary)', textDecoration: d !== 0 ? 'line-through' : 'none' }}>{s.base}</span>
                   {d !== 0 ? <><span style={{ fontSize: 11, color: 'var(--t-tertiary)' }}>→</span><strong style={{ fontSize: 14, color: 'var(--brand)' }}>{s.effective}</strong></> : null}
-                  {s.experiments ? <span style={{ fontSize: 11, color: 'var(--t-tertiary)', marginLeft: 'auto' }}>{s.experiments} 实验</span> : null}
+                  {s.source && s.source !== 'none' ? (
+                    <span style={{ fontSize: 10.5, color: SOURCE_META[s.source].tone, marginLeft: 'auto' }}>
+                      {SOURCE_META[s.source].label}
+                      {s.source === 'brand' && s.brandExperiments ? `(${s.brandExperiments})` : null}
+                      {s.source === 'category' && s.categoryExperiments ? `(${s.categoryExperiments})` : null}
+                    </span>
+                  ) : (s.experiments ? <span style={{ fontSize: 11, color: 'var(--t-tertiary)', marginLeft: 'auto' }}>{s.experiments} 实验</span> : null)}
                 </div>
                 <span style={{ fontSize: 11.5, color: 'var(--t-tertiary)' }}>{s.evidence}</span>
               </div>
@@ -99,7 +116,8 @@ export function GeoIntelligencePanel({ brandSlug = 'rheem' }: { brandSlug?: stri
           {!strategies.length ? <p style={{ fontSize: 13, color: 'var(--t-tertiary)' }}>{loading ? '加载中…' : '无策略数据'}</p> : null}
         </div>
         <p style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>
-          有效权重 = 基础权重 + 实验 lift 学到的增减。跑通闭环实验（基线→生成→关联→复投→lift）后自动学习,无数据不臆造。
+          有效权重 = 基础权重 + 三层收缩（研究基线 → 品类 → 品牌）学到的增减。
+          新品牌开局<strong style={{ color: 'var(--brand)' }}>继承品类经验</strong>而非从零；小样本由先验主导，避免单次实验噪声冒充经验。
         </p>
       </div>
 
