@@ -680,6 +680,16 @@ export class GrowthGeoService {
           payload: { probeId: probe.id, engine: probe.engine, question: probe.question, brandSlug: probe.brandSlug, category: probe.category },
         });
       }
+      // 竞品命中 → 自动喂竞品情报 SoV（去手工台账；消费方 A/insight）。
+      if (Array.isArray(probe.competitorsCited) && probe.competitorsCited.length) {
+        await this.eventBus.publishInTx(em, {
+          tenantId: user.tenantId, eventType: 'geo.competitor.cited', aggregateType: 'geo_probe', aggregateId: probe.id,
+          payload: {
+            probeId: probe.id, engine: probe.engine, category: probe.category,
+            brandSlug: probe.brandSlug, competitors: probe.competitorsCited,
+          },
+        });
+      }
       return { success: true, data: { probe, analysis } };
     }, rls(user));
   }

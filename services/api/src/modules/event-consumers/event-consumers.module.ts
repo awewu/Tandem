@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MdmModule } from '../mdm/mdm.module';
 import { NotificationModule } from '../notification/notification.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
+import { InsightModule } from '../insight/insight.module';
 import { EventConsumersService } from './event-consumers.service';
 import { TARGET_API_BOOT_SMOKE } from '../boot-smoke';
 
@@ -11,7 +12,7 @@ import { TARGET_API_BOOT_SMOKE } from '../boot-smoke';
  * boot-smoke 模式不挂载（无 DataSource / 无真实投递）。
  */
 @Module({
-  imports: TARGET_API_BOOT_SMOKE ? [] : [MdmModule, NotificationModule, DispatchModule],
+  imports: TARGET_API_BOOT_SMOKE ? [] : [MdmModule, NotificationModule, DispatchModule, InsightModule],
   providers: TARGET_API_BOOT_SMOKE ? [] : [EventConsumersService],
 })
 export class EventConsumersModule {}

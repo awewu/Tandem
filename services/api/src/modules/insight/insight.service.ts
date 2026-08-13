@@ -37,9 +37,57 @@ export class InsightService {
     }, this.scope(actor));
   }
 
-  // AI 声量份额（按品类汇总各竞品 ai_sov 最新值）
-  async sovByCategory(actor: JwtPayload, category: string) {
+  /**
+   * 系统态入账：GEO 探测命中竞品 → 自动落 ai_sov 时序数据点（每命中一次记 1）。
+   * 由 event-consumers 消费 `geo.competitor.cited` 调用，取代手工台账。
+   */
+  async ingestAiSovHit(tenantId: string, dto: { category?: string | null; competitors: string[]; source?: string }) {
+    const category = String(dto.category || '').trim() || 'uncategorized';
+    const competitors = [...new Set((dto.competitors || []).map((c) => String(c || '').trim()).filter(Boolean))];
+    if (!competitors.length) return { recorded: 0 };
     return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(InsightCompetitorEntity);
+      for (const competitor of competitors) {
+        await repo.save(repo.create({
+          tenantId, category, competitor,
+          dimension: 'ai_sov', metric: 'ai_cited', value: 1,
+          valueText: null, source: dto.source ?? 'geo-probe',
+        }));
+      }
+      return { recorded: competitors.length };
+    }, { tenantId, actorId: 'system:event-bus', role: 'system' });
+  }
+
+  /**
+   * AI 声量份额。优先用 GEO 探测自动入账的时序计数（窗口内 SUM，真实、可比、有量），
+   * 无自动数据时回落到手工录入的最新值（兼容旧口径）。
+   */
+  async sovByCategory(actor: JwtPayload, category: string, opts: { windowDays?: number } = {}) {
+    const windowDays = Math.min(Math.max(Number(opts.windowDays) || 90, 1), 365);
+    return withRlsTransaction(this.ds, async (em) => {
+      // 自动口径：窗口内被引次数聚合
+      const auto: Array<{ competitor: string; hits: string }> = await em.query(
+        `SELECT competitor, SUM(value) AS hits
+           FROM rhautt_nexus.insight_competitor
+          WHERE tenant_id = $1 AND category = $2 AND dimension = 'ai_sov' AND metric = 'ai_cited'
+            AND captured_at > now() - ($3 || ' days')::interval
+          GROUP BY competitor
+          ORDER BY hits DESC`,
+        [actor.tenantId, category, String(windowDays)],
+      ).catch(() => []);
+
+      if (auto.length) {
+        const rows = auto.map((r) => ({ competitor: r.competitor, value: Number(r.hits) || 0 }));
+        const total = rows.reduce((s, r) => s + r.value, 0) || 1;
+        return {
+          category,
+          basis: 'geo-probe' as const,
+          windowDays,
+          shareOfVoice: rows.map((r) => ({ competitor: r.competitor, value: r.value, share: r.value / total })),
+        };
+      }
+
+      // 手工口径：取每竞品最新值（旧行为，兼容）
       const rows: Array<{ competitor: string; value: number }> = await em.query(
         `SELECT DISTINCT ON (competitor) competitor, value
            FROM rhautt_nexus.insight_competitor
@@ -48,7 +96,12 @@ export class InsightService {
         [actor.tenantId, category],
       ).catch(() => []);
       const total = rows.reduce((s, r) => s + (Number(r.value) || 0), 0) || 1;
-      return { category, shareOfVoice: rows.map((r) => ({ competitor: r.competitor, value: Number(r.value) || 0, share: (Number(r.value) || 0) / total })) };
+      return {
+        category,
+        basis: 'manual' as const,
+        windowDays: null,
+        shareOfVoice: rows.map((r) => ({ competitor: r.competitor, value: Number(r.value) || 0, share: (Number(r.value) || 0) / total })),
+      };
     }, this.scope(actor));
   }
 

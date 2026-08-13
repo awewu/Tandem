@@ -108,6 +108,15 @@
       "purpose": "可见度缺口→驱动 GEO 内容生产补位（取代早期设计名 growth.geo.gap_detected）"
     },
     {
+      "eventType": "geo.competitor.cited",
+      "status": "implemented",
+      "aggregateType": "geo_probe",
+      "producer": "A/geo（探测答案中命中竞品）",
+      "consumers": ["A/insight（竞品 AI 声量 ai_sov 自动入账，替代手工录入）"],
+      "payload": { "probeId": "string", "engine": "string", "category": "string|null", "brandSlug": "string|null", "competitors": "string[]" },
+      "purpose": "竞品被 AI 引用→自动喂竞品情报 SoV 时序（打通 GEO 探测与 insight，去手工台账）"
+    },
+    {
       "eventType": "growth.lead.attributed",
       "status": "implemented",
       "aggregateType": "lead",

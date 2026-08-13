@@ -5,6 +5,7 @@ import { EventBusService } from '../mdm/event-bus.service';
 import { OutboxEventEntity } from '../mdm/outbox-event.entity';
 import { NotificationService } from '../notification/notification.service';
 import { DispatchService } from '../dispatch/dispatch.service';
+import { InsightService } from '../insight/insight.service';
 import { withRlsTransaction } from '../common/rls';
 import { TARGET_API_BOOT_SMOKE } from '../boot-smoke';
 import { OutboxStreamDispatcher, RedisStreamClient } from '../mdm/redis-stream';
@@ -37,13 +38,32 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: EventBusService,
     private readonly notifications: NotificationService,
     private readonly dispatch: DispatchService,
+    private readonly insight: InsightService,
   ) {}
+
+  /**
+   * GEO 探测命中竞品 → 竞品情报自动入账 ai_sov 时序点。
+   * 幂等性：至少一次投递下会重复计数，故以 source=geo-probe:<probeId> 标注来源，
+   * SoV 聚合按窗口 SUM，重复投递只影响量级不影响相对份额；后续可加唯一约束收紧。
+   */
+  private async onGeoCompetitorCited(event: OutboxEventEntity): Promise<void> {
+    const payload: any = event?.payload || {};
+    const competitors: string[] = Array.isArray(payload.competitors) ? payload.competitors : [];
+    if (!event?.tenantId || !competitors.length) return;
+    await this.insight.ingestAiSovHit(event.tenantId, {
+      category: payload.category ?? null,
+      competitors,
+      source: `geo-probe:${payload.probeId || event.aggregateId || 'unknown'}`,
+    });
+  }
 
   onModuleInit(): void {
     // 签单 → 给商机负责人发站内通知（与签单写事务解耦，经 event_bus 投递）。
     this.eventBus.subscribe('opportunity.signed', (e) => this.onOpportunitySigned(e));
     // 线索交接层 · 公域留资捕获（获客池）→ 系统态按 地域+品类+负载 智能派单给经销商。
     this.eventBus.subscribe('lead.captured', (e) => this.onLeadCaptured(e));
+    // GEO 探测命中竞品 → 自动喂竞品情报 ai_sov 时序（取代手工台账）。
+    this.eventBus.subscribe('geo.competitor.cited', (e) => this.onGeoCompetitorCited(e));
 
     // 驱动选择（2026-07-10 裁决）：EVENT_BUS_DRIVER=redis → Redis Stream 消费组（多实例互斥投递）；
     // 默认 inprocess → 进程内 setInterval（dev/单实例）。Redis 连接失败自动回退 inprocess，绝不崩服务。
