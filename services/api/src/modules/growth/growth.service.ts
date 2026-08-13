@@ -1254,6 +1254,128 @@ export class GrowthGeoService {
     }, rls(user));
   }
 
+  /**
+   * AI 视角 SWOT：把「主观自评」变成「可测」。
+   * 全部由探测数据派生，无数据即空态（不臆造）：
+   *  S = AI 认可并引用我方的问题（按被引率×AIVS）
+   *  W = 竞品被引、我方未被引（AI 说得出对手却说不出我们）+ AI 错误描述我方（风险标记）
+   *  O = 我方与竞品均未占位的空白问题
+   *  T = 在我方缺席时被引的竞品（按频次）
+   * 按「问题」聚合而非按探测行，避免同一问题多引擎重复计入。
+   */
+  async getAiSwot(
+    user: JwtPayload,
+    query: { brandSlug?: string; category?: string; windowDays?: number; limit?: number } = {},
+  ) {
+    const windowDays = Math.min(Math.max(Number(query.windowDays) || 90, 1), 365);
+    const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 50);
+    const since = new Date(Date.now() - windowDays * 86400000);
+    const brandSlug = cleanGeoBrand(query.brandSlug);
+    const category = cleanNullable(query.category);
+
+    return withRlsTransaction(this.ds, async (em) => {
+      const where: any = { tenantId: user.tenantId };
+      if (brandSlug) where.brandSlug = brandSlug;
+      if (category) where.category = category;
+      const rows = await em.getRepository(GrowthGeoProbeEntity).find({
+        where, order: { probedAt: 'DESC' }, take: 1000,
+      });
+      // 只用真实探测（排除 mock）且在窗口内
+      const probes = rows.filter((p) => p.engine !== 'mock' && new Date(p.probedAt).getTime() >= since.getTime());
+
+      type Agg = {
+        question: string; category: string | null;
+        engines: Set<string>; total: number; cited: number; aivsSum: number;
+        competitors: Set<string>;
+      };
+      const byQuestion = new Map<string, Agg>();
+      const threats = new Map<string, { hits: number; questions: Set<string> }>();
+      const hallucinations: { question: string; engine: string; reasons: string[] }[] = [];
+
+      for (const p of probes) {
+        const key = p.question;
+        const agg = byQuestion.get(key) || {
+          question: p.question, category: p.category,
+          engines: new Set<string>(), total: 0, cited: 0, aivsSum: 0, competitors: new Set<string>(),
+        };
+        agg.engines.add(p.engine);
+        agg.total += 1;
+        if (p.weCited) agg.cited += 1;
+        agg.aivsSum += Number(p.aivs) || 0;
+        for (const c of (Array.isArray(p.competitorsCited) ? p.competitorsCited : [])) {
+          const name = String(c || '').trim();
+          if (name) agg.competitors.add(name);
+        }
+        byQuestion.set(key, agg);
+
+        // 威胁：我方缺席时被引的竞品
+        if (!p.weCited) {
+          for (const c of (Array.isArray(p.competitorsCited) ? p.competitorsCited : [])) {
+            const name = String(c || '').trim();
+            if (!name) continue;
+            const t = threats.get(name) || { hits: 0, questions: new Set<string>() };
+            t.hits += 1; t.questions.add(p.question);
+            threats.set(name, t);
+          }
+        }
+        // AI 错误描述我方（风险标记）→ 紧急弱点
+        const reasons = Array.isArray(p.riskReasons) ? p.riskReasons.map(String).filter(Boolean) : [];
+        if (reasons.length && hallucinations.length < limit) {
+          hallucinations.push({ question: p.question, engine: p.engine, reasons });
+        }
+      }
+
+      const items = [...byQuestion.values()].map((a) => ({
+        question: a.question,
+        category: a.category,
+        engines: [...a.engines],
+        probes: a.total,
+        citedRate: a.total ? Math.round((a.cited / a.total) * 100) : 0,
+        avgAivs: a.total ? Math.round(a.aivsSum / a.total) : 0,
+        competitors: [...a.competitors],
+      }));
+
+      const strengths = items
+        .filter((i) => i.citedRate > 0)
+        .sort((x, y) => (y.citedRate - x.citedRate) || (y.avgAivs - x.avgAivs))
+        .slice(0, limit)
+        .map((i) => ({ ...i, reason: 'AI 在该问题上引用我方' }));
+
+      const weaknesses = items
+        .filter((i) => i.citedRate === 0 && i.competitors.length > 0)
+        .sort((x, y) => y.competitors.length - x.competitors.length || y.probes - x.probes)
+        .slice(0, limit)
+        .map((i) => ({ ...i, reason: 'AI 引用了竞品却未引用我方（可测的真实弱点）' }));
+
+      const opportunities = items
+        .filter((i) => i.citedRate === 0 && i.competitors.length === 0)
+        .sort((x, y) => y.probes - x.probes)
+        .slice(0, limit)
+        .map((i) => ({ ...i, reason: '我方与竞品均未占位的空白（先发即可能独占）' }));
+
+      const threatList = [...threats.entries()]
+        .map(([competitor, t]) => ({ competitor, hits: t.hits, sampleQuestions: [...t.questions].slice(0, 3) }))
+        .sort((a, b) => b.hits - a.hits)
+        .slice(0, limit);
+
+      return {
+        success: true,
+        data: {
+          window: { days: windowDays, since: since.toISOString(), probes: probes.length, questions: byQuestion.size },
+          scope: { brandSlug: brandSlug ?? null, category: category ?? null },
+          strengths,
+          weaknesses,
+          hallucinations,
+          opportunities,
+          threats: threatList,
+          note: probes.length
+            ? 'SWOT 全部由真实探测数据派生（按问题聚合）。W=AI 说得出竞品却说不出我方；O=无人占位。'
+            : '窗口内无真实探测数据 → SWOT 为空态（不臆造）。请先跑 GEO 探测。',
+        },
+      };
+    }, rls(user));
+  }
+
   // ── GEO 第 7 层 · 闭环实验 ────────────────────────────────────────────────
   // 探测→缺口→内容→复投→验证 lift。这是「品牌建设有没有用」在 GEO 层的最小可证伪单元。
 

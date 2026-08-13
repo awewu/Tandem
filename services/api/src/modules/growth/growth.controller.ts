@@ -154,6 +154,10 @@ export class GrowthController {
   @UseGuards(AuthGuard) @Get('geo/strategy-weights')
   getStrategyWeights(@Req() req: AuthRequest, @Query() query: any) { return this.geo.getStrategyWeights(req.user, query); }
 
+  /** AI 视角 SWOT（由探测数据派生，可测而非自评）。 */
+  @UseGuards(AuthGuard) @Get('geo/swot')
+  getAiSwot(@Req() req: AuthRequest, @Query() query: any) { return this.geo.getAiSwot(req.user, query); }
+
   // 受治理动作引擎（Foundry Ontology 动词的轻量本地实现）：人与 AI Agent 走同一套治理闸
   @UseGuards(AuthGuard) @Get('geo/actions')
   listGeoActions() { return this.geo.listGeoActions(); }
