@@ -69,6 +69,7 @@
     "tech:content": "node scripts/geo/gen-tech-content-pages.mjs",
     "guard:tech-content": "node scripts/geo/gen-tech-content-pages.mjs --check",
     "test:integration:flywheel": "node scripts/tests/flywheel-integration.mjs",
+    "test:integration:geo-bootstrap": "node scripts/tests/geo-bootstrap-integration.mjs",
     "guard:event-contract": "node scripts/guards/event-contract-check.mjs",
     "demo:flywheel": "node scripts/nexus-flywheel/closed-loop-demo.mjs",
     "guard:standards": "node scripts/agent-guards/standards-metadata-check.js",
