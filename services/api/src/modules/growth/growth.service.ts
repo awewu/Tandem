@@ -685,7 +685,11 @@ export class GrowthGeoService {
       if (probe.weCited) {
         await this.eventBus.publishInTx(em, {
           tenantId: user.tenantId, eventType: 'geo.brand.cited', aggregateType: 'geo_probe', aggregateId: probe.id,
-          payload: { probeId: probe.id, engine: probe.engine, aivs: probe.aivs, question: probe.question },
+          // category/brandSlug 供 A/insight 对称入账我方 SoV（否则我方缺席自己的竞争格局）
+          payload: {
+            probeId: probe.id, engine: probe.engine, aivs: probe.aivs, question: probe.question,
+            brandSlug: probe.brandSlug, category: probe.category,
+          },
         });
       } else {
         await this.eventBus.publishInTx(em, {

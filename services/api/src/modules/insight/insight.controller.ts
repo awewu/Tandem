@@ -16,6 +16,12 @@ export class InsightController {
   @Get('sov')
   sov(@Req() r: any, @Query('category') category: string) { return this.svc.sovByCategory(r.user, category); }
 
+  /** 竞争格局：集中度 HHI + 动量 + 头部差距 + 威胁评分（需 GEO 探测时序数据）。 */
+  @Get('landscape')
+  landscape(@Req() r: any, @Query('category') category: string, @Query('windowDays') windowDays?: string) {
+    return this.svc.landscapeByCategory(r.user, category, { windowDays: windowDays ? Number(windowDays) : undefined });
+  }
+
   @Post('signal')
   recordSignal(@Req() r: any, @Body() b: any) { return this.svc.recordSignal(r.user, b); }
 

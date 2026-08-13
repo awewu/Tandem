@@ -94,9 +94,9 @@
       "status": "implemented",
       "aggregateType": "geo_probe",
       "producer": "A/geo（探测答案中我方被引）",
-      "consumers": ["A/cockpit（AARRR 触达阶段，幂等 by probe.id）"],
-      "payload": { "probeId": "string", "engine": "string", "aivs": "number", "question": "string" },
-      "purpose": "被 AI 引用=品牌触达→漏斗顶端 + 抬升品牌健康度（A 造需求可归因起点）"
+      "consumers": ["A/cockpit（AARRR 触达阶段，幂等 by probe.id）", "A/insight（我方 ai_sov 对称入账 is_self=true，补齐竞争格局参照系）"],
+      "payload": { "probeId": "string", "engine": "string", "aivs": "number", "question": "string", "brandSlug": "string|null", "category": "string|null" },
+      "purpose": "被 AI 引用=品牌触达→漏斗顶端 + 抬升品牌健康度（A 造需求可归因起点）；并与 geo.competitor.cited 对称入账，使份额/头部差距有正确 universe"
     },
     {
       "eventType": "geo.visibility.gap",

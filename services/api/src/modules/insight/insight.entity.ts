@@ -11,6 +11,8 @@ export class InsightCompetitorEntity {
   @Column({ type: 'numeric', nullable: true }) value: number | null;
   @Column({ name: 'value_text', type: 'varchar', nullable: true }) valueText: string | null;
   @Column({ type: 'varchar', nullable: true }) source: string | null;
+  /** 是否我方品牌（迁移 091）：份额/头部差距需要我方参照系，否则份额只是"竞品之间的份额" */
+  @Column({ name: 'is_self', type: 'boolean', default: false }) isSelf: boolean;
   @Column({ name: 'captured_at', type: 'timestamptz', default: () => 'now()' }) capturedAt: Date;
 }
 

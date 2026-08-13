@@ -57,6 +57,21 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * GEO 探测中我方被引 → 与竞品**对称**入账 ai_sov（is_self=true）。
+   * 为什么必须有：只入账竞品时份额是「竞品之间的份额」，我方缺席自己的竞争格局，
+   * 「与头部差距」算不出来（迁移 091）。幂等同竞品路径（唯一索引 + ON CONFLICT）。
+   */
+  private async onGeoBrandCited(event: OutboxEventEntity): Promise<void> {
+    const payload: any = event?.payload || {};
+    if (!event?.tenantId || !payload.brandSlug) return;
+    await this.insight.ingestSelfCited(event.tenantId, {
+      category: payload.category ?? null,
+      brandSlug: payload.brandSlug,
+      source: `geo-probe:${payload.probeId || event.aggregateId || 'unknown'}`,
+    });
+  }
+
   onModuleInit(): void {
     // 签单 → 给商机负责人发站内通知（与签单写事务解耦，经 event_bus 投递）。
     this.eventBus.subscribe('opportunity.signed', (e) => this.onOpportunitySigned(e));
@@ -64,6 +79,8 @@ export class EventConsumersService implements OnModuleInit, OnModuleDestroy {
     this.eventBus.subscribe('lead.captured', (e) => this.onLeadCaptured(e));
     // GEO 探测命中竞品 → 自动喂竞品情报 ai_sov 时序（取代手工台账）。
     this.eventBus.subscribe('geo.competitor.cited', (e) => this.onGeoCompetitorCited(e));
+    // 我方被引 → 对称入账我方 SoV（补齐竞争格局的参照系）。
+    this.eventBus.subscribe('geo.brand.cited', (e) => this.onGeoBrandCited(e));
 
     // 驱动选择（2026-07-10 裁决）：EVENT_BUS_DRIVER=redis → Redis Stream 消费组（多实例互斥投递）；
     // 默认 inprocess → 进程内 setInterval（dev/单实例）。Redis 连接失败自动回退 inprocess，绝不崩服务。
