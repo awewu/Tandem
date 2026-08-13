@@ -99,7 +99,7 @@ export const GEO_STRATEGIES: GeoStrategy[] = [
 
 // 保底必选策略：实证最高增益（statistics +41% / cite-sources +30% / anchor-chunks 4.7×引用），
 // 无论权重如何排序，只要适用于该内容类型就强制注入，确保"默认就带高增益手法"。
-const ALWAYS_ON = new Set(['statistics', 'cite-sources', 'anchor-chunks']);
+export const ALWAYS_ON = new Set(['statistics', 'cite-sources', 'anchor-chunks']);
 
 /**
  * 按内容类型选择策略组合（AgenticGEO 式的策略选择）。

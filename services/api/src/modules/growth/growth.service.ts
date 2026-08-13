@@ -27,7 +27,7 @@ import {
   GrowthGeoProbeBatchEntity,
   GrowthGeoExperimentEntity,
 } from './growth.entities';
-import { selectStrategies, renderStrategyBlock } from './geo-strategies';
+import { selectStrategies, renderStrategyBlock, GEO_STRATEGIES, ALWAYS_ON } from './geo-strategies';
 import { AuditLogEntity } from '../governance/governance.entity';
 import {
   geoActionRegistry,
@@ -1371,38 +1371,68 @@ export class GrowthGeoService {
    * 汇总为 { 策略key: 平均lift }，作为 selectStrategies 的 weightOverrides。
    * 效果：过去哪个策略真的提升了出现率，下次生成就优先用它。
    */
-  async computeStrategyWeights(user: JwtPayload, brandSlug?: string): Promise<Record<string, number>> {
+  /** 聚合已验证实验的 lift → 每策略 { 权重增量, 贡献实验数 }（自进化数据基础）。 */
+  private async aggregateStrategyLift(user: JwtPayload, brandSlug?: string): Promise<{ weights: Record<string, number>; counts: Record<string, number>; scored: number }> {
     return withRlsTransaction(this.ds, async (em) => {
       const expWhere: any = { tenantId: user.tenantId };
       if (brandSlug !== undefined) expWhere.brandSlug = cleanGeoBrand(brandSlug);
       const experiments = await em.getRepository(GrowthGeoExperimentEntity).find({ where: expWhere, take: 200 });
       const scored = experiments.filter((e) => e.lift !== null && e.lift !== undefined && e.copyAssetId);
-      if (!scored.length) return {};
-
-      const assetRepo = em.getRepository(GrowthCopyAssetEntity);
       const acc: Record<string, { sum: number; n: number }> = {};
-      for (const exp of scored) {
-        const asset = await assetRepo.findOne({ where: { tenantId: user.tenantId, id: exp.copyAssetId! } as any });
-        const keys: string[] = (asset?.strategyKeys as string[]) || [];
-        for (const k of keys) {
-          acc[k] = acc[k] || { sum: 0, n: 0 };
-          acc[k].sum += exp.lift as number;
-          acc[k].n += 1;
+      if (scored.length) {
+        const assetRepo = em.getRepository(GrowthCopyAssetEntity);
+        for (const exp of scored) {
+          const asset = await assetRepo.findOne({ where: { tenantId: user.tenantId, id: exp.copyAssetId! } as any });
+          const keys: string[] = (asset?.strategyKeys as string[]) || [];
+          for (const k of keys) {
+            acc[k] = acc[k] || { sum: 0, n: 0 };
+            acc[k].sum += exp.lift as number;
+            acc[k].n += 1;
+          }
         }
       }
       // 平均 lift 作为权重增量（正=提权、负=降权）。缩放到与基础权重同量级。
       const weights: Record<string, number> = {};
+      const counts: Record<string, number> = {};
       for (const [k, v] of Object.entries(acc)) {
         weights[k] = Math.round((v.sum / v.n) * 0.2 * 10) / 10; // lift(百分点)×0.2，避免单次实验主导
+        counts[k] = v.n;
       }
-      return weights;
+      return { weights, counts, scored: scored.length };
     }, rls(user));
   }
 
-  /** 暴露给前端/接口：查看当前自进化学到的策略权重。 */
+  async computeStrategyWeights(user: JwtPayload, brandSlug?: string): Promise<Record<string, number>> {
+    return (await this.aggregateStrategyLift(user, brandSlug)).weights;
+  }
+
+  /** 暴露给前端：自进化策略权重完整画像（基础/学到Δ/有效/贡献实验数），让"在学什么"可观测。 */
   async getStrategyWeights(user: JwtPayload, query: { brandSlug?: string } = {}) {
-    const weights = await this.computeStrategyWeights(user, query.brandSlug);
-    return { success: true, data: { weights, note: '由已验证实验的 lift 反哺；正=提权，负=降权' } };
+    const { weights, counts, scored } = await this.aggregateStrategyLift(user, query.brandSlug);
+    const strategies = GEO_STRATEGIES.map((s) => {
+      const learnedDelta = weights[s.key] ?? 0;
+      return {
+        key: s.key,
+        label: s.label,
+        evidence: s.evidence,
+        kinds: s.kinds,
+        alwaysOn: ALWAYS_ON.has(s.key),
+        base: s.weight,
+        learnedDelta,
+        effective: Math.round((s.weight + learnedDelta) * 10) / 10,
+        experiments: counts[s.key] ?? 0,
+      };
+    }).sort((a, b) => b.effective - a.effective);
+    return {
+      success: true,
+      data: {
+        strategies,
+        summary: { scoredExperiments: scored, learnedStrategies: Object.keys(weights).length },
+        // 兼容旧字段
+        weights,
+        note: '有效权重=基础+实验lift学到的增减；scoredExperiments=0 时尚未学习（需跑通闭环实验：基线→生成→关联→复投→lift）',
+      },
+    };
   }
 
   async listGeoExperiments(user: JwtPayload, query: { brandSlug?: string } = {}) {
